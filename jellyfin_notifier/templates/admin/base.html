@@ -139,10 +139,20 @@
   .stat {
     background: var(--panel2); border:1px solid var(--border-soft); border-radius: var(--radius-md);
     padding:14px 16px; transition: background-color .2s var(--ease), transform .2s var(--ease);
+    /* min-width:0 laisse la piste de la grille rétrécir sous la largeur de
+       son contenu - sans ça, un texte long sans espace (email, URL, clé API)
+       force la case (et donc toute la ligne de la grille) à s'élargir au
+       lieu de renvoyer à la ligne, et déborde de la carte. */
+    min-width:0;
   }
   .stat:hover { background: rgba(255,255,255,.05); transform: translateY(-1px); }
   .stat .label { color:var(--muted-dim); font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; font-weight:600; }
-  .stat .value { font-size:19px; font-weight:700; margin-top:6px; letter-spacing:-.2px; }
+  .stat .value {
+    font-size:19px; font-weight:700; margin-top:6px; letter-spacing:-.2px;
+    /* Autorise la coupure n'importe où dans un token trop long (adresse
+       mail, URL, clé API...) plutôt que de déborder de la case. */
+    overflow-wrap:anywhere; word-break:break-word;
+  }
 
   .pill {
     display:inline-flex; align-items:center; gap:5px; padding:4px 11px; border-radius:999px;
@@ -428,7 +438,7 @@
 <header>
   <div class="brand"><img src="{{ url_for('admin.assets', filename='jellyfin-logo.svg') }}" alt="Jellyfin" style="display:block; height:34px; width:auto;" /><span>Notifier</span></div>
   <div class="right">
-    <div class="muted" style="font-size:12px;">{{ jellyfin_url or "" }}</div>
+    <div class="muted" style="font-size:12px; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ jellyfin_url or '' }}">{{ jellyfin_url or "" }}</div>
     <form class="logout-form" method="post" action="{{ url_for('admin.logout') }}">
       <button type="submit">Sign out</button>
     </form>
