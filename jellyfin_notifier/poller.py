@@ -128,6 +128,19 @@ class JellyfinPoller:
             self._bootstrap_needed = False
             return []
 
+        if not settings.new_notifications_enabled:
+            # Module "New Content Notifications" désactivé depuis l'admin :
+            # les items sont déjà marqués comme vus ci-dessus (pas de mail
+            # jamais envoyé pour eux), mais on ne les accumule pas non plus
+            # en file d'attente - sinon la réactivation enverrait d'un coup
+            # tout ce qui s'est accumulé pendant que c'était coupé.
+            if new_items:
+                logger.info(
+                    "%d nouvel(nouveaux) item(s) détecté(s) mais notifications 'New Content' désactivées, aucun mail envoyé",
+                    len(new_items),
+                )
+            return []
+
         parsed_new = [item_from_api(it) for it in new_items]
         pending = load_pending(self.config.pending_items_path)
         to_consider = pending + parsed_new
@@ -180,6 +193,7 @@ class JellyfinPoller:
             "poller_enabled": True,
             "running": running,
             "paused": settings.poller_paused,
+            "notifications_enabled": settings.new_notifications_enabled,
             "last_poll_at": self.last_poll_at.isoformat() if self.last_poll_at else None,
             "seconds_since_last_poll": seconds_since_last_poll,
             "poll_interval_seconds": self.effective_interval(settings),

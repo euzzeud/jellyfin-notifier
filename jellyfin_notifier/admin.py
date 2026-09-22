@@ -91,6 +91,25 @@ def _poller():
     return current_app.config.get("JF_POLLER")
 
 
+@admin_bp.context_processor
+def _inject_header_context():
+    """Rend l'URL Jellyfin (.env) disponible dans TOUS les templates admin -
+    affichée en haut à droite du header. Avant, le template lisait
+    `config.jellyfin_url` (la config Flask elle-même, pas notre Config à
+    nous) : ça ne levait pas d'erreur grâce au rendu "silencieux" de Jinja
+    sur une valeur indéfinie, mais n'affichait jamais rien non plus.
+    Volontairement `cfg.jellyfin_url` (déjà en mémoire, .env) plutôt que la
+    surcharge éventuelle de Settings : ce contexte tourne sur CHAQUE rendu de
+    template, donc pas question d'ajouter une lecture+parsing JSON de plus
+    par page juste pour un affichage cosmétique - les pages qui ont
+    réellement besoin de la valeur effective (avec surcharge) la calculent
+    déjà elles-mêmes (cf. mail_server_view, api_console_view)."""
+    try:
+        return {"jellyfin_url": _config().jellyfin_url}
+    except (RuntimeError, KeyError):
+        return {}
+
+
 # ---------------------------------------------------------------------------
 # Fichiers statiques (logo affiché dans le header de l'admin)
 # ---------------------------------------------------------------------------
@@ -472,7 +491,12 @@ def _template_editor_view(scope: str, template_path: Path, active: str):
     if request.method == "POST":
         form_type = request.form.get("form_type")
 
-        if form_type == "simple":
+        if form_type == "toggle":
+            settings.new_notifications_enabled = request.form.get("enabled") == "1"
+            save_settings(cfg.settings_path, settings)
+            return redirect(url_for("admin.template_view"))
+
+        elif form_type == "simple":
             _save_simple_texts(scope, settings, cfg)
             saved = "simple"
 
@@ -501,6 +525,7 @@ def _template_editor_view(scope: str, template_path: Path, active: str):
         raw_error=raw_error,
         blocks_json=getattr(settings, f"{prefix}email_blocks", "[]") or "[]",
         block_types=BLOCK_TYPES,
+        notifications_enabled=settings.new_notifications_enabled,
     )
 
 
@@ -633,17 +658,29 @@ def upcoming_view():
 
         if action == "add":
             name = request.form.get("name", "").strip()
-            if name:
-                entry = add_upcoming(
-                    cfg.upcoming_path,
-                    name=name,
-                    year=request.form.get("year", "").strip(),
-                    note=request.form.get("note", "").strip(),
-                    type_label=request.form.get("type_label", "Film"),
-                )
-                poster = request.files.get("poster")
-                if poster and poster.filename:
-                    save_poster(cfg.upcoming_path, entry["id"], poster.filename, poster.read())
+            if not name:
+                return redirect(url_for("admin.upcoming_view", add_error="Name is required."))
+
+            entry = add_upcoming(
+                cfg.upcoming_path,
+                name=name,
+                year=request.form.get("year", "").strip(),
+                note=request.form.get("note", "").strip(),
+                type_label=request.form.get("type_label", "Film"),
+            )
+            poster = request.files.get("poster")
+            if poster and poster.filename:
+                stored = save_poster(cfg.upcoming_path, entry["id"], poster.filename, poster.read())
+                if stored is None:
+                    # save_poster() échoue silencieusement (extension non
+                    # autorisée) - avant, rien ne le signalait à l'utilisateur,
+                    # qui voyait juste son titre ajouté SANS l'affiche qu'il
+                    # venait d'uploader, sans savoir pourquoi.
+                    allowed = ", ".join(sorted(ALLOWED_POSTER_EXTENSIONS))
+                    return redirect(url_for(
+                        "admin.upcoming_view",
+                        add_error=f'"{name}" was added, but the poster was not saved (allowed formats: {allowed}).',
+                    ))
             return redirect(url_for("admin.upcoming_view"))
 
         elif action == "delete":
@@ -656,10 +693,12 @@ def upcoming_view():
             announce_error = None
             sent = False
 
-            if not entries:
+            full_settings = load_settings(cfg.settings_path)
+            if not full_settings.upcoming_notifications_enabled:
+                announce_error = "The \"Upcoming Content Notifications\" module is currently disabled."
+            elif not entries:
                 announce_error = "Select at least one title before sending."
             else:
-                full_settings = load_settings(cfg.settings_path)
                 settings = full_settings.scoped("upcoming")
                 client = JellyfinClient(cfg.jellyfin_url, cfg.jellyfin_api_key, cfg.jellyfin_public_url)
                 items = _upcoming_items_for_send(entries)
@@ -679,6 +718,12 @@ def upcoming_view():
             if announce_error:
                 redirect_args["announce_error"] = announce_error
             return redirect(url_for("admin.upcoming_view", **redirect_args))
+
+        elif form_type == "toggle":
+            toggle_settings = load_settings(cfg.settings_path)
+            toggle_settings.upcoming_notifications_enabled = request.form.get("enabled") == "1"
+            save_settings(cfg.settings_path, toggle_settings)
+            return redirect(url_for("admin.upcoming_view"))
 
         elif form_type == "simple":
             settings = load_settings(cfg.settings_path)
@@ -703,6 +748,7 @@ def upcoming_view():
 
     sent = request.args.get("sent") == "1"
     announce_error = request.args.get("announce_error")
+    add_error = request.args.get("add_error")
     settings = load_settings(cfg.settings_path)
     return render_template(
         "admin/upcoming.html",
@@ -712,12 +758,14 @@ def upcoming_view():
         poster_url=_poster_url,
         sent=sent,
         announce_error=announce_error,
+        add_error=add_error,
         settings=settings.scoped("upcoming"),
         raw_source=raw_source,
         saved=saved,
         raw_error=raw_error,
         blocks_json=settings.upcoming_email_blocks or "[]",
         block_types=BLOCK_TYPES,
+        notifications_enabled=settings.upcoming_notifications_enabled,
     )
 
 

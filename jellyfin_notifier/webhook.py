@@ -27,6 +27,15 @@ def _get_buffer() -> DebounceBuffer:
     if key not in _buffers_by_config_id:
         def flush(items: list[dict]):
             settings = load_settings(config.settings_path)
+            if not settings.new_notifications_enabled:
+                # Module "New Content Notifications" désactivé depuis l'admin -
+                # le webhook peut rester actif (ex: si le poller est aussi
+                # utilisé en parallèle) sans jamais envoyer de mail.
+                logger.info(
+                    "%d item(s) reçu(s) via webhook mais notifications 'New Content' désactivées, aucun mail envoyé",
+                    len(items),
+                )
+                return
             send_email(items, config, jf_client, settings, smtp=settings.resolve_smtp(config))
 
         _buffers_by_config_id[key] = DebounceBuffer(config.debounce_seconds, flush)

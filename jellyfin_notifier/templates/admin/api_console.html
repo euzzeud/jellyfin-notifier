@@ -4,7 +4,7 @@
 
 {% if save_msg %}<div class="alert ok flash-toast">{{ save_msg }}</div>{% endif %}
 
-<form method="post" class="card">
+<form method="post" class="card" data-track-dirty="true">
   <input type="hidden" name="action" value="save_connection" />
   <h2>Jellyfin connection</h2>
   <p class="muted" style="font-size:12px;">

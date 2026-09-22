@@ -7,10 +7,25 @@
 {% if saved == "raw" %}<div class="alert ok flash-toast">HTML template saved (previous version kept as backup).</div>{% endif %}
 {% if raw_error %}<div class="alert err flash-toast">Error, nothing was saved: {{ raw_error }}</div>{% endif %}
 
+<form method="post" class="card toggle-card{{ '' if notifications_enabled else ' disabled' }}">
+  <input type="hidden" name="form_type" value="toggle" />
+  <div class="toggle-copy">
+    <h2>New Content Notifications</h2>
+    <p class="muted" style="font-size:12.5px;">
+      {% if notifications_enabled %}Sends a mail whenever new content is detected (webhook or poller).{% else %}Disabled — new content is still tracked quietly, but no mail is sent.{% endif %}
+    </p>
+  </div>
+  <label class="switch">
+    <input type="checkbox" name="enabled" value="1" {{ 'checked' if notifications_enabled else '' }} onchange="this.form.submit()" />
+    <span class="switch-track"><span class="switch-thumb"></span></span>
+    <span class="switch-label">{{ 'Enabled' if notifications_enabled else 'Disabled' }}</span>
+  </label>
+</form>
+
 <div class="split">
   <div class="edit-col">
 
-    <form method="post" class="card" id="simple-form">
+    <form method="post" class="card" id="simple-form" data-track-dirty="true">
       <input type="hidden" name="form_type" value="simple" />
       <h2>Texts &amp; colors</h2>
 
@@ -46,7 +61,7 @@
       </div>
     </form>
 
-    <form method="post" class="card" id="blocks-form">
+    <form method="post" class="card" id="blocks-form" data-track-dirty="true">
       <input type="hidden" name="form_type" value="blocks" />
       <h2>Visual block builder (drag &amp; drop)</h2>
       <p class="muted" style="font-size:12px;margin-top:-8px;">
@@ -60,7 +75,7 @@
       </div>
     </form>
 
-    <form method="post" class="card" id="raw-form">
+    <form method="post" class="card" id="raw-form" data-track-dirty="true">
       <input type="hidden" name="form_type" value="raw" />
       <h2>Raw HTML template (Jinja2)</h2>
       <div id="syntax-status" class="alert ok" style="display:none;"></div>

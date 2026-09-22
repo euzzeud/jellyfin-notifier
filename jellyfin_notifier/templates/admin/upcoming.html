@@ -4,10 +4,26 @@
 
 {% if sent %}<div class="alert ok flash-toast">Announcement sent by mail.</div>{% endif %}
 {% if announce_error %}<div class="alert err flash-toast">{{ announce_error }}</div>{% endif %}
+{% if add_error %}<div class="alert err flash-toast">{{ add_error }}</div>{% endif %}
 {% if saved == "simple" %}<div class="alert ok flash-toast">Texts and colors saved.</div>{% endif %}
 {% if saved == "blocks" %}<div class="alert ok flash-toast">Visual layout saved (previous HTML kept as backup).</div>{% endif %}
 {% if saved == "raw" %}<div class="alert ok flash-toast">HTML template saved (previous version kept as backup).</div>{% endif %}
 {% if raw_error %}<div class="alert err flash-toast">Error, nothing was saved: {{ raw_error }}</div>{% endif %}
+
+<form method="post" class="card toggle-card{{ '' if notifications_enabled else ' disabled' }}">
+  <input type="hidden" name="form_type" value="toggle" />
+  <div class="toggle-copy">
+    <h2>Upcoming Content Notifications</h2>
+    <p class="muted" style="font-size:12.5px;">
+      {% if notifications_enabled %}Lets you send "coming soon" announcement mails for manually added titles.{% else %}Disabled — announcements can't be sent until this is turned back on.{% endif %}
+    </p>
+  </div>
+  <label class="switch">
+    <input type="checkbox" name="enabled" value="1" {{ 'checked' if notifications_enabled else '' }} onchange="this.form.submit()" />
+    <span class="switch-track"><span class="switch-thumb"></span></span>
+    <span class="switch-label">{{ 'Enabled' if notifications_enabled else 'Disabled' }}</span>
+  </label>
+</form>
 
 <div class="split">
   <div class="edit-col">
@@ -77,13 +93,16 @@
       <input type="hidden" name="action" value="announce" />
       <h2>Send an announcement</h2>
       <p class="muted">Check the titles above (the preview on the right updates live) then send a "Coming soon" mail for the selected ones.</p>
+      {% if not notifications_enabled %}
+      <p class="muted" style="color:var(--red);font-size:12.5px;">This module is disabled above — enable it first to send an announcement.</p>
+      {% endif %}
       <div class="actions">
-        <button type="submit" id="announce-btn">📣 Send announcement</button>
+        <button type="submit" id="announce-btn" {{ 'disabled' if not notifications_enabled else '' }}>📣 Send announcement</button>
       </div>
     </form>
     {% endif %}
 
-    <form method="post" class="card" id="simple-form">
+    <form method="post" class="card" id="simple-form" data-track-dirty="true">
       <input type="hidden" name="form_type" value="simple" />
       <h2>Texts &amp; colors (this mail only)</h2>
 
@@ -119,7 +138,7 @@
       </div>
     </form>
 
-    <form method="post" class="card" id="blocks-form">
+    <form method="post" class="card" id="blocks-form" data-track-dirty="true">
       <input type="hidden" name="form_type" value="blocks" />
       <h2>Visual block builder (drag &amp; drop)</h2>
       <p class="muted" style="font-size:12px;margin-top:-8px;">
@@ -133,7 +152,7 @@
       </div>
     </form>
 
-    <form method="post" class="card" id="raw-form">
+    <form method="post" class="card" id="raw-form" data-track-dirty="true">
       <input type="hidden" name="form_type" value="raw" />
       <h2>Raw HTML template (Jinja2)</h2>
       <div id="syntax-status" class="alert ok" style="display:none;"></div>

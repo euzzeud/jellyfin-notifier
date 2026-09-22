@@ -97,6 +97,16 @@ class Settings:
     email_blocks: str = "[]"
     upcoming_email_blocks: str = "[]"
 
+    # Interrupteurs indépendants pour chaque module de notification - permet
+    # de couper l'un sans toucher à l'autre (ex: désactiver "Upcoming" sans
+    # arrêter le poller "New Content"). Quand "new" est désactivé, le poller
+    # continue de tourner et marque les items comme vus SANS envoyer de mail
+    # (pour ne pas déclencher une avalanche de notifications de rattrapage à
+    # la réactivation) ; quand "upcoming" est désactivé, le bouton d'envoi
+    # d'annonce est bloqué côté serveur.
+    new_notifications_enabled: bool = True
+    upcoming_notifications_enabled: bool = True
+
     def to_dict(self) -> dict:
         return asdict(self)
 
