@@ -21,6 +21,23 @@ SECRET_KEYS = {
 # used to decide whether the app can boot normally or must show the wizard.
 REQUIRED_KEYS = ("SMTP_USERNAME", "SMTP_PASSWORD", "NOTIFY_RECIPIENTS", "ADMIN_USERNAME", "ADMIN_PASSWORD")
 
+# Fill-in-the-blank example values from .env.example that are never valid to
+# actually use, as opposed to its other defaults (SMTP_HOST=smtp.gmail.com,
+# PORT=5005, NOTIFY_ITEM_TYPES=Movie,Series...) which are genuine, usable
+# settings a real install can legitimately keep unchanged. Config.from_env()
+# has no way to tell a real value from one of these - a fake but non-empty
+# string satisfies it just fine - so this is checked separately, wherever
+# "is this install actually configured" matters (app boot, the wizard's own
+# save validation, deploy.sh).
+PLACEHOLDER_VALUES = {
+    "SMTP_USERNAME": "your-address@gmail.com",
+    "SMTP_PASSWORD": "xxxxxxxxxxxxxxxx",
+    "NOTIFY_RECIPIENTS": "someone@example.com",
+    "JELLYFIN_URL": "http://192.168.1.100:8096",
+    "JELLYFIN_PUBLIC_URL": "http://jellyfin.example.local",
+    "ADMIN_PASSWORD": "change-me",
+}
+
 # .env.example lives at the project root, one directory above this package.
 ENV_EXAMPLE_PATH = Path(__file__).resolve().parent.parent / ".env.example"
 
@@ -47,13 +64,30 @@ def parse_env_file(path: Path) -> dict[str, str]:
 def load_into_environ(path: Path) -> None:
     """Loads .env into os.environ (only if not already set there - an env
     var provided by systemd's EnvironmentFile= or the shell always wins).
-    Lets the app pick up .env directly from disk, independent of systemd,
-    which is what makes the setup wizard's "restart" actually apply the
-    values it just wrote."""
+    Used at app boot, so a real value systemd already injected is never
+    shadowed by a stale one still sitting in the file on disk."""
     import os
 
     for key, value in parse_env_file(path).items():
         os.environ.setdefault(key, value)
+
+
+def reload_into_environ(path: Path) -> None:
+    """Forces .env's current content into os.environ, OVERWRITING whatever
+    was already there - unlike load_into_environ(), which only fills in
+    keys that aren't set yet. Used right after the setup wizard writes a new
+    .env (before re-validating it and before the in-place restart): at that
+    point the file just written IS the new authoritative source, and
+    load_into_environ()'s setdefault would otherwise silently keep whatever
+    value (e.g. a leftover placeholder) this process already picked up at
+    boot, making a save that changes an already-set key appear to do
+    nothing - the freshly written .env would never actually take effect,
+    not even after the restart (os.execv inherits this same process'
+    os.environ, it doesn't reset it)."""
+    import os
+
+    for key, value in parse_env_file(path).items():
+        os.environ[key] = value
 
 
 def field_spec() -> list[dict]:
@@ -140,3 +174,17 @@ def import_env_file(env_path: Path, uploaded_text: str) -> tuple[bool, str]:
 
 def missing_required_keys(values: dict[str, str]) -> list[str]:
     return [key for key in REQUIRED_KEYS if not values.get(key)]
+
+
+def unresolved_keys(values: dict[str, str]) -> list[str]:
+    """Keys that still need attention before the install can be considered
+    actually configured: either missing/empty (missing_required_keys), or
+    still holding the literal .env.example placeholder value verbatim
+    (PLACEHOLDER_VALUES) - both mean nothing real was ever entered, even
+    though Config.from_env() would accept either case without complaint."""
+    missing = set(missing_required_keys(values))
+    placeholders = {
+        key for key, placeholder in PLACEHOLDER_VALUES.items()
+        if values.get(key, "") == placeholder
+    }
+    return sorted(missing | placeholders)

@@ -47,30 +47,39 @@ if [ ! -f "$TARGET_DIR/.env" ] && [ ! -f .env ]; then
   cp .env.example .env
 fi
 
+# ---- 3. Install -----------------------------------------------------------------
+log "Running install.sh (copies to $TARGET_DIR, venv, systemd service, sudoers rule)"
+./install.sh
+
+# ---- Check .env completeness (informational only) ---------------------------------
 # Never overwrite an existing .env - check whichever copy is authoritative
 # (the one already deployed, if this is a redeploy; otherwise the fresh one).
 ENV_TO_CHECK="$TARGET_DIR/.env"
 [ -f "$ENV_TO_CHECK" ] || ENV_TO_CHECK="$SRC_DIR/.env"
 
-# Purely informational: leftover placeholders no longer block the deploy -
-# everything below is configurable from the /setup wizard once the service
-# is up, so an incomplete .env here just means the service starts in setup
-# mode instead of fully configured. NEEDS_SETUP is only used for the final
-# summary message.
-log "Checking .env for leftover placeholders (informational only)"
+# Leftover placeholders no longer block the deploy - everything below is
+# configurable from the /setup wizard once the service is up, so an
+# incomplete .env here just means the service starts in setup mode instead
+# of fully configured. This asks the app's own env_setup.unresolved_keys()
+# (via the venv install.sh just created) instead of re-implementing the
+# placeholder list here in bash, so it can never drift out of sync with
+# what the setup wizard itself considers "still a placeholder".
+log "Checking .env completeness"
 NEEDS_SETUP=0
-for key in GMAIL_APP_PASSWORD NOTIFY_RECIPIENTS JELLYFIN_API_KEY JELLYFIN_URL ADMIN_USERNAME ADMIN_PASSWORD; do
-  value=$(grep -E "^${key}=" "$ENV_TO_CHECK" 2>/dev/null | cut -d= -f2- || true)
-  if [ -z "$value" ] || [[ "$value" == *"changeme"* ]] || [[ "$value" == *"your-"* ]]; then
-    echo "   - $key: not filled in yet - will be set from the /setup wizard"
-    NEEDS_SETUP=1
-  fi
-done
-[ "$NEEDS_SETUP" -eq 0 ] && log "Secrets already filled in" || log "Some secrets are still missing - the service will start in setup mode"
-
-# ---- 3. Install -----------------------------------------------------------------
-log "Running install.sh (copies to $TARGET_DIR, venv, systemd service, sudoers rule)"
-./install.sh
+UNRESOLVED=$("$TARGET_DIR/venv/bin/python3" -c "
+import sys
+sys.path.insert(0, '$TARGET_DIR')
+from pathlib import Path
+from jellyfin_notifier.env_setup import parse_env_file, unresolved_keys
+print(','.join(unresolved_keys(parse_env_file(Path('$ENV_TO_CHECK')))))
+" 2>/dev/null || true)
+if [ -n "$UNRESOLVED" ]; then
+  NEEDS_SETUP=1
+  echo "   Still using example/placeholder values for: $UNRESOLVED"
+  log "Some values are still placeholders - the service will start in setup mode"
+else
+  log ".env looks complete"
+fi
 
 # ---- 4. Start and verify systemd -------------------------------------------------
 log "Enabling and starting the service"

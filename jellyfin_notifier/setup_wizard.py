@@ -86,13 +86,22 @@ def setup_save():
         submitted[field["key"]] = raw.strip()
 
     env_setup.write_env_file(env_path, submitted)
-    env_setup.load_into_environ(env_path)
+    env_setup.reload_into_environ(env_path)
 
     try:
         Config.from_env()
         error = None
     except Exception as exc:
         error = str(exc)
+
+    if not error:
+        # Config.from_env() only checks presence, not that a value is real -
+        # a save that leaves e.g. SMTP_PASSWORD=xxxxxxxxxxxxxxxx or
+        # ADMIN_PASSWORD=change-me untouched would otherwise be accepted as
+        # "done" and silently boot into a broken, insecure install.
+        unresolved = env_setup.unresolved_keys(os.environ)
+        if unresolved:
+            error = "Still using the example value for: " + ", ".join(unresolved) + " - replace it with a real value."
 
     if error:
         existing = env_setup.parse_env_file(env_path)
@@ -141,6 +150,6 @@ def setup_import():
             saved=False,
         )
 
-    env_setup.load_into_environ(env_path)
+    env_setup.reload_into_environ(env_path)
     _schedule_restart()
     return render_template("admin/setup_restarting.html")

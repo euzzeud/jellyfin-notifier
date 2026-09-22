@@ -75,6 +75,22 @@ def create_app(config: Config | None = None) -> Flask:
             # resolved (see _require_setup below and setup_wizard.py).
             setup_error = str(exc)
             logging.getLogger(__name__).warning("Starting in setup mode: %s", setup_error)
+        else:
+            # Config.from_env() only checks that required values are present,
+            # not that they're real: a .env fresh-copied from .env.example
+            # (e.g. by deploy.sh, or `cp .env.example .env` by hand) has
+            # every required key "filled in" with an example value like
+            # SMTP_PASSWORD=xxxxxxxxxxxxxxxx or ADMIN_PASSWORD=change-me,
+            # which would otherwise boot straight into a broken, insecure
+            # "configured" install without ever showing the setup wizard.
+            unresolved = env_setup.unresolved_keys(os.environ)
+            if unresolved:
+                setup_error = (
+                    "Still using the .env.example placeholder value for: "
+                    + ", ".join(unresolved)
+                )
+                cfg = None
+                logging.getLogger(__name__).warning("Starting in setup mode: %s", setup_error)
 
     app.config["JF_CONFIG"] = cfg
     app.config["JF_SETUP_ERROR"] = setup_error
