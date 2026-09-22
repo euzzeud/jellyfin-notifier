@@ -5,6 +5,7 @@
 {% if sent %}<div class="alert ok flash-toast">Announcement sent by mail.</div>{% endif %}
 {% if announce_error %}<div class="alert err flash-toast">{{ announce_error }}</div>{% endif %}
 {% if saved == "simple" %}<div class="alert ok flash-toast">Texts and colors saved.</div>{% endif %}
+{% if saved == "blocks" %}<div class="alert ok flash-toast">Visual layout saved (previous HTML kept as backup).</div>{% endif %}
 {% if saved == "raw" %}<div class="alert ok flash-toast">HTML template saved (previous version kept as backup).</div>{% endif %}
 {% if raw_error %}<div class="alert err flash-toast">Error, nothing was saved: {{ raw_error }}</div>{% endif %}
 
@@ -118,6 +119,19 @@
       </div>
     </form>
 
+    <form method="post" class="card" id="blocks-form">
+      <input type="hidden" name="form_type" value="blocks" />
+      <h2>Visual block builder (drag &amp; drop)</h2>
+      <p class="muted" style="font-size:12px;margin-top:-8px;">
+        Stack blocks, drag the ⠿ handle to reorder. Saving replaces the raw HTML template below (a backup of the previous version is kept).
+      </p>
+      <div id="block-builder-root"></div>
+      <input type="hidden" name="blocks_json" id="blocks_json" />
+      <div class="actions">
+        <button type="submit">Save changes</button>
+      </div>
+    </form>
+
     <form method="post" class="card" id="raw-form">
       <input type="hidden" name="form_type" value="raw" />
       <h2>Raw HTML template (Jinja2)</h2>
@@ -193,6 +207,19 @@ function refreshPreview() {
   }).catch(() => {});
 }
 
+function refreshBlockPreview(blocks) {
+  const payload = { blocks: blocks };
+  watchedIds.forEach(id => { payload[id] = document.getElementById(id).value; });
+  payload.ids = Array.from(document.querySelectorAll('.upcoming-check:checked')).map(el => el.value);
+  fetch(livePreviewUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(r => r.json()).then(data => {
+    if (data.ok) { frame.srcdoc = data.html; }
+  }).catch(() => {});
+}
+
 textarea.addEventListener('input', () => {
   clearTimeout(timer);
   timer = setTimeout(checkSyntax, 600);
@@ -208,7 +235,10 @@ watchedIds.forEach(id => {
 });
 
 document.querySelectorAll('.upcoming-check').forEach(el => {
-  el.addEventListener('change', refreshPreview);
+  el.addEventListener('change', () => {
+    refreshPreview();
+    if (window._blockBuilder) { refreshBlockPreview(window._blockBuilder.getBlocks()); }
+  });
 });
 
 document.getElementById('raw-form').addEventListener('submit', (e) => {
@@ -217,6 +247,22 @@ document.getElementById('raw-form').addEventListener('submit', (e) => {
 
 checkSyntax();
 refreshPreview();
+</script>
+
+<script type="application/json" id="initial-blocks-data">{{ blocks_json|replace("</", "<\\/")|safe }}</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  let initialBlocks = [];
+  try {
+    initialBlocks = JSON.parse(document.getElementById('initial-blocks-data').textContent.replace(/<\\\//g, '</'));
+  } catch (e) { initialBlocks = []; }
+  window._blockBuilder = createBlockBuilder({
+    root: document.getElementById('block-builder-root'),
+    hiddenInput: document.getElementById('blocks_json'),
+    initialBlocks: initialBlocks,
+    onChange: () => refreshBlockPreview(window._blockBuilder.getBlocks()),
+  });
+});
 </script>
 
 {% endblock %}

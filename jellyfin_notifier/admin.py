@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hmac
 import html.parser
+import json
 import logging
 import re
 import shutil
@@ -22,6 +23,7 @@ from jinja2 import TemplateSyntaxError
 from . import service_control
 from .api_console import run_request
 from .config import SMTP_ENCRYPTIONS
+from .email_blocks import BLOCK_TYPES, compile_blocks_to_html
 from .email_sender import TEMPLATES_DIR, render_preview_html, send_email, send_test_email
 from .jellyfin_client import JellyfinClient
 from .pending import load_pending
@@ -435,6 +437,28 @@ def _save_raw_template(template_path: Path, raw_source: str) -> tuple[bool, str]
     return True, ""
 
 
+def _save_blocks(scope: str, settings: Settings, cfg, template_path: Path, blocks_json: str) -> tuple[bool, str]:
+    """Compile les blocs de l'éditeur visuel en HTML/Jinja2 puis réutilise
+    exactement le même chemin de sauvegarde (validation + backup horodaté)
+    que l'éditeur HTML brut - email_sender.py n'a besoin d'aucun changement."""
+    try:
+        blocks = json.loads(blocks_json or "[]")
+        if not isinstance(blocks, list):
+            raise ValueError("blocks must be a list")
+    except (json.JSONDecodeError, ValueError) as exc:
+        return False, f"Invalid block data: {exc}"
+
+    compiled_html = compile_blocks_to_html(blocks)
+    ok, error = _save_raw_template(template_path, compiled_html)
+    if not ok:
+        return False, error
+
+    prefix = _FIELD_PREFIX[scope]
+    setattr(settings, f"{prefix}email_blocks", json.dumps(blocks))
+    save_settings(cfg.settings_path, settings)
+    return True, ""
+
+
 def _template_editor_view(scope: str, template_path: Path, active: str):
     """Vue générique de l'éditeur (textes + couleurs + HTML brut) pour "New
     Content Notifications" (scope="new") - chacun a ses propres
@@ -458,6 +482,14 @@ def _template_editor_view(scope: str, template_path: Path, active: str):
             saved = "raw" if valid else None
             raw_error = None if valid else error
 
+        elif form_type == "blocks":
+            valid, error = _save_blocks(scope, settings, cfg, template_path, request.form.get("blocks_json", "[]"))
+            saved = "blocks" if valid else None
+            raw_error = None if valid else error
+            if valid:
+                raw_source = template_path.read_text(encoding="utf-8")
+
+    prefix = _FIELD_PREFIX[scope]
     return render_template(
         "admin/template.html",
         active=active,
@@ -467,6 +499,8 @@ def _template_editor_view(scope: str, template_path: Path, active: str):
         raw_source=raw_source,
         saved=saved,
         raw_error=raw_error,
+        blocks_json=getattr(settings, f"{prefix}email_blocks", "[]") or "[]",
+        block_types=BLOCK_TYPES,
     )
 
 
@@ -486,6 +520,12 @@ def _template_live_preview(scope: str, template_name: str, fake_items: list[dict
             setattr(settings, field, payload[field])
 
     raw_source = payload.get("raw_source")
+    if payload.get("blocks") is not None:
+        try:
+            raw_source = compile_blocks_to_html(payload.get("blocks") or [])
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"Block error: {exc}"})
+
     valid, error = (True, "") if raw_source is None else _validate_template_source(raw_source)
     if not valid:
         return jsonify({"ok": False, "error": error})
@@ -651,6 +691,16 @@ def upcoming_view():
             saved = "raw" if valid else None
             raw_error = None if valid else error
 
+        elif form_type == "blocks":
+            blocks_settings = load_settings(cfg.settings_path)
+            valid, error = _save_blocks(
+                "upcoming", blocks_settings, cfg, EMAIL_UPCOMING_TEMPLATE_PATH, request.form.get("blocks_json", "[]")
+            )
+            saved = "blocks" if valid else None
+            raw_error = None if valid else error
+            if valid:
+                raw_source = EMAIL_UPCOMING_TEMPLATE_PATH.read_text(encoding="utf-8")
+
     sent = request.args.get("sent") == "1"
     announce_error = request.args.get("announce_error")
     settings = load_settings(cfg.settings_path)
@@ -666,6 +716,8 @@ def upcoming_view():
         raw_source=raw_source,
         saved=saved,
         raw_error=raw_error,
+        blocks_json=settings.upcoming_email_blocks or "[]",
+        block_types=BLOCK_TYPES,
     )
 
 
@@ -692,6 +744,12 @@ def upcoming_live_preview():
     items = _upcoming_items_for_preview(entries) if entries else FAKE_UPCOMING_PREVIEW_ITEMS
 
     raw_source = payload.get("raw_source")
+    if payload.get("blocks") is not None:
+        try:
+            raw_source = compile_blocks_to_html(payload.get("blocks") or [])
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"Block error: {exc}"})
+
     valid, error = (True, "") if raw_source is None else _validate_template_source(raw_source)
     if not valid:
         return jsonify({"ok": False, "error": error})

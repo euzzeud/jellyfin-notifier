@@ -88,6 +88,15 @@ class Settings:
     sender_email_override: str = ""
     recipients_override: str = ""  # séparés par des virgules
 
+    # Éditeur visuel "blocs empilables" (glisser-déposer) : liste de blocs
+    # sérialisée en JSON, séparée pour chaque mail (new / upcoming) comme le
+    # reste de la personnalisation des textes. Compilée à la sauvegarde en
+    # HTML/Jinja2 via email_blocks.compile_blocks_to_html(), qui écrase
+    # ensuite le template brut (email.html / email_upcoming.html) - ce champ
+    # ne sert qu'à pouvoir rouvrir l'éditeur visuel avec les mêmes blocs.
+    email_blocks: str = "[]"
+    upcoming_email_blocks: str = "[]"
+
     def to_dict(self) -> dict:
         return asdict(self)
 

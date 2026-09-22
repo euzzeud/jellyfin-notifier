@@ -227,6 +227,35 @@
   .muted { color:var(--muted); }
   small.hint { color:var(--muted-dim); display:block; margin-top:6px; font-size:11.5px; }
 
+  /* Éditeur visuel "blocs empilables" (glisser-déposer) - liste de blocs
+     réordonnables (Drag and Drop API native, pas de librairie externe), avec
+     un mini-formulaire de réglages par bloc. */
+  .block-list { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+  .block-item {
+    background: var(--panel2); border:1px solid var(--border-soft); border-radius: var(--radius-md);
+    padding:14px 16px; transition: border-color .18s var(--ease), opacity .18s var(--ease), transform .18s var(--ease);
+  }
+  .block-item.dragging { opacity:.4; }
+  .block-item.drag-over { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(46,194,255,.25); }
+  .block-item-head { display:flex; align-items:center; gap:10px; }
+  .block-item-handle { cursor:grab; color:var(--muted-dim); font-size:15px; line-height:1; user-select:none; padding:2px 2px; }
+  .block-item-handle:active { cursor:grabbing; }
+  .block-item-title { flex:1; font-size:13px; font-weight:600; color:var(--text); }
+  .block-item-remove {
+    all:unset; cursor:pointer; color:var(--muted-dim); font-size:12px; padding:4px 8px; border-radius:999px;
+    transition: background-color .15s var(--ease), color .15s var(--ease);
+  }
+  .block-item-remove:hover { background: rgba(240,85,92,.14); color:var(--red); }
+  .block-item-fields { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:10px; margin-top:12px; }
+  .block-item-fields label { margin:0 0 5px; font-size:11.5px; }
+  .block-item-fields .full { grid-column: 1 / -1; }
+  .block-item-fields .checkline { display:flex; align-items:center; gap:7px; margin-top:8px; }
+  .block-item-fields .checkline input { width:auto; accent-color: var(--blue); }
+  .block-item-fields .checkline label { margin:0; font-size:12.5px; color:var(--text); font-weight:500; cursor:pointer; }
+  .block-add-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  .block-add-row button { font-size:12px; padding:8px 14px; }
+  .block-empty { color:var(--muted-dim); font-size:12.5px; text-align:center; padding:18px 0; border:1px dashed var(--border-soft); border-radius: var(--radius-md); }
+
   .toast-container {
     position: fixed; top:20px; right:20px; z-index:999; display:flex; flex-direction:column;
     gap:10px; pointer-events:none; max-width: 340px;
@@ -406,6 +435,227 @@ function createTagInput({ root, hiddenInput, suggestions = [], placeholder = 'Ty
 
   renderChips();
   return { getTags: () => tags.slice() };
+}
+
+// Éditeur visuel "blocs empilables" (glisser-déposer) : liste de blocs
+// réordonnables au clic-glisser (Drag and Drop API native du navigateur,
+// pas de librairie externe, dans le même esprit que createTagInput
+// ci-dessus). Le JSON des blocs est synchronisé dans hiddenInput à chaque
+// changement, prêt à être posté avec le formulaire.
+const BLOCK_TYPE_DEFS = {
+  content_card: {
+    label: 'Content card (poster + info)',
+    fields: [
+      { key: 'show_synopsis', type: 'checkbox', label: 'Show synopsis' },
+      { key: 'show_genres', type: 'checkbox', label: 'Show genres' },
+      { key: 'show_rating', type: 'checkbox', label: 'Show rating' },
+      { key: 'show_duration', type: 'checkbox', label: 'Show duration' },
+      { key: 'button_text', type: 'text', label: 'Button text' },
+    ],
+  },
+  text_title: {
+    label: 'Text + heading',
+    fields: [
+      { key: 'heading', type: 'text', label: 'Heading' },
+      { key: 'body', type: 'textarea', label: 'Body text', full: true },
+      { key: 'align', type: 'select', label: 'Alignment', options: ['left', 'center', 'right'] },
+    ],
+  },
+  button: {
+    label: 'Standalone button',
+    fields: [
+      { key: 'text', type: 'text', label: 'Button text' },
+      { key: 'url', type: 'text', label: 'Link URL' },
+      { key: 'align', type: 'select', label: 'Alignment', options: ['left', 'center', 'right'] },
+    ],
+  },
+  spacer: {
+    label: 'Divider / spacer',
+    fields: [
+      { key: 'height', type: 'number', label: 'Height (px)' },
+      { key: 'show_line', type: 'checkbox', label: 'Show divider line' },
+    ],
+  },
+  text_date: {
+    label: 'Text + date',
+    fields: [
+      { key: 'text', type: 'textarea', label: 'Text', full: true },
+      { key: 'use_send_date', type: 'checkbox', label: 'Use the send date automatically' },
+      { key: 'date', type: 'text', label: 'Custom date (if not automatic)' },
+      { key: 'align', type: 'select', label: 'Alignment', options: ['left', 'center', 'right'] },
+    ],
+  },
+};
+
+const BLOCK_DEFAULT_PROPS = {
+  content_card: { show_synopsis: true, show_genres: true, show_rating: true, show_duration: true, button_text: 'Watch' },
+  text_title: { heading: '', body: '', align: 'left' },
+  button: { text: 'Open Jellyfin', url: '', align: 'left' },
+  spacer: { height: 16, show_line: false },
+  text_date: { text: '', date: '', use_send_date: true, align: 'left' },
+};
+
+function createBlockBuilder({ root, hiddenInput, initialBlocks = [], onChange = null }) {
+  const newId = () => Math.random().toString(36).slice(2, 10);
+  let blocks = (initialBlocks || [])
+    .filter(b => BLOCK_TYPE_DEFS[b.type])
+    .map(b => ({ id: b.id || newId(), type: b.type, props: { ...BLOCK_DEFAULT_PROPS[b.type], ...(b.props || {}) } }));
+  let dragIndex = null;
+
+  const listEl = document.createElement('div');
+  listEl.className = 'block-list';
+  const addRow = document.createElement('div');
+  addRow.className = 'block-add-row';
+  Object.keys(BLOCK_TYPE_DEFS).forEach(type => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'secondary';
+    btn.textContent = '+ ' + BLOCK_TYPE_DEFS[type].label;
+    btn.addEventListener('click', () => { blocks.push({ id: newId(), type, props: { ...BLOCK_DEFAULT_PROPS[type] } }); sync(); });
+    addRow.appendChild(btn);
+  });
+
+  root.innerHTML = '';
+  root.appendChild(listEl);
+  root.appendChild(addRow);
+
+  function sync() {
+    hiddenInput.value = JSON.stringify(blocks);
+    hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+    render();
+    if (onChange) onChange();
+  }
+
+  function fieldInput(block, field) {
+    const value = block.props[field.key];
+    let el;
+    if (field.type === 'checkbox') {
+      el = document.createElement('input');
+      el.type = 'checkbox';
+      el.checked = !!value;
+      el.addEventListener('change', () => { block.props[field.key] = el.checked; sync(); });
+    } else if (field.type === 'select') {
+      el = document.createElement('select');
+      (field.options || []).forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt;
+        o.textContent = opt.charAt(0).toUpperCase() + opt.slice(1);
+        if (opt === value) o.selected = true;
+        el.appendChild(o);
+      });
+      el.addEventListener('change', () => { block.props[field.key] = el.value; sync(); });
+    } else if (field.type === 'textarea') {
+      el = document.createElement('textarea');
+      el.rows = 3;
+      el.value = value || '';
+      el.addEventListener('input', () => { block.props[field.key] = el.value; sync(); });
+    } else if (field.type === 'number') {
+      el = document.createElement('input');
+      el.type = 'number';
+      el.value = value != null ? value : '';
+      el.addEventListener('input', () => { block.props[field.key] = el.value === '' ? '' : Number(el.value); sync(); });
+    } else {
+      el = document.createElement('input');
+      el.type = 'text';
+      el.value = value || '';
+      el.addEventListener('input', () => { block.props[field.key] = el.value; sync(); });
+    }
+    return el;
+  }
+
+  function render() {
+    listEl.innerHTML = '';
+    if (!blocks.length) {
+      const empty = document.createElement('div');
+      empty.className = 'block-empty';
+      empty.textContent = 'No blocks yet — add one below.';
+      listEl.appendChild(empty);
+      return;
+    }
+    blocks.forEach((block, index) => {
+      const def = BLOCK_TYPE_DEFS[block.type];
+      if (!def) return;
+      const item = document.createElement('div');
+      item.className = 'block-item';
+      item.draggable = true;
+      item.dataset.index = index;
+
+      const head = document.createElement('div');
+      head.className = 'block-item-head';
+      const handle = document.createElement('span');
+      handle.className = 'block-item-handle';
+      handle.textContent = '⠿';
+      handle.title = 'Drag to reorder';
+      const titleEl = document.createElement('span');
+      titleEl.className = 'block-item-title';
+      titleEl.textContent = def.label;
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'block-item-remove';
+      removeBtn.textContent = '✕ Remove';
+      removeBtn.addEventListener('click', () => { blocks.splice(index, 1); sync(); });
+      head.appendChild(handle);
+      head.appendChild(titleEl);
+      head.appendChild(removeBtn);
+      item.appendChild(head);
+
+      const visibleFields = def.fields.filter(f => !(f.key === 'date' && block.props.use_send_date));
+      if (visibleFields.length) {
+        const fieldsWrap = document.createElement('div');
+        fieldsWrap.className = 'block-item-fields';
+        visibleFields.forEach(field => {
+          if (field.type === 'checkbox') {
+            const wrap = document.createElement('div');
+            wrap.className = 'checkline' + (field.full ? ' full' : '');
+            const inputEl = fieldInput(block, field);
+            inputEl.id = 'blk_' + block.id + '_' + field.key;
+            const lbl = document.createElement('label');
+            lbl.textContent = field.label;
+            lbl.setAttribute('for', inputEl.id);
+            wrap.appendChild(inputEl);
+            wrap.appendChild(lbl);
+            fieldsWrap.appendChild(wrap);
+          } else {
+            const wrap = document.createElement('div');
+            if (field.full) wrap.className = 'full';
+            const lbl = document.createElement('label');
+            lbl.textContent = field.label;
+            wrap.appendChild(lbl);
+            wrap.appendChild(fieldInput(block, field));
+            fieldsWrap.appendChild(wrap);
+          }
+        });
+        item.appendChild(fieldsWrap);
+      }
+
+      item.addEventListener('dragstart', (e) => {
+        dragIndex = index;
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      item.addEventListener('dragend', () => {
+        item.classList.remove('dragging');
+        listEl.querySelectorAll('.block-item').forEach(el => el.classList.remove('drag-over'));
+      });
+      item.addEventListener('dragover', (e) => { e.preventDefault(); item.classList.add('drag-over'); });
+      item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+      item.addEventListener('drop', (e) => {
+        e.preventDefault();
+        item.classList.remove('drag-over');
+        if (dragIndex === null || dragIndex === index) return;
+        const [moved] = blocks.splice(dragIndex, 1);
+        blocks.splice(index, 0, moved);
+        dragIndex = null;
+        sync();
+      });
+
+      listEl.appendChild(item);
+    });
+  }
+
+  hiddenInput.value = JSON.stringify(blocks);
+  render();
+  return { getBlocks: () => blocks.map(b => ({ ...b, props: { ...b.props } })) };
 }
 </script>
 </body>
