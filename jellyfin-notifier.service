@@ -1,5 +1,5 @@
 [Unit]
-Description=Jellyfin notifier - envoie un mail quand du contenu est ajouté
+Description=Jellyfin notifier - sends an email when new content is added
 After=network.target
 
 [Service]
