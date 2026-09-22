@@ -2,12 +2,15 @@
 {% block title %}Upcoming Content Notifications - Admin{% endblock %}
 {% block content %}
 
-{% if sent %}<div class="alert ok">Announcement sent by mail.</div>{% endif %}
+{% if sent %}<div class="alert ok flash-toast">Announcement sent by mail.</div>{% endif %}
+{% if saved == "simple" %}<div class="alert ok flash-toast">Texts and colors saved.</div>{% endif %}
+{% if saved == "raw" %}<div class="alert ok flash-toast">HTML template saved (previous version kept as backup).</div>{% endif %}
+{% if raw_error %}<div class="alert err flash-toast">Error, nothing was saved: {{ raw_error }}</div>{% endif %}
 
 <div class="split">
   <div class="edit-col">
 
-    <form method="post" class="card">
+    <form method="post" class="card" enctype="multipart/form-data">
       <input type="hidden" name="action" value="add" />
       <h2>Announce upcoming content</h2>
       <div class="row">
@@ -29,6 +32,8 @@
       </div>
       <label>Note (optional — used as the overview in the mail)</label>
       <input type="text" name="note" placeholder="e.g. coming next week" />
+      <label>Poster (optional — jpg/png/webp)</label>
+      <input type="file" name="poster" accept="image/png,image/jpeg,image/webp" />
       <div class="actions">
         <button type="submit">Add to list</button>
       </div>
@@ -38,10 +43,17 @@
       <h2>Titles awaiting announcement</h2>
       {% if items %}
       <table>
-        <tr><th></th><th>Title</th><th>Year</th><th>Type</th><th>Note</th><th></th></tr>
+        <tr><th></th><th></th><th>Title</th><th>Year</th><th>Type</th><th>Note</th><th></th></tr>
         {% for item in items %}
         <tr>
           <td><input type="checkbox" class="upcoming-check" name="ids" value="{{ item.id }}" form="announce-form" /></td>
+          <td>
+            {% if poster_url(item) %}
+            <img src="{{ poster_url(item) }}" alt="" style="width:32px;height:48px;object-fit:cover;border-radius:4px;display:block;" />
+            {% else %}
+            <div style="width:32px;height:48px;border-radius:4px;background:var(--panel2);"></div>
+            {% endif %}
+          </td>
           <td>{{ item.name }}</td>
           <td>{{ item.year or "—" }}</td>
           <td>{{ item.type_label }}</td>
@@ -69,34 +81,141 @@
     </form>
     {% endif %}
 
+    <form method="post" class="card" id="simple-form">
+      <input type="hidden" name="form_type" value="simple" />
+      <h2>Texts &amp; colors (this mail only)</h2>
+
+      <label>Intro — single item</label>
+      <input type="text" name="template_intro_single" id="template_intro_single" value="{{ settings.template_intro_single }}" />
+
+      <label>Intro — multiple items ({{ '{count}' }} available)</label>
+      <input type="text" name="template_intro_multi" id="template_intro_multi" value="{{ settings.template_intro_multi }}" />
+
+      <label>Subject — single item ({{ '{name}' }} available)</label>
+      <input type="text" name="template_subject_single" value="{{ settings.template_subject_single }}" />
+
+      <label>Subject — multiple items ({{ '{count}' }} available)</label>
+      <input type="text" name="template_subject_multi" value="{{ settings.template_subject_multi }}" />
+
+      <label>Footer</label>
+      <input type="text" name="template_footer" id="template_footer" value="{{ settings.template_footer }}" />
+
+      <label>Mail colors</label>
+      <div class="color-row">
+        <div class="color-field"><input type="color" name="color_bg" id="color_bg" value="{{ settings.color_bg }}" /><span>Background</span></div>
+        <div class="color-field"><input type="color" name="color_card" id="color_card" value="{{ settings.color_card }}" /><span>Card</span></div>
+        <div class="color-field"><input type="color" name="color_header" id="color_header" value="{{ settings.color_header }}" /><span>Header/footer</span></div>
+        <div class="color-field"><input type="color" name="color_accent" id="color_accent" value="{{ settings.color_accent }}" /><span>Accent</span></div>
+        <div class="color-field"><input type="color" name="color_button" id="color_button" value="{{ settings.color_button }}" /><span>Button</span></div>
+        <div class="color-field"><input type="color" name="color_text" id="color_text" value="{{ settings.color_text }}" /><span>Text</span></div>
+        <div class="color-field"><input type="color" name="color_muted" id="color_muted" value="{{ settings.color_muted }}" /><span>Muted text</span></div>
+      </div>
+      <small class="hint">Separate from "New Content Notifications" — the "coming soon" mail can look completely different. The preview on the right updates instantly.</small>
+
+      <div class="actions">
+        <button type="submit">Save changes</button>
+      </div>
+    </form>
+
+    <form method="post" class="card" id="raw-form">
+      <input type="hidden" name="form_type" value="raw" />
+      <h2>Raw HTML template (Jinja2)</h2>
+      <div id="syntax-status" class="alert ok" style="display:none;"></div>
+      <textarea name="raw_source" id="raw_source" rows="22" spellcheck="false">{{ raw_source }}</textarea>
+      <small class="hint">
+        Available variables: items (list), count, date, logo_src, intro_text, footer_text, color_*.
+        Each item has: name, year, overview, type_label, genres, rating, duration, image_cid, image_url, deep_link.
+        A timestamped backup of the previous version is kept in templates/backups/.
+      </small>
+      <div class="actions">
+        <button type="submit" id="save-btn">Save changes</button>
+      </div>
+    </form>
+
   </div>
 
   <div class="preview-col">
     <div class="card">
       <h2>Live preview</h2>
-      <p class="muted" style="font-size:12px;margin-top:-8px;">
-        {% if items %}Check one or more titles on the left to see them here — otherwise, a generic example.{% else %}Add a title to see the preview.{% endif %}
+      <p class="muted" style="font-size:12px;margin-top:-8px;" id="preview-hint">
+        {% if items %}Check one or more titles on the left to preview them — otherwise, a generic example.{% else %}Add a title, or just edit the texts/colors/HTML below.{% endif %}
       </p>
       <div class="preview-frame-wrap">
-        <iframe id="preview-frame" title="Announcement preview" src="{{ url_for('admin.upcoming_preview') }}"></iframe>
+        <iframe id="preview-frame" title="Announcement preview"></iframe>
       </div>
     </div>
   </div>
 </div>
 
 <script>
+const textarea = document.getElementById('raw_source');
+const status = document.getElementById('syntax-status');
+const saveBtn = document.getElementById('save-btn');
+const validateUrl = "{{ url_for('admin.template_validate') }}";
+const livePreviewUrl = "{{ url_for('admin.upcoming_live_preview') }}";
 const frame = document.getElementById('preview-frame');
-const baseUrl = "{{ url_for('admin.upcoming_preview') }}";
+const watchedIds = ['template_intro_single', 'template_intro_multi', 'template_footer',
+                     'color_bg', 'color_card', 'color_header', 'color_accent', 'color_button', 'color_text', 'color_muted'];
+
+let timer = null;
+let previewTimer = null;
+
+function checkSyntax() {
+  fetch(validateUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source: textarea.value })
+  }).then(r => r.json()).then(data => {
+    status.style.display = 'block';
+    if (data.valid) {
+      status.className = 'alert ok';
+      status.textContent = '✓ Valid syntax';
+      saveBtn.disabled = false;
+    } else {
+      status.className = 'alert err';
+      status.textContent = '✗ ' + data.error;
+      saveBtn.disabled = true;
+    }
+  }).catch(() => { status.style.display = 'none'; });
+}
 
 function refreshPreview() {
-  const checked = Array.from(document.querySelectorAll('.upcoming-check:checked')).map(el => el.value);
-  const qs = checked.map(id => 'ids=' + encodeURIComponent(id)).join('&');
-  frame.src = baseUrl + (qs ? '?' + qs : '');
+  const payload = { raw_source: textarea.value };
+  watchedIds.forEach(id => { payload[id] = document.getElementById(id).value; });
+  payload.ids = Array.from(document.querySelectorAll('.upcoming-check:checked')).map(el => el.value);
+  fetch(livePreviewUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(r => r.json()).then(data => {
+    if (data.ok) { frame.srcdoc = data.html; }
+  }).catch(() => {});
 }
+
+textarea.addEventListener('input', () => {
+  clearTimeout(timer);
+  timer = setTimeout(checkSyntax, 600);
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(refreshPreview, 500);
+});
+
+watchedIds.forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(refreshPreview, 200);
+  });
+});
 
 document.querySelectorAll('.upcoming-check').forEach(el => {
   el.addEventListener('change', refreshPreview);
 });
+
+document.getElementById('raw-form').addEventListener('submit', (e) => {
+  if (saveBtn.disabled) { e.preventDefault(); }
+});
+
+checkSyntax();
+refreshPreview();
 </script>
 
 {% endblock %}

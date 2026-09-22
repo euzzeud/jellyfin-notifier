@@ -26,14 +26,22 @@ from .jellyfin_client import JellyfinClient
 from .pending import load_pending
 from .schedule import WEEKDAY_NAMES_EN, is_within_window, next_allowed_datetime
 from .settings import Settings, load_settings, save_settings
-from .upcoming import add_upcoming, delete_upcoming, get_many, item_from_upcoming, list_upcoming
+from .upcoming import ALLOWED_POSTER_EXTENSIONS, UPLOADS_DIR, add_upcoming, delete_upcoming, get_many, item_from_upcoming, list_upcoming, save_poster
 
 logger = logging.getLogger(__name__)
 
 admin_bp = Blueprint("admin", __name__)
 
 EMAIL_TEMPLATE_PATH = TEMPLATES_DIR / "email.html"
+EMAIL_UPCOMING_TEMPLATE_PATH = TEMPLATES_DIR / "email_upcoming.html"
 ASSETS_DIR = Path(__file__).parent / "assets"
+
+_FIELD_PREFIX = {"new": "", "upcoming": "upcoming_"}
+_SIMPLE_FIELDS = (
+    "template_subject_single", "template_subject_multi",
+    "template_intro_single", "template_intro_multi", "template_footer",
+    "color_bg", "color_card", "color_header", "color_accent", "color_button", "color_text", "color_muted",
+)
 
 FAKE_PREVIEW_ITEMS = [
     {
@@ -218,11 +226,20 @@ def logout():
 # Dashboard
 # ---------------------------------------------------------------------------
 
-@admin_bp.route("/")
+@admin_bp.route("/", methods=["GET", "POST"])
 def dashboard():
     cfg = _config()
     settings = load_settings(cfg.settings_path)
     poller = _poller()
+    poller_saved = False
+
+    if request.method == "POST" and request.form.get("action") == "save_poller":
+        settings.poller_item_types_override = request.form.get("poller_item_types_override", "").strip()
+        settings.poller_interval_seconds_override = request.form.get("poller_interval_seconds_override", type=int) or 0
+        settings.poller_limit_override = request.form.get("poller_limit_override", type=int) or 0
+        save_settings(cfg.settings_path, settings)
+        poller_saved = True
+
     poll_status = poller.status() if poller else None
     service_status = service_control.get_status()
     pending = load_pending(cfg.pending_items_path)
@@ -238,7 +255,39 @@ def dashboard():
         logs_tail=logs_tail,
         within_window=is_within_window(settings),
         next_slot=next_allowed_datetime(settings),
+        poller_saved=poller_saved,
+        default_item_types=",".join(sorted(cfg.notify_item_types)),
+        default_interval=cfg.poll_interval_seconds,
     )
+
+
+# ---------------------------------------------------------------------------
+# Contrôle du poller (start/stop/pause/resume) depuis l'admin
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/poller/<action>", methods=["POST"])
+def poller_action(action: str):
+    cfg = _config()
+    poller = _poller()
+    if poller is None:
+        return jsonify({"ok": False, "error": "Poller not available."}), 400
+
+    if action == "start":
+        poller.start()
+    elif action == "stop":
+        poller.stop()
+    elif action == "pause":
+        settings = load_settings(cfg.settings_path)
+        settings.poller_paused = True
+        save_settings(cfg.settings_path, settings)
+    elif action == "resume":
+        settings = load_settings(cfg.settings_path)
+        settings.poller_paused = False
+        save_settings(cfg.settings_path, settings)
+    else:
+        return jsonify({"ok": False, "error": "Unknown action."}), 400
+
+    return jsonify({"ok": True, "status": poller.status()})
 
 
 # ---------------------------------------------------------------------------
@@ -345,62 +394,71 @@ def template_validate():
     return jsonify({"valid": valid, "error": error})
 
 
-@admin_bp.route("/template", methods=["GET", "POST"])
-def template_view():
+def _save_simple_texts(scope: str, settings: Settings, cfg) -> None:
+    prefix = _FIELD_PREFIX[scope]
+    for field in _SIMPLE_FIELDS:
+        value = request.form.get(field)
+        if value:
+            setattr(settings, prefix + field, value)
+    save_settings(cfg.settings_path, settings)
+
+
+def _save_raw_template(template_path: Path, raw_source: str) -> tuple[bool, str]:
+    """Valide puis sauvegarde un template HTML brut (avec backup horodaté).
+    Retourne (ok, error)."""
+    valid, error = _validate_template_source(raw_source)
+    if not valid:
+        return False, error
+    backup_dir = template_path.parent / "backups"
+    backup_dir.mkdir(exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    shutil.copy2(template_path, backup_dir / f"{template_path.stem}.{stamp}.html.bak")
+    template_path.write_text(raw_source, encoding="utf-8")
+    return True, ""
+
+
+def _template_editor_view(scope: str, template_path: Path, active: str):
+    """Vue générique de l'éditeur (textes + couleurs + HTML brut) pour "New
+    Content Notifications" (scope="new") - chacun a ses propres
+    textes/couleurs (Settings.scoped) et son propre fichier de template."""
     cfg = _config()
     settings = load_settings(cfg.settings_path)
     saved = None
     raw_error = None
-    raw_source = EMAIL_TEMPLATE_PATH.read_text(encoding="utf-8")
+    raw_source = template_path.read_text(encoding="utf-8")
 
     if request.method == "POST":
         form_type = request.form.get("form_type")
 
         if form_type == "simple":
-            settings.template_subject_single = request.form.get("template_subject_single", settings.template_subject_single)
-            settings.template_subject_multi = request.form.get("template_subject_multi", settings.template_subject_multi)
-            settings.template_intro_single = request.form.get("template_intro_single", settings.template_intro_single)
-            settings.template_intro_multi = request.form.get("template_intro_multi", settings.template_intro_multi)
-            settings.template_footer = request.form.get("template_footer", settings.template_footer)
-            for field in ("color_bg", "color_card", "color_header", "color_accent", "color_button", "color_text", "color_muted"):
-                value = request.form.get(field)
-                if value:
-                    setattr(settings, field, value)
-            save_settings(cfg.settings_path, settings)
+            _save_simple_texts(scope, settings, cfg)
             saved = "simple"
 
         elif form_type == "raw":
             raw_source = request.form.get("raw_source", raw_source)
-            valid, error = _validate_template_source(raw_source)
-            if valid:
-                backup_dir = EMAIL_TEMPLATE_PATH.parent / "backups"
-                backup_dir.mkdir(exist_ok=True)
-                stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-                shutil.copy2(EMAIL_TEMPLATE_PATH, backup_dir / f"email.{stamp}.html.bak")
-                EMAIL_TEMPLATE_PATH.write_text(raw_source, encoding="utf-8")
-                saved = "raw"
-            else:
-                raw_error = error
+            valid, error = _save_raw_template(template_path, raw_source)
+            saved = "raw" if valid else None
+            raw_error = None if valid else error
 
     return render_template(
         "admin/template.html",
-        active="template",
+        active=active,
         wide_layout=True,
-        settings=settings,
+        scope=scope,
+        settings=settings.scoped(scope),
         raw_source=raw_source,
         saved=saved,
         raw_error=raw_error,
     )
 
 
-@admin_bp.route("/template/live-preview", methods=["POST"])
-def template_live_preview():
-    """Aperçu instantané (rien n'est sauvegardé) pour le panneau de droite de
-    l'éditeur : reflète le HTML brut ET les champs simples tels qu'ils sont
-    actuellement tapés dans le formulaire, pas la version sur disque."""
+def _template_live_preview(scope: str, template_name: str, fake_items: list[dict]):
+    """Aperçu instantané (rien n'est sauvegardé) : reflète le HTML brut ET
+    les champs simples tels qu'ils sont actuellement tapés dans le
+    formulaire, pas la version sur disque."""
     cfg = _config()
     payload = request.get_json(silent=True) or {}
-    settings = load_settings(cfg.settings_path)
+    settings = load_settings(cfg.settings_path).scoped(scope)
 
     for field in (
         "template_intro_single", "template_intro_multi", "template_footer",
@@ -417,10 +475,22 @@ def template_live_preview():
     client = JellyfinClient(cfg.jellyfin_url, cfg.jellyfin_api_key, cfg.jellyfin_public_url)
     logo_url = url_for("admin.assets", filename="jellyfin-logo.png")
     try:
-        html_out = render_preview_html(FAKE_PREVIEW_ITEMS, client, settings, raw_source=raw_source, logo_url=logo_url)
+        html_out = render_preview_html(
+            fake_items, client, settings, raw_source=raw_source, logo_url=logo_url, template_name=template_name
+        )
     except Exception as exc:
         return jsonify({"ok": False, "error": f"Render error: {exc}"})
     return jsonify({"ok": True, "html": html_out})
+
+
+@admin_bp.route("/template", methods=["GET", "POST"])
+def template_view():
+    return _template_editor_view("new", EMAIL_TEMPLATE_PATH, active="template")
+
+
+@admin_bp.route("/template/live-preview", methods=["POST"])
+def template_live_preview():
+    return _template_live_preview("new", "email.html", FAKE_PREVIEW_ITEMS)
 
 
 # ---------------------------------------------------------------------------
@@ -429,8 +499,8 @@ def template_live_preview():
 
 @admin_bp.route("/preview")
 def preview():
-    # L'aperçu vit désormais directement dans l'onglet "Notifications ajout
-    # d'items" (édition + aperçu côte à côte) - on redirige l'ancienne URL.
+    # L'aperçu vit désormais directement dans l'onglet "New Content
+    # Notifications" (édition + aperçu côte à côte) - on redirige l'ancienne URL.
     return redirect(url_for("admin.template_view"))
 
 
@@ -447,71 +517,158 @@ def preview_frame():
 
 
 # ---------------------------------------------------------------------------
-# Titres "à venir" (annonces manuelles)
+# Titres "à venir" (annonces manuelles) - même éditeur (textes/couleurs/HTML
+# brut + aperçu live) que "New Content Notifications", mais scope="upcoming"
+# et avec en plus la gestion des affiches uploadées manuellement.
 # ---------------------------------------------------------------------------
+
+def _poster_url(entry: dict) -> str | None:
+    if not entry.get("poster_filename"):
+        return None
+    return url_for("admin.upcoming_poster", filename=entry["poster_filename"])
+
+
+def _poster_disk_path(entry: dict) -> str | None:
+    if not entry.get("poster_filename"):
+        return None
+    return str(UPLOADS_DIR / entry["poster_filename"])
+
+
+def _upcoming_items_for_send(entries: list[dict]) -> list[dict]:
+    """item_from_upcoming + injecte le chemin disque de l'affiche uploadée
+    (utilisée par email_sender pour l'attacher en cid: dans le vrai mail)."""
+    items = []
+    for e in entries:
+        item = item_from_upcoming(e)
+        item["_local_poster_path"] = _poster_disk_path(e)
+        items.append(item)
+    return items
+
+
+def _upcoming_items_for_preview(entries: list[dict]) -> list[dict]:
+    """item_from_upcoming + injecte l'URL servie de l'affiche uploadée
+    (utilisée pour l'aperçu navigateur)."""
+    items = []
+    for e in entries:
+        item = item_from_upcoming(e)
+        item["_poster_url"] = _poster_url(e)
+        items.append(item)
+    return items
+
+
+@admin_bp.route("/upcoming/poster/<path:filename>")
+def upcoming_poster(filename: str):
+    return send_from_directory(UPLOADS_DIR, filename)
+
 
 @admin_bp.route("/upcoming", methods=["GET", "POST"])
 def upcoming_view():
     cfg = _config()
     sent = False
+    saved = None
+    raw_error = None
+    raw_source = EMAIL_UPCOMING_TEMPLATE_PATH.read_text(encoding="utf-8")
 
     if request.method == "POST":
         action = request.form.get("action")
+        form_type = request.form.get("form_type")
 
         if action == "add":
             name = request.form.get("name", "").strip()
             if name:
-                add_upcoming(
+                entry = add_upcoming(
                     cfg.upcoming_path,
                     name=name,
                     year=request.form.get("year", "").strip(),
                     note=request.form.get("note", "").strip(),
                     type_label=request.form.get("type_label", "Film"),
                 )
+                poster = request.files.get("poster")
+                if poster and poster.filename:
+                    save_poster(cfg.upcoming_path, entry["id"], poster.filename, poster.read())
+            return redirect(url_for("admin.upcoming_view"))
 
         elif action == "delete":
             delete_upcoming(cfg.upcoming_path, request.form.get("id", ""))
+            return redirect(url_for("admin.upcoming_view"))
 
         elif action == "announce":
             ids = request.form.getlist("ids")
             entries = get_many(cfg.upcoming_path, ids)
             if entries:
-                settings = load_settings(cfg.settings_path)
+                settings = load_settings(cfg.settings_path).scoped("upcoming")
                 client = JellyfinClient(cfg.jellyfin_url, cfg.jellyfin_api_key, cfg.jellyfin_public_url)
-                items = [item_from_upcoming(e) for e in entries]
+                items = _upcoming_items_for_send(entries)
                 try:
-                    send_email(items, cfg, client, settings)
+                    send_email(items, cfg, client, settings, template_name="email_upcoming.html")
                     sent = True
                 except Exception:
                     logger.exception("Échec d'envoi de l'annonce des titres à venir")
+            return redirect(url_for("admin.upcoming_view", sent=int(sent)))
 
-        return redirect(url_for("admin.upcoming_view", sent=int(sent)))
+        elif form_type == "simple":
+            settings = load_settings(cfg.settings_path)
+            _save_simple_texts("upcoming", settings, cfg)
+            saved = "simple"
+
+        elif form_type == "raw":
+            raw_source = request.form.get("raw_source", raw_source)
+            valid, error = _save_raw_template(EMAIL_UPCOMING_TEMPLATE_PATH, raw_source)
+            saved = "raw" if valid else None
+            raw_error = None if valid else error
 
     sent = request.args.get("sent") == "1"
+    settings = load_settings(cfg.settings_path)
     return render_template(
         "admin/upcoming.html",
         active="upcoming",
         wide_layout=True,
         items=list_upcoming(cfg.upcoming_path),
+        poster_url=_poster_url,
         sent=sent,
+        settings=settings.scoped("upcoming"),
+        raw_source=raw_source,
+        saved=saved,
+        raw_error=raw_error,
     )
 
 
-@admin_bp.route("/upcoming/preview")
-def upcoming_preview():
-    """Aperçu de l'annonce "Bientôt disponible" pour les titres actuellement
-    cochés dans l'onglet À venir (ids passés en query string, mis à jour en
-    JS à chaque changement de case) - un exemple si rien n'est coché."""
+@admin_bp.route("/upcoming/live-preview", methods=["POST"])
+def upcoming_live_preview():
+    """Aperçu instantané unique pour l'onglet Upcoming : si des ids sont
+    cochés dans la liste, prévisualise CES titres réels (avec leur affiche
+    uploadée s'il y en a une) ; sinon, un exemple générique. Dans tous les
+    cas reflète les textes/couleurs/HTML tels que tapés dans le formulaire,
+    sans rien sauvegarder."""
     cfg = _config()
-    settings = load_settings(cfg.settings_path)
-    ids = request.args.getlist("ids")
+    payload = request.get_json(silent=True) or {}
+    settings = load_settings(cfg.settings_path).scoped("upcoming")
+
+    for field in (
+        "template_intro_single", "template_intro_multi", "template_footer",
+        "color_bg", "color_card", "color_header", "color_accent", "color_button", "color_text", "color_muted",
+    ):
+        if payload.get(field):
+            setattr(settings, field, payload[field])
+
+    ids = payload.get("ids") or []
     entries = get_many(cfg.upcoming_path, ids) if ids else []
-    items = [item_from_upcoming(e) for e in entries] if entries else FAKE_UPCOMING_PREVIEW_ITEMS
+    items = _upcoming_items_for_preview(entries) if entries else FAKE_UPCOMING_PREVIEW_ITEMS
+
+    raw_source = payload.get("raw_source")
+    valid, error = (True, "") if raw_source is None else _validate_template_source(raw_source)
+    if not valid:
+        return jsonify({"ok": False, "error": error})
 
     client = JellyfinClient(cfg.jellyfin_url, cfg.jellyfin_api_key, cfg.jellyfin_public_url)
     logo_url = url_for("admin.assets", filename="jellyfin-logo.png")
-    html_out = render_preview_html(items, client, settings, logo_url=logo_url)
-    return Response(html_out, mimetype="text/html")
+    try:
+        html_out = render_preview_html(
+            items, client, settings, raw_source=raw_source, logo_url=logo_url, template_name="email_upcoming.html"
+        )
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Render error: {exc}"})
+    return jsonify({"ok": True, "html": html_out})
 
 
 # ---------------------------------------------------------------------------

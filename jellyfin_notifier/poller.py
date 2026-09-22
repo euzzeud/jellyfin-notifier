@@ -46,6 +46,18 @@ class JellyfinPoller:
         self.last_fetch_error: str | None = None
         self.last_email_error: str | None = None
 
+    def effective_item_types(self, settings: Settings) -> set[str]:
+        raw = settings.poller_item_types_override.strip()
+        if not raw:
+            return self.config.notify_item_types
+        return {t.strip() for t in raw.split(",") if t.strip()}
+
+    def effective_interval(self, settings: Settings) -> int:
+        return settings.poller_interval_seconds_override or self.config.poll_interval_seconds
+
+    def effective_limit(self, settings: Settings) -> int:
+        return settings.poller_limit_override or 200
+
     @property
     def client(self) -> JellyfinClient:
         """Reconstruit le client si des surcharges (clé API / URL) ont été
@@ -78,8 +90,14 @@ class JellyfinPoller:
         settings = load_settings(self.config.settings_path)
         client = self.client
 
+        if settings.poller_paused:
+            logger.info("Poller en pause (settings.poller_paused=true), cycle ignoré")
+            return []
+
         try:
-            items = client.fetch_recent_items(self.config.notify_item_types)
+            items = client.fetch_recent_items(
+                self.effective_item_types(settings), limit=self.effective_limit(settings)
+            )
             self.last_fetch_success = True
             self.last_fetch_error = None
         except Exception as exc:
@@ -156,12 +174,17 @@ class JellyfinPoller:
 
         settings = load_settings(self.config.settings_path)
         pending_count = len(load_pending(self.config.pending_items_path))
+        running = bool(self._thread and self._thread.is_alive())
 
         return {
             "poller_enabled": True,
+            "running": running,
+            "paused": settings.poller_paused,
             "last_poll_at": self.last_poll_at.isoformat() if self.last_poll_at else None,
             "seconds_since_last_poll": seconds_since_last_poll,
-            "poll_interval_seconds": self.config.poll_interval_seconds,
+            "poll_interval_seconds": self.effective_interval(settings),
+            "item_types": sorted(self.effective_item_types(settings)),
+            "limit": self.effective_limit(settings),
             "last_fetch_success": self.last_fetch_success,
             "last_fetch_error": self.last_fetch_error,
             "last_email_error": self.last_email_error,
@@ -172,18 +195,24 @@ class JellyfinPoller:
             # Telegraf ignore silencieusement les booléens (seuls les nombres
             # sont convertis en champs automatiquement), donc "healthy" comme
             # true/false n'atteignait jamais InfluxDB.
-            "healthy": 1 if healthy else 0,
+            "healthy": 1 if (healthy and running and not settings.poller_paused) else 0,
         }
 
     def _run(self) -> None:
         # Premier poll immédiat (bootstrap ou rattrapage), puis boucle à intervalle régulier.
+        # L'intervalle est relu à chaque cycle (peut être changé depuis l'admin
+        # sans redémarrer le thread).
         self.poll_once()
-        while not self._stop_event.wait(self.config.poll_interval_seconds):
+        while True:
+            settings = load_settings(self.config.settings_path)
+            if self._stop_event.wait(self.effective_interval(settings)):
+                break
             self.poll_once()
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
             return
+        self._stop_event.clear()
         self._thread = threading.Thread(target=self._run, daemon=True, name="jellyfin-poller")
         self._thread.start()
         logger.info(

@@ -12,7 +12,7 @@ Au premier lancement, tout le catalogue existant est enregistré comme "déjà v
 
 - **Mail par destinataire**, enrichi (synopsis tronqué anti-spoiler, note, genres, durée formatée).
 - **Anti faux-positifs** sur les imports en masse.
-- **Interface d'admin** (`/admin`, HTTP Basic Auth) :
+- **Interface d'admin** (racine du site `/`, protégée par une page de login dédiée) :
   - Dashboard : état du service systemd + du poller, créneau d'envoi, file d'attente, logs, start/stop/restart.
   - Planning : jours/plage horaire autorisés pour l'envoi (gère le passage de minuit), longueur max du synopsis.
   - File d'attente hors créneau : items détectés hors créneau, envoyés en un digest à l'ouverture du prochain créneau.
@@ -37,7 +37,7 @@ jellyfin_notifier/
   jellyfin_client.py   # client HTTP Jellyfin
   email_sender.py      # construction/envoi du mail (Jinja2 + SMTP Gmail)
   poller.py            # thread de polling
-  admin.py             # blueprint Flask /admin
+  admin.py             # blueprint Flask, monté à la racine du site
   webhook.py            # /health, /poll-now, ancien endpoint webhook
   templates/email.html
   templates/admin/*.html

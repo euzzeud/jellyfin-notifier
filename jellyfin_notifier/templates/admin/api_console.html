@@ -2,7 +2,7 @@
 {% block title %}Jellyfin Connection - Admin{% endblock %}
 {% block content %}
 
-{% if save_msg %}<div class="alert ok">{{ save_msg }}</div>{% endif %}
+{% if save_msg %}<div class="alert ok flash-toast">{{ save_msg }}</div>{% endif %}
 
 <form method="post" class="card">
   <input type="hidden" name="action" value="save_connection" />
@@ -21,7 +21,7 @@
     </div>
   </div>
   <div class="actions">
-    <button type="submit">Save connection</button>
+    <button type="submit">Save changes</button>
   </div>
 </form>
 

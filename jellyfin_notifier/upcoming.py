@@ -1,5 +1,7 @@
 """CRUD JSON pour les titres "à venir" annoncés manuellement depuis l'admin
-(films/séries pas encore présents dans la bibliothèque Jellyfin)."""
+(films/séries pas encore présents dans la bibliothèque Jellyfin), avec
+support d'une affiche uploadée manuellement (pas d'item_id Jellyfin -> pas
+de poster récupérable via l'API)."""
 
 from __future__ import annotations
 
@@ -7,6 +9,9 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
+
+UPLOADS_DIR = Path(__file__).parent / "uploads" / "upcoming"
+ALLOWED_POSTER_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 
 
 def _load(path: str) -> list[dict]:
@@ -37,6 +42,7 @@ def add_upcoming(path: str, name: str, year: str | None, note: str | None, type_
         "year": year or None,
         "note": note or "",
         "type_label": type_label or "Film",
+        "poster_filename": None,
         "added_at": datetime.now().astimezone().isoformat(timespec="seconds"),
     }
     items.append(entry)
@@ -45,8 +51,16 @@ def add_upcoming(path: str, name: str, year: str | None, note: str | None, type_
 
 
 def delete_upcoming(path: str, item_id: str) -> None:
-    items = [i for i in _load(path) if i.get("id") != item_id]
-    _save(path, items)
+    items = _load(path)
+    remaining = []
+    for entry in items:
+        if entry.get("id") == item_id:
+            poster_filename = entry.get("poster_filename")
+            if poster_filename:
+                (UPLOADS_DIR / poster_filename).unlink(missing_ok=True)
+            continue
+        remaining.append(entry)
+    _save(path, remaining)
 
 
 def get_many(path: str, item_ids: list[str]) -> list[dict]:
@@ -54,11 +68,38 @@ def get_many(path: str, item_ids: list[str]) -> list[dict]:
     return [i for i in _load(path) if i.get("id") in wanted]
 
 
+def save_poster(path: str, item_id: str, filename: str, content: bytes) -> str | None:
+    """Sauvegarde une affiche uploadée pour une entrée existante, remplace
+    l'ancienne si présente. Retourne le nom de fichier stocké, ou None si
+    l'extension n'est pas autorisée ou l'entrée introuvable."""
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext not in ALLOWED_POSTER_EXTENSIONS:
+        return None
+
+    items = _load(path)
+    entry = next((i for i in items if i.get("id") == item_id), None)
+    if entry is None:
+        return None
+
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    old_filename = entry.get("poster_filename")
+    if old_filename:
+        (UPLOADS_DIR / old_filename).unlink(missing_ok=True)
+
+    stored_filename = f"{item_id}.{ext}"
+    (UPLOADS_DIR / stored_filename).write_bytes(content)
+    entry["poster_filename"] = stored_filename
+    _save(path, items)
+    return stored_filename
+
+
 def item_from_upcoming(entry: dict) -> dict:
     """Convertit une entrée 'à venir' au même format interne que
     item_from_api/item_from_payload, pour réutiliser l'envoi de mail
-    existant. Pas d'item_id -> pas de poster ni de bouton "Regarder"
-    (le template masque déjà le bouton quand deep_link est absent)."""
+    existant. Pas d'item_id -> pas de poster Jellyfin ni de deep_link ; une
+    affiche uploadée (poster_filename) est injectée séparément par
+    admin.py (elle a besoin de connaître l'URL/le chemin disque, propres à
+    la requête HTTP en cours)."""
     note = entry.get("note") or ""
     year = entry.get("year")
     return {

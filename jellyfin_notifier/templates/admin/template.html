@@ -2,9 +2,9 @@
 {% block title %}New Content Notifications - Admin{% endblock %}
 {% block content %}
 
-{% if saved == "simple" %}<div class="alert ok">Texts and colors saved.</div>{% endif %}
-{% if saved == "raw" %}<div class="alert ok">HTML template saved (previous version kept as backup).</div>{% endif %}
-{% if raw_error %}<div class="alert err">Error, nothing was saved: {{ raw_error }}</div>{% endif %}
+{% if saved == "simple" %}<div class="alert ok flash-toast">Texts and colors saved.</div>{% endif %}
+{% if saved == "raw" %}<div class="alert ok flash-toast">HTML template saved (previous version kept as backup).</div>{% endif %}
+{% if raw_error %}<div class="alert err flash-toast">Error, nothing was saved: {{ raw_error }}</div>{% endif %}
 
 <div class="split">
   <div class="edit-col">
@@ -41,7 +41,7 @@
       <small class="hint">The preview on the right updates instantly. Click "Save" to persist these settings.</small>
 
       <div class="actions">
-        <button type="submit">Save texts &amp; colors</button>
+        <button type="submit">Save changes</button>
       </div>
     </form>
 
@@ -56,7 +56,7 @@
         A timestamped backup of the previous version is kept in templates/backups/.
       </small>
       <div class="actions">
-        <button type="submit" id="save-btn">Save template</button>
+        <button type="submit" id="save-btn">Save changes</button>
       </div>
     </form>
 

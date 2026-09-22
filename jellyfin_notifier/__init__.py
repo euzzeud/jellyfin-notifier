@@ -17,11 +17,14 @@ def create_app(config: Config | None = None) -> Flask:
     # automatiquement les sessions ouvertes si le mot de passe est changé.
     app.secret_key = hashlib.sha256(f"{cfg.admin_username}:{cfg.admin_password}".encode()).hexdigest()
     app.register_blueprint(webhook_bp)
-    app.register_blueprint(admin_bp, url_prefix="/admin")
+    app.register_blueprint(admin_bp)
 
+    # Le poller est toujours instancié (permet de le démarrer/arrêter depuis
+    # l'admin même si POLLER_ENABLED=false au démarrage), mais ne tourne au
+    # lancement du service que si POLLER_ENABLED=true.
+    poller = JellyfinPoller(cfg)
     if cfg.poller_enabled:
-        poller = JellyfinPoller(cfg)
         poller.start()
-        app.config["JF_POLLER"] = poller
+    app.config["JF_POLLER"] = poller
 
     return app

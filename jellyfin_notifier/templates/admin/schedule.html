@@ -2,7 +2,7 @@
 {% block title %}Schedule - Admin{% endblock %}
 {% block content %}
 
-{% if saved %}<div class="alert ok">Schedule saved.</div>{% endif %}
+{% if saved %}<div class="alert ok flash-toast">Schedule saved.</div>{% endif %}
 
 <div class="card">
   <h2>Current status</h2>
@@ -41,7 +41,7 @@
   <small class="hint">Longer overviews are truncated with "…" to avoid spoilers.</small>
 
   <div class="actions">
-    <button type="submit">Save</button>
+    <button type="submit">Save changes</button>
   </div>
 </form>
 

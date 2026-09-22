@@ -2,8 +2,6 @@
 {% block title %}Dashboard - Admin{% endblock %}
 {% block content %}
 
-<div id="flash"></div>
-
 <div class="card">
   <h2>Service</h2>
   <div class="grid">
@@ -45,18 +43,62 @@
 
 <div class="card">
   <h2>Poller</h2>
+  {% if poller_saved %}<div class="alert ok flash-toast">Poller settings saved.</div>{% endif %}
   {% if poll_status %}
   <div class="grid">
+    <div class="stat">
+      <div class="label">State</div>
+      <div class="value">
+        {% if not poll_status.running %}<span class="pill bad">stopped</span>
+        {% elif poll_status.paused %}<span class="pill bad">paused</span>
+        {% else %}<span class="pill ok">running</span>{% endif %}
+      </div>
+    </div>
     <div class="stat"><div class="label">Last poll</div><div class="value" style="font-size:13px;">{{ poll_status.last_poll_at or "—" }}</div></div>
     <div class="stat"><div class="label">Interval</div><div class="value">{{ poll_status.poll_interval_seconds }}s</div></div>
+    <div class="stat"><div class="label">Item types</div><div class="value" style="font-size:14px;">{{ poll_status.item_types|join(', ') }}</div></div>
+    <div class="stat"><div class="label">Fetch limit</div><div class="value">{{ poll_status.limit }}</div></div>
     <div class="stat"><div class="label">Next window</div><div class="value" style="font-size:13px;">{{ next_slot.strftime("%a %d/%m %H:%M") }}</div></div>
     <div class="stat"><div class="label">Last mail error</div><div class="value" style="font-size:12px;color:#e5484d;">{{ poll_status.last_email_error or "none" }}</div></div>
   </div>
   {% if poll_status.last_fetch_error %}
   <div class="alert err" style="margin-top:14px;">Last Jellyfin error: {{ poll_status.last_fetch_error }}</div>
   {% endif %}
+
+  <div class="actions">
+    {% if not poll_status.running %}
+    <button onclick="pollerAction('start')" class="secondary">▶ Start poller</button>
+    {% else %}
+    <button onclick="pollerAction('stop')" class="danger">■ Stop poller</button>
+    {% if poll_status.paused %}
+    <button onclick="pollerAction('resume')" class="secondary">▶ Resume</button>
+    {% else %}
+    <button onclick="pollerAction('pause')" class="secondary">⏸ Pause</button>
+    {% endif %}
+    {% endif %}
+  </div>
+
+  <form method="post" style="margin-top:20px;">
+    <input type="hidden" name="action" value="save_poller" />
+    <label>Item types to watch (comma-separated)</label>
+    <input type="text" name="poller_item_types_override" value="{{ settings.poller_item_types_override }}" placeholder="{{ default_item_types }} (default)" />
+    <div class="row">
+      <div>
+        <label>Poll interval (seconds)</label>
+        <input type="number" name="poller_interval_seconds_override" min="0" value="{{ settings.poller_interval_seconds_override or '' }}" placeholder="{{ default_interval }} (default)" />
+      </div>
+      <div>
+        <label>Fetch limit</label>
+        <input type="number" name="poller_limit_override" min="0" value="{{ settings.poller_limit_override or '' }}" placeholder="200 (default)" />
+      </div>
+    </div>
+    <small class="hint">Leave a field empty to use the default from the service configuration. Changes apply on the next poll cycle, no restart needed.</small>
+    <div class="actions">
+      <button type="submit">Save changes</button>
+    </div>
+  </form>
   {% else %}
-  <p class="muted">The poller is disabled (POLLER_ENABLED=false).</p>
+  <p class="muted">The poller is not available.</p>
   {% endif %}
 </div>
 
@@ -80,16 +122,25 @@
 
 <script>
 function serviceAction(action) {
-  const flash = document.getElementById('flash');
-  flash.innerHTML = '<div class="alert ok">Working...</div>';
   const base = "{{ url_for('admin.service_action_route', action='__ACTION__') }}";
   fetch(base.replace('__ACTION__', action), { method: "POST" })
     .then(r => r.json())
     .then(data => {
-      flash.innerHTML = '<div class="alert ' + (data.ok ? 'ok' : 'err') + '">' + (data.ok ? 'Action "' + action + '" completed.' : 'Failed: ' + data.output) + '</div>';
+      showToast(data.ok ? 'Action "' + action + '" completed.' : 'Failed: ' + data.output, data.ok);
       setTimeout(() => location.reload(), 1200);
     })
-    .catch(err => { flash.innerHTML = '<div class="alert err">Network error: ' + err + '</div>'; });
+    .catch(err => { showToast('Network error: ' + err, false); });
+}
+
+function pollerAction(action) {
+  const base = "{{ url_for('admin.poller_action', action='__ACTION__') }}";
+  fetch(base.replace('__ACTION__', action), { method: "POST" })
+    .then(r => r.json())
+    .then(data => {
+      showToast(data.ok ? 'Poller "' + action + '" done.' : 'Failed: ' + (data.error || ''), data.ok);
+      setTimeout(() => location.reload(), 900);
+    })
+    .catch(err => { showToast('Network error: ' + err, false); });
 }
 </script>
 {% endblock %}

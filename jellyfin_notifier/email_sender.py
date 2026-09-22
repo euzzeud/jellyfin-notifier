@@ -14,14 +14,17 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from .config import Config
 from .jellyfin_client import JellyfinClient
-from .settings import Settings
+from .settings import ScopedEmailSettings, Settings
 
 logger = logging.getLogger(__name__)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 LOGO_PATH = Path(__file__).parent / "assets" / "jellyfin-logo.png"
 LOGO_CID = "jellyfin_logo"
+DEFAULT_TEMPLATE_NAME = "email.html"
 OVERVIEW_MAX_LENGTH = 200  # fallback si aucun Settings n'est fourni
+
+EmailSettings = Settings | ScopedEmailSettings
 
 _env = Environment(
     loader=FileSystemLoader(str(TEMPLATES_DIR)),
@@ -141,23 +144,33 @@ def _color_kwargs(settings: Settings) -> dict:
 def _build_render_items(
     items: list[dict],
     jf_client: JellyfinClient,
-    settings: Settings,
+    settings: EmailSettings,
     for_preview: bool,
 ) -> tuple[list[dict], list[MIMEImage]]:
     """Normalise les items pour le rendu. En mode aperçu navigateur
-    (for_preview=True), utilise des URLs directes vers Jellyfin pour les
-    affiches au lieu de pièces jointes `cid:` (qui ne s'affichent que dans un
-    client mail, jamais dans un <img> de navigateur)."""
+    (for_preview=True), utilise des URLs directes vers Jellyfin (ou une image
+    uploadée manuellement, cf. `_poster_url`/`_local_poster_path`) au lieu de
+    pièces jointes `cid:`, qui ne s'affichent que dans un client mail, jamais
+    dans un <img> de navigateur."""
     render_items = []
     inline_images = []
 
     for idx, item in enumerate(items):
         cid = None
-        image_url = None
+        # `_poster_url` : image déjà connue par l'appelant (ex: affiche
+        # uploadée pour un titre "à venir") - prioritaire sur Jellyfin.
+        image_url = item.get("_poster_url")
+
         if for_preview:
-            image_url = jf_client.poster_url(item["item_id"]) if item.get("item_id") else None
+            if not image_url and item.get("item_id"):
+                image_url = jf_client.poster_url(item["item_id"])
         else:
-            image_bytes = jf_client.fetch_poster(item["item_id"]) if item.get("item_id") else None
+            image_bytes = None
+            local_path = item.get("_local_poster_path")
+            if local_path and Path(local_path).exists():
+                image_bytes = Path(local_path).read_bytes()
+            elif item.get("item_id"):
+                image_bytes = jf_client.fetch_poster(item["item_id"])
             if image_bytes:
                 cid = f"poster{idx}"
                 img = MIMEImage(image_bytes)
@@ -192,12 +205,15 @@ def _build_render_items(
 def _prepare_content(
     items: list[dict],
     jf_client: JellyfinClient,
-    settings: Settings | None = None,
+    settings: EmailSettings | None = None,
+    template_name: str = DEFAULT_TEMPLATE_NAME,
 ) -> tuple[str, list[MIMEImage]]:
     """Prépare le HTML rendu et les images inline (logo + posters), une seule
     fois, pour être réutilisés pour chaque destinataire (évite de refaire les
     appels API Jellyfin/posters une fois par destinataire). Utilisé pour le
-    VRAI envoi de mail (cid: pour les images)."""
+    VRAI envoi de mail (cid: pour les images). `template_name` sélectionne le
+    template dans templates/ (email.html pour les nouveaux contenus,
+    email_upcoming.html pour les annonces "à venir")."""
     settings = settings or Settings()
     inline_images = []
 
@@ -210,7 +226,7 @@ def _prepare_content(
     render_items, item_images = _build_render_items(items, jf_client, settings, for_preview=False)
     inline_images.extend(item_images)
 
-    template = _env.get_template("email.html")
+    template = _env.get_template(template_name)
     html = template.render(
         items=render_items,
         count=len(render_items),
@@ -226,9 +242,10 @@ def _prepare_content(
 def render_preview_html(
     items: list[dict],
     jf_client: JellyfinClient,
-    settings: Settings | None = None,
+    settings: EmailSettings | None = None,
     raw_source: str | None = None,
     logo_url: str | None = None,
+    template_name: str = DEFAULT_TEMPLATE_NAME,
 ) -> str:
     """Rendu HTML pour affichage dans le navigateur (admin), donc SANS pièces
     jointes `cid:`. `raw_source`, si fourni, permet de prévisualiser un
@@ -236,7 +253,7 @@ def render_preview_html(
     settings = settings or Settings()
     render_items, _ = _build_render_items(items, jf_client, settings, for_preview=True)
 
-    template = _env.from_string(raw_source) if raw_source is not None else _env.get_template("email.html")
+    template = _env.from_string(raw_source) if raw_source is not None else _env.get_template(template_name)
     return template.render(
         items=render_items,
         count=len(render_items),
@@ -254,7 +271,7 @@ def build_email(
     recipient: str,
     html: str,
     inline_images: list[MIMEImage],
-    settings: Settings | None = None,
+    settings: EmailSettings | None = None,
 ) -> MIMEMultipart:
     """Construit un message pour UN SEUL destinataire (chacun ne voit que sa
     propre adresse dans le header To - avant, tous les destinataires étaient
@@ -284,12 +301,13 @@ def send_email(
     items: list[dict],
     config: Config,
     jf_client: JellyfinClient,
-    settings: Settings | None = None,
+    settings: EmailSettings | None = None,
     recipients: list[str] | None = None,
+    template_name: str = DEFAULT_TEMPLATE_NAME,
 ) -> None:
     settings = settings or Settings()
     recipients = recipients if recipients is not None else config.recipients
-    html, inline_images = _prepare_content(items, jf_client, settings)
+    html, inline_images = _prepare_content(items, jf_client, settings, template_name=template_name)
     with smtplib.SMTP("smtp.gmail.com", 587) as server:
         server.starttls()
         server.login(config.gmail_address, config.gmail_app_password)
