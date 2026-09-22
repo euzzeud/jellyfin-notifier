@@ -976,6 +976,32 @@ function initUnsavedGuard() {
     if (dirtyForm) { dirtyForm.requestSubmit(); }
   });
 
+  // Le bouton "Sign out" est un <form> distinct, pas un lien de nav - il
+  // n'était donc pas couvert par l'interception "header a, nav a" ci-dessous
+  // et ne déclenchait que le dialogue natif du navigateur (beforeunload) en
+  // filet de sécurité, pas le même avertissement cohérent que le reste de
+  // l'admin. On lui donne le même traitement que les actions destructives
+  // (popup personnalisée) plutôt que le "wizz" + double-clic des liens de
+  // nav, puisque c'est un bouton d'action et non un lien à cliquer deux fois.
+  const logoutForm = document.querySelector('form.logout-form');
+  if (logoutForm) {
+    logoutForm.addEventListener('submit', (e) => {
+      if (!dirtyForm) return;
+      e.preventDefault();
+      showConfirm({
+        title: 'Sign out with unsaved changes?',
+        message: 'Whatever you changed on this page has not been saved and will be lost.',
+        confirmText: 'Sign out anyway',
+        danger: true,
+      }).then(ok => {
+        if (ok) {
+          clearDirty();
+          logoutForm.submit();
+        }
+      });
+    });
+  }
+
   window.addEventListener('beforeunload', (e) => {
     if (!dirtyForm) return;
     e.preventDefault();
