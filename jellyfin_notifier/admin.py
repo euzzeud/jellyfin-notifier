@@ -1,9 +1,9 @@
-"""Interface d'admin web (/admin) : planning des notifications, éditeur de
-template "CMS", aperçu du prochain mail, annonces de titres à venir, console
-de requêtes API Jellyfin, et gestion du service (start/stop/restart + logs).
+"""Web admin interface (/admin): notification schedule, "CMS" template
+editor, next email preview, upcoming title announcements, ad-hoc Jellyfin
+API console, and service control (start/stop/restart + logs).
 
-Protégée par HTTP Basic Auth (ADMIN_USERNAME / ADMIN_PASSWORD dans .env) -
-pensée pour un accès LAN uniquement (pas exposée sur internet)."""
+Protected by HTTP Basic Auth (ADMIN_USERNAME / ADMIN_PASSWORD in .env) -
+intended for LAN-only access (not exposed to the internet)."""
 
 from __future__ import annotations
 
@@ -67,9 +67,9 @@ FAKE_PREVIEW_ITEMS = [
     },
 ]
 
-# Item d'exemple distinct pour l'aperçu de l'onglet "À venir" (tant qu'aucun
-# titre n'est encore ajouté à la liste) - volontairement différent de
-# FAKE_PREVIEW_ITEMS pour que les deux aperçus ne se ressemblent pas.
+# Separate example item for the "Upcoming" tab preview (as long as no title
+# has been added to the list yet) - deliberately different from
+# FAKE_PREVIEW_ITEMS so the two previews don't look alike.
 FAKE_UPCOMING_PREVIEW_ITEMS = [
     {
         "item_id": None,
@@ -95,25 +95,26 @@ def _poller():
 
 @admin_bp.context_processor
 def _inject_header_context():
-    """Rend l'URL Jellyfin (.env) disponible dans TOUS les templates admin -
-    affichée en haut à droite du header. Avant, le template lisait
-    `config.jellyfin_url` (la config Flask elle-même, pas notre Config à
-    nous) : ça ne levait pas d'erreur grâce au rendu "silencieux" de Jinja
-    sur une valeur indéfinie, mais n'affichait jamais rien non plus.
-    Volontairement `cfg.jellyfin_url` (déjà en mémoire, .env) plutôt que la
-    surcharge éventuelle de Settings : ce contexte tourne sur CHAQUE rendu de
-    template, donc pas question d'ajouter une lecture+parsing JSON de plus
-    par page juste pour un affichage cosmétique - les pages qui ont
-    réellement besoin de la valeur effective (avec surcharge) la calculent
-    déjà elles-mêmes (cf. mail_server_view, api_console_view)."""
+    """Makes the Jellyfin URL (.env) available in ALL admin templates -
+    displayed at the top right of the header. Previously the template read
+    `config.jellyfin_url` (Flask's own config, not our Config class): that
+    didn't raise an error thanks to Jinja's "silent" rendering of an
+    undefined value, but never displayed anything either.
+    Deliberately uses `cfg.jellyfin_url` (already in memory, from .env)
+    rather than any Settings override: this context processor runs on EVERY
+    template render, so there's no question of adding one more JSON
+    read+parse per page just for a cosmetic display - the pages that
+    actually need the effective value (with override) already compute it
+    themselves (see mail_server_view, api_console_view)."""
     try:
-        return {"jellyfin_url": _config().jellyfin_url}
+        cfg = _config()
+        return {"jellyfin_url": cfg.jellyfin_url if cfg else ""}
     except (RuntimeError, KeyError):
         return {}
 
 
 # ---------------------------------------------------------------------------
-# Fichiers statiques (logo affiché dans le header de l'admin)
+# Static files (logo displayed in the admin header)
 # ---------------------------------------------------------------------------
 
 @admin_bp.route("/assets/<path:filename>")
@@ -122,11 +123,11 @@ def assets(filename: str):
 
 
 # ---------------------------------------------------------------------------
-# Validation HTML : la validation Jinja seule (compile + rend le template)
-# ne détecte AUCUN problème de balisage HTML - un attribut mal formé du
-# genre `<html =d1d1>` est du Jinja/texte parfaitement valide, donc "compile"
-# sans erreur. On ajoute donc une vérification structurelle légère (balises
-# non fermées / mal imbriquées, attributs mal formés) en plus du check Jinja.
+# HTML validation: Jinja validation alone (compile + render the template)
+# does NOT catch any HTML markup problem - a malformed attribute like
+# `<html =d1d1>` is perfectly valid Jinja/text, so it "compiles" without
+# error. So a lightweight structural check (unclosed/mismatched tags,
+# malformed attributes) is added on top of the Jinja check.
 # ---------------------------------------------------------------------------
 
 _VOID_ELEMENTS = {
@@ -134,20 +135,20 @@ _VOID_ELEMENTS = {
     "link", "meta", "param", "source", "track", "wbr",
 }
 
-# Attribut valide : nom (lettres/chiffres/-/:/_ , doit commencer par une
-# lettre) suivi optionnellement de ="valeur"/'valeur'/valeur. Un attribut du
-# genre `=d1d1` (nom vide, commence par "=") ne matche pas -> signalé.
+# Valid attribute: name (letters/digits/-/:/_ , must start with a letter)
+# optionally followed by ="value"/'value'/value. An attribute like `=d1d1`
+# (empty name, starts with "=") doesn't match -> flagged.
 _ATTR_RE = re.compile(
     r'\s+([a-zA-Z][a-zA-Z0-9\-:_]*)(\s*=\s*("[^"]*"|\'[^\']*\'|[^\s"\'=<>`]+))?'
 )
 
 
 def _check_html_structure(source: str) -> str | None:
-    """Retourne un message d'erreur (ou None si rien détecté). Ignore les
-    blocs Jinja ({% ... %}, {{ ... }}) pour ne pas les confondre avec du HTML."""
-    # Neutralise les blocs Jinja pour ne pas perturber le parseur HTML
-    # (ex: {% for item in items %} contient des `<`/`>` implicites via le texte
-    # généré, mais surtout on ne veut pas que le tag-balancer s'embrouille).
+    """Returns an error message (or None if nothing was detected). Ignores
+    Jinja blocks ({% ... %}, {{ ... }}) so they aren't mistaken for HTML."""
+    # Neutralizes Jinja blocks so they don't confuse the HTML parser (e.g.
+    # {% for item in items %} implicitly contains `<`/`>` via the generated
+    # text, but mostly we don't want the tag-balancer to get confused).
     cleaned = re.sub(r"\{%.*?%\}|\{\{.*?\}\}|\{#.*?#\}", "", source, flags=re.DOTALL)
 
     errors: list[str] = []
@@ -159,7 +160,7 @@ def _check_html_structure(source: str) -> str | None:
                 stack.append((tag, self.getpos()[0]))
 
         def handle_startendtag(self, tag, attrs):
-            pass  # auto-fermée (<br />) : rien à empiler
+            pass  # self-closing (<br />): nothing to push onto the stack
 
         def handle_endtag(self, tag):
             if tag in _VOID_ELEMENTS:
@@ -167,8 +168,8 @@ def _check_html_structure(source: str) -> str | None:
             if not stack:
                 errors.append(f"line {self.getpos()[0]}: closing tag </{tag}> has no matching opening tag")
                 return
-            # Cherche la balise ouvrante correspondante dans la pile (gère les
-            # balises mal imbriquées comme <a><b></a></b>)
+            # Looks for the matching opening tag in the stack (handles
+            # mismatched nesting like <a><b></a></b>)
             for i in range(len(stack) - 1, -1, -1):
                 if stack[i][0] == tag:
                     unclosed = stack[i + 1:]
@@ -179,21 +180,21 @@ def _check_html_structure(source: str) -> str | None:
                     return
             errors.append(f"line {self.getpos()[0]}: </{tag}> does not match any open tag")
 
-        def error(self, message):  # requis par certaines versions de html.parser
+        def error(self, message):  # required by some versions of html.parser
             errors.append(message)
 
     parser = _Checker(convert_charrefs=True)
     try:
         parser.feed(cleaned)
         parser.close()
-    except Exception as exc:  # pragma: no cover - garde-fou
+    except Exception as exc:  # pragma: no cover - safety net
         return f"HTML parsing error: {exc}"
 
     if stack:
         names = ", ".join(f"<{n}> (line {ln})" for n, ln in stack)
         errors.append(f"unclosed tag(s): {names}")
 
-    # Vérifie les attributs mal formés dans chaque balise ouvrante (ex: <html =d1d1>)
+    # Checks for malformed attributes in every opening tag (e.g. <html =d1d1>)
     for m in re.finditer(r"<([a-zA-Z][a-zA-Z0-9\-:_]*)((?:\s+[^<>]*?)?)\s*/?>", cleaned):
         tag, attr_blob = m.group(1), m.group(2)
         if not attr_blob.strip():
@@ -231,7 +232,7 @@ def login():
             session["authenticated"] = True
             session.permanent = True
             next_url = request.form.get("next") or url_for("admin.dashboard")
-            # Sécurité minimale : n'autorise que les redirections internes (évite un open redirect).
+            # Minimal safety: only allows internal redirects (avoids an open redirect).
             if not next_url.startswith("/"):
                 next_url = url_for("admin.dashboard")
             logger.info("Login successful (user=%s, from=%s).", username, request.remote_addr)
@@ -299,11 +300,11 @@ def dashboard():
 
 
 # ---------------------------------------------------------------------------
-# Réinitialisation des paramètres (settings.json) aux valeurs par défaut du
-# code - texte/couleurs des mails, planning, surcharges poller/Jellyfin/SMTP.
-# Ne touche PAS aux données (file d'attente, titres "à venir" + affiches,
-# état "déjà vu" du poller) ni aux templates HTML bruts édités (email.html /
-# email_upcoming.html, qui ont leurs propres sauvegardes dans templates/backups/).
+# Reset settings (settings.json) to the code's default values - email
+# text/colors, schedule, poller/Jellyfin/SMTP overrides. Does NOT touch the
+# data (pending queue, "upcoming" titles + posters, poller "already seen"
+# state) nor the edited raw HTML templates (email.html / email_upcoming.html,
+# which have their own backups in templates/backups/).
 # ---------------------------------------------------------------------------
 
 @admin_bp.route("/settings/reset", methods=["POST"])
@@ -345,7 +346,53 @@ def poller_action(action: str):
 
 
 # ---------------------------------------------------------------------------
-# Gestion du service (start/stop/restart) + logs
+# "Already seen" items (seen_items.json) - lets the poller's dedup state be
+# inspected and reset from the admin instead of editing the file by hand on
+# the server.
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/poller/seen/data")
+def poller_seen_data():
+    poller = _poller()
+    if poller is None:
+        return jsonify({"count": 0, "ids": []})
+    return jsonify({"count": poller.seen_count(), "ids": poller.seen_ids_sorted()})
+
+
+@admin_bp.route("/poller/seen/export")
+def poller_seen_export():
+    poller = _poller()
+    ids = poller.seen_ids_sorted() if poller else []
+    payload = json.dumps(ids, indent=2)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    logger.info("Already-seen items exported (%d item id(s)).", len(ids))
+    return Response(
+        payload,
+        mimetype="application/json",
+        headers={"Content-Disposition": f'attachment; filename="jellyfin-notifier-seen-items-{stamp}.json"'},
+    )
+
+
+@admin_bp.route("/poller/seen/clear", methods=["POST"])
+def poller_seen_clear():
+    poller = _poller()
+    if poller is None:
+        return jsonify({"ok": False, "error": "Poller not available."}), 400
+    poller.clear_seen()
+    return jsonify({"ok": True, "count": poller.seen_count()})
+
+
+@admin_bp.route("/poller/seen/rebootstrap", methods=["POST"])
+def poller_seen_rebootstrap():
+    poller = _poller()
+    if poller is None:
+        return jsonify({"ok": False, "error": "Poller not available."}), 400
+    ok, error = poller.rebootstrap_seen()
+    return jsonify({"ok": ok, "error": error, "count": poller.seen_count()})
+
+
+# ---------------------------------------------------------------------------
+# Service management (start/stop/restart) + logs
 # ---------------------------------------------------------------------------
 
 @admin_bp.route("/service/<action>", methods=["POST"])
@@ -353,6 +400,25 @@ def service_action_route(action: str):
     ok, output = service_control.service_action(action)
     (logger.info if ok else logger.error)("Service action: %s -> %s.", action, "ok" if ok else "failed")
     return jsonify({"ok": ok, "output": output, "status": service_control.get_status()})
+
+
+@admin_bp.route("/service/transition/<action>")
+def service_transition(action: str):
+    # Stop/restart terminate this very process - it can't reliably finish
+    # sending a normal JSON response once systemd signals it to exit, so the
+    # confirmation dialog navigates here first: a standalone page that shows
+    # a clear "stopped"/"restarting" message right away, fires the actual
+    # action itself, and (for restart, and opportunistically for stop too,
+    # in case the service is started again from outside the interface)
+    # polls until the interface responds again and redirects automatically.
+    if action not in ("stop", "restart"):
+        return redirect(url_for("admin.dashboard"))
+    return render_template(
+        "admin/service_transition.html",
+        action=action,
+        service_name=service_control.SERVICE_NAME,
+        action_url=url_for("admin.service_action_route", action=action),
+    )
 
 
 @admin_bp.route("/logs")

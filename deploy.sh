@@ -81,6 +81,14 @@ log "Service active ($(systemctl show "$SERVICE_NAME" --property=SubState --valu
 PORT=$(grep -E '^PORT=' "$TARGET_DIR/.env" | cut -d= -f2 || echo 5005)
 PORT=${PORT:-5005}
 
+# Best-effort detection of this machine's LAN IP, for the summary URLs below -
+# falls back to a placeholder if it can't be determined (e.g. no `ip`/`hostname -I`).
+LXC_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+if [ -z "$LXC_IP" ]; then
+  LXC_IP=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i=="src") print $(i+1)}')
+fi
+LXC_IP=${LXC_IP:-<lxc-ip>}
+
 log "Checking /health (port $PORT)"
 sleep 2
 HTTP_CODE=$(curl -s -o /tmp/health_response.json -w "%{http_code}" "http://127.0.0.1:${PORT}/health" || echo "000")
@@ -91,21 +99,21 @@ fi
 log "/health returned 200 - service is operational"
 cat /tmp/health_response.json
 
-# ---- 6. Admin interface check ----------------------------------------------------
+# ---- 6. Interface check ----------------------------------------------------------
 # The admin blueprint is mounted at the site root (no /admin prefix) - the
 # login page is at /login, not /admin/login.
-log "Checking that the admin interface responds"
+log "Checking that the interface responds"
 ADMIN_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}/login" || echo "000")
-[ "$ADMIN_CODE" = "200" ] || fail "The admin interface did not respond ($ADMIN_CODE) on /login."
-log "Admin interface reachable: http://<lxc-ip>:${PORT}/"
+[ "$ADMIN_CODE" = "200" ] || fail "The interface did not respond ($ADMIN_CODE) on /login."
+log "Interface reachable: http://${LXC_IP}:${PORT}/"
 
 # ---- 7. Cleanup -------------------------------------------------------------------
 log "Cleaning up the source directory"
 rm -rf "$SRC_DIR"
 
 log "Deployment finished successfully."
-echo "  - Service : systemctl status $SERVICE_NAME"
-echo "  - Logs    : journalctl -u $SERVICE_NAME -f"
-echo "  - Admin   : http://<lxc-ip>:${PORT}/"
-echo "  - Health  : http://<lxc-ip>:${PORT}/health"
-echo "  - Metrics : http://<lxc-ip>:${PORT}/metrics"
+echo "  - Service   : systemctl status $SERVICE_NAME"
+echo "  - Logs      : journalctl -u $SERVICE_NAME -f"
+echo "  - Interface : http://${LXC_IP}:${PORT}/"
+echo "  - Health    : http://${LXC_IP}:${PORT}/health"
+echo "  - Metrics   : http://${LXC_IP}:${PORT}/metrics"

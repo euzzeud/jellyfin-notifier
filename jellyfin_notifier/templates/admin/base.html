@@ -421,12 +421,20 @@
   .modal-box p { margin:0 0 22px; font-size:13.5px; line-height:1.55; color:var(--muted); }
   .modal-box .actions { display:flex; justify-content:flex-end; gap:10px; margin-top:0; }
 
-  /* Popup de validation JSON (import de settings.json) : même thème que la
-     boîte de confirmation, mais plus large et avec le contenu du fichier
-     affiché ligne par ligne (numéros + coloration) façon éditeur de code,
-     pour repérer la ligne fautive d'un coup d'oeil au lieu d'un message
-     d'erreur brut type "Expecting value: line 4 column 1". */
+  /* JSON validation popup (settings.json import): same theme as the
+     confirmation box, but wider and with the file content shown line by
+     line (numbers + highlighting) like a code editor, so the offending
+     line is spotted at a glance instead of a raw error message like
+     "Expecting value: line 4 column 1". */
   .json-modal-box { max-width:640px; }
+  .json-error-nav { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+  .json-error-nav span { font-size:12px; color:var(--muted); font-weight:600; white-space:nowrap; }
+  .json-nav-btn {
+    background: rgba(240,85,92,.12); border:1px solid rgba(240,85,92,.35); color:var(--red);
+    border-radius: var(--radius-sm); width:30px; height:30px; min-width:30px; font-size:16px; line-height:1;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+  }
+  .json-nav-btn:hover { background: rgba(240,85,92,.22); }
   .json-modal-box .json-error-msg {
     margin:0 0 16px; padding:10px 13px; border-radius: var(--radius-sm);
     background: rgba(48,20,21,.55); border:1px solid rgba(240,85,92,.35);
@@ -481,6 +489,11 @@
 <div class="modal-overlay" id="json-modal-overlay">
   <div class="modal-box json-modal-box">
     <h3 id="json-modal-title">Invalid settings file</h3>
+    <div class="json-error-nav" id="json-modal-nav" style="display:none;">
+      <button type="button" class="json-nav-btn" id="json-modal-prev" aria-label="Previous error">‹</button>
+      <span id="json-modal-counter"></span>
+      <button type="button" class="json-nav-btn" id="json-modal-next" aria-label="Next error">›</button>
+    </div>
     <div class="json-error-msg" id="json-modal-error"></div>
     <pre class="json-lines" id="json-modal-lines"></pre>
     <div class="actions">
@@ -499,12 +512,15 @@
 <header>
   <div class="brand"><img src="{{ url_for('admin.assets', filename='jellyfin-logo.svg') }}" alt="Jellyfin" style="display:block; height:34px; width:auto;" /><span>Notifier</span></div>
   <div class="right">
+    {% if not bootstrap_mode %}
     <div class="muted" style="font-size:12px; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ jellyfin_url or '' }}">{{ jellyfin_url or "" }}</div>
     <form class="logout-form" method="post" action="{{ url_for('admin.logout') }}">
       <button type="submit">Sign out</button>
     </form>
+    {% endif %}
   </div>
 </header>
+{% if not bootstrap_mode %}
 <nav>
   <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if active=='dashboard' else '' }}">Main</a>
   <a href="{{ url_for('admin.template_view') }}" class="{{ 'active' if active=='template' else '' }}">New Content Notifications</a>
@@ -515,7 +531,9 @@
   <a href="{{ url_for('admin.mail_history_view') }}" class="{{ 'active' if active=='mail_history' else '' }}">Mail History</a>
   <a href="{{ url_for('admin.logs') }}" class="{{ 'active' if active=='logs' else '' }}">Logs</a>
   <a href="{{ url_for('admin.health_view') }}" class="{{ 'active' if active=='health' else '' }}">Health</a>
+  <a href="{{ url_for('setup.setup_view') }}" class="{{ 'active' if active=='setup' else '' }}">Environment</a>
 </nav>
+{% endif %}
 </div>
 <main class="{{ 'wide' if wide_layout else '' }}">
   {% block content %}{% endblock %}
@@ -576,27 +594,34 @@ function showConfirm({ title, message, confirmText = 'Confirm', danger = false }
   });
 }
 
-// Popup d'erreur JSON (import de settings.json) : affiche le fichier ligne
-// par ligne avec la ligne fautive surlignée en rouge, façon IDE, au lieu
-// d'un message d'erreur texte brut. `line` est en 1-indexé (comme
-// JSON.parse le rapporte) ; 0/undefined = pas de ligne précise à surligner.
-function showJsonSyntaxError({ title = 'Invalid settings file', message = '', source = '', line = 0 }) {
+// JSON error popup (settings.json import): shows the file line by line with
+// the offending line highlighted in red, IDE-style, instead of a raw text
+// error message. `errors` is a list of {line, message} (1-indexed lines,
+// like JSON.parse reports them); when there's more than one, prev/next
+// arrows let the admin step through them without having to scroll and
+// search the file by eye.
+function showJsonSyntaxError({ title = 'Invalid settings file', errors = [], source = '' }) {
   const overlay = document.getElementById('json-modal-overlay');
   const titleEl = document.getElementById('json-modal-title');
+  const navEl = document.getElementById('json-modal-nav');
+  const prevBtn = document.getElementById('json-modal-prev');
+  const nextBtn = document.getElementById('json-modal-next');
+  const counterEl = document.getElementById('json-modal-counter');
   const errEl = document.getElementById('json-modal-error');
   const linesEl = document.getElementById('json-modal-lines');
   const closeBtn = document.getElementById('json-modal-close');
 
+  if (!errors.length) errors = [{ line: 0, message: '' }];
+
   titleEl.textContent = title;
-  errEl.textContent = message;
   linesEl.innerHTML = '';
 
   const lines = source.split('\n');
-  let errRowEl = null;
+  const rowByLine = new Map();
   lines.forEach((text, i) => {
     const n = i + 1;
     const row = document.createElement('div');
-    row.className = 'json-line' + (n === line ? ' err' : '');
+    row.className = 'json-line';
     const lnEl = document.createElement('span');
     lnEl.className = 'ln';
     lnEl.textContent = String(n);
@@ -606,83 +631,102 @@ function showJsonSyntaxError({ title = 'Invalid settings file', message = '', so
     row.appendChild(lnEl);
     row.appendChild(txtEl);
     linesEl.appendChild(row);
-    if (n === line) errRowEl = row;
+    rowByLine.set(n, row);
   });
+
+  let current = 0;
+  function render() {
+    const err = errors[current];
+    errEl.textContent = err.message || '';
+    rowByLine.forEach((row) => row.classList.remove('err'));
+    const row = rowByLine.get(err.line);
+    if (row) {
+      row.classList.add('err');
+      // Centers the error line in the scrollable area instead of leaving
+      // the admin to hunt for it by eye in a potentially long file.
+      requestAnimationFrame(() => row.scrollIntoView({ block: 'center' }));
+    }
+    const multi = errors.length > 1;
+    navEl.style.display = multi ? 'flex' : 'none';
+    if (multi) counterEl.textContent = `Error ${current + 1} of ${errors.length}`;
+  }
+  render();
 
   overlay.classList.add('show');
   closeBtn.focus();
-  // Centre la ligne en erreur dans la zone scrollable plutôt que de laisser
-  // l'utilisateur la chercher lui-même dans un fichier potentiellement long.
-  if (errRowEl) {
-    requestAnimationFrame(() => {
-      errRowEl.scrollIntoView({ block: 'center' });
-    });
-  }
+
+  function onPrev() { current = (current - 1 + errors.length) % errors.length; render(); }
+  function onNext() { current = (current + 1) % errors.length; render(); }
 
   function cleanup() {
     overlay.classList.remove('show');
     closeBtn.removeEventListener('click', onClose);
     overlay.removeEventListener('mousedown', onOverlay);
     document.removeEventListener('keydown', onKey);
+    prevBtn.removeEventListener('click', onPrev);
+    nextBtn.removeEventListener('click', onNext);
   }
   function onClose() { cleanup(); }
   function onOverlay(e) { if (e.target === overlay) cleanup(); }
-  function onKey(e) { if (e.key === 'Escape') cleanup(); }
+  function onKey(e) {
+    if (e.key === 'Escape') cleanup();
+    else if (e.key === 'ArrowLeft' && errors.length > 1) onPrev();
+    else if (e.key === 'ArrowRight' && errors.length > 1) onNext();
+  }
 
   closeBtn.addEventListener('click', onClose);
   overlay.addEventListener('mousedown', onOverlay);
   document.addEventListener('keydown', onKey);
+  prevBtn.addEventListener('click', onPrev);
+  nextBtn.addEventListener('click', onNext);
 }
 
-// Retrouve le numéro de ligne (1-indexé) fautif. JSON.parse() ne donne pas
-// de ligne/colonne structurée (contrairement au json.JSONDecodeError de
-// Python côté serveur) et le format de son message texte diffère d'un
-// moteur à l'autre (Chrome/Edge : "at position N" ; Firefox : "at line N
-// column M" ; Chrome récent : un simple extrait du texte sans position du
-// tout, comme vu en test) - trop fragile pour s'appuyer dessus. On fait donc
-// tourner notre propre mini-scanner JSON (juste assez de grammaire pour
-// suivre les lignes/accolades/crochets/chaînes) qui s'arrête au premier
-// caractère structurellement invalide et rapporte sa ligne directement,
-// indépendamment du moteur JS.
-function _jsonErrorLine(source) {
+// Runs a single pass of a hand-written JSON scanner (just enough grammar to
+// track lines/braces/brackets/strings) and returns where it stopped.
+// JSON.parse() doesn't give a structured line/column (unlike Python's
+// json.JSONDecodeError on the server) and its message format differs
+// between engines (Chrome/Edge: "at position N"; Firefox: "at line N
+// column M"; some Chrome versions: just a text excerpt with no position at
+// all, as seen in testing) - too fragile to rely on, hence this scanner.
+function _jsonScanOnce(source) {
   let i = 0, line = 1;
   const n = source.length;
   function peek() { return source[i]; }
   function advance() { if (source[i] === '\n') line++; i++; }
-  function fail() { const err = new Error('syntax'); err._line = line; throw err; }
+  function fail(msg) { const err = new Error(msg || 'Unexpected token'); err._line = line; throw err; }
   function skipWs() { while (i < n && /\s/.test(source[i])) advance(); }
   function parseString() {
     advance(); // opening quote
     while (true) {
-      if (i >= n) fail();
+      if (i >= n) fail('Unterminated string');
       const c = peek();
       if (c === '"') { advance(); return; }
-      if (c === '\\') { advance(); if (i >= n) fail(); advance(); continue; }
-      if (c === '\n') fail(); // unescaped newline in a string
+      if (c === '\\') { advance(); if (i >= n) fail('Unterminated string'); advance(); continue; }
+      if (c === '\n') fail('Unterminated string (unescaped newline)');
       advance();
     }
   }
   function parseLiteral(word) {
-    if (source.slice(i, i + word.length) !== word) fail();
+    if (source.slice(i, i + word.length) !== word) fail('Unexpected token');
     for (let k = 0; k < word.length; k++) advance();
   }
   function parseNumber() {
     const start = i;
     if (peek() === '-') advance();
-    if (!/[0-9]/.test(peek() || '')) fail();
+    if (!/[0-9]/.test(peek() || '')) fail('Invalid number');
     while (i < n && /[0-9]/.test(peek())) advance();
-    if (peek() === '.') { advance(); if (!/[0-9]/.test(peek() || '')) fail(); while (i < n && /[0-9]/.test(peek())) advance(); }
+    if (peek() === '.') { advance(); if (!/[0-9]/.test(peek() || '')) fail('Invalid number'); while (i < n && /[0-9]/.test(peek())) advance(); }
     if (peek() === 'e' || peek() === 'E') {
       advance();
       if (peek() === '+' || peek() === '-') advance();
-      if (!/[0-9]/.test(peek() || '')) fail();
+      if (!/[0-9]/.test(peek() || '')) fail('Invalid number');
       while (i < n && /[0-9]/.test(peek())) advance();
     }
-    if (i === start) fail();
+    if (i === start) fail('Invalid number');
   }
   function parseValue() {
     skipWs();
-    if (i >= n) fail();
+    if (i >= n) fail('Unexpected end of input, expected a value');
     const c = peek();
     if (c === '"') return parseString();
     if (c === '{') return parseObject();
@@ -691,7 +735,7 @@ function _jsonErrorLine(source) {
     if (c === 't') return parseLiteral('true');
     if (c === 'f') return parseLiteral('false');
     if (c === 'n') return parseLiteral('null');
-    fail();
+    fail('Unexpected token, expected a value');
   }
   function parseObject() {
     advance(); // {
@@ -699,16 +743,16 @@ function _jsonErrorLine(source) {
     if (peek() === '}') { advance(); return; }
     while (true) {
       skipWs();
-      if (peek() !== '"') fail();
+      if (peek() !== '"') fail('Expected a property name (in double quotes)');
       parseString();
       skipWs();
-      if (peek() !== ':') fail();
+      if (peek() !== ':') fail("Expected ':' after the property name");
       advance();
       parseValue();
       skipWs();
       if (peek() === ',') { advance(); continue; }
       if (peek() === '}') { advance(); return; }
-      fail();
+      fail("Expected ',' or '}'");
     }
   }
   function parseArray() {
@@ -720,53 +764,89 @@ function _jsonErrorLine(source) {
       skipWs();
       if (peek() === ',') { advance(); continue; }
       if (peek() === ']') { advance(); return; }
-      fail();
+      fail("Expected ',' or ']'");
     }
   }
   try {
     parseValue();
     skipWs();
-    if (i < n) fail(); // trailing garbage after the top-level value
-    return 0; // parses fine - shouldn't be called in that case anyway
+    if (i < n) fail('Unexpected trailing content after the top-level value');
+    return { ok: true };
   } catch (err) {
-    return err._line || line;
+    return { ok: false, line: err._line || line, message: err.message };
   }
 }
 
-// Validation cote client d'un fichier settings.json avant upload : lit le
-// fichier, vérifie que c'est du JSON syntaxiquement valide ET que c'est bien
-// un objet (pas un tableau/nombre/etc, comme l'exige Settings.from_dict côté
-// serveur) - avant même d'envoyer quoi que ce soit au serveur. En cas
-// d'erreur, affiche le popup façon IDE et retourne false (rien n'est
-// envoyé) ; en cas de succès, retourne true (l'appelant peut soumettre le
-// formulaire normalement - la validation serveur reste aussi en place en
-// dernier recours). Usage : checkJsonSettingsFile(file).then(ok => ...)
+// Runs the scanner repeatedly to surface several syntax errors in one pass
+// instead of just the first: after each error, the offending line is
+// blanked out in a scratch copy (kept at the same line count, so every
+// later line number stays accurate) and the scan restarts from the top.
+// This is a heuristic, not a real error-recovery parser - it works well for
+// the common case (a missing/extra comma, an unterminated string, a stray
+// token on one line), but a structural error (an unmatched brace/bracket)
+// can only ever be reported once, since blanking that line would just
+// cascade into unrelated errors further down instead of finding real ones.
+function _findAllJsonErrors(source, maxErrors = 8) {
+  const errors = [];
+  const seenLines = new Set();
+  let working = source;
+  for (let attempt = 0; attempt < maxErrors; attempt++) {
+    const result = _jsonScanOnce(working);
+    if (result.ok) break;
+    if (seenLines.has(result.line)) break; // no progress - stop instead of looping
+    seenLines.add(result.line);
+    errors.push({ line: result.line, message: result.message });
+
+    const lines = working.split('\n');
+    const idx = result.line - 1;
+    if (idx < 0 || idx >= lines.length) break;
+    const original = lines[idx];
+    // Only safe to blank out a line that isn't purely structural (a lone
+    // brace/bracket/comma) - doing that to one of those would corrupt the
+    // nesting instead of just dropping one property/value.
+    if (/^[\s{}\[\],]*$/.test(original)) break;
+    lines[idx] = '';
+    working = lines.join('\n');
+  }
+  return errors;
+}
+
+// Client-side validation of a settings.json file before upload: reads the
+// file, checks it's syntactically valid JSON AND that it's actually an
+// object (not an array/number/etc, as Settings.from_dict requires on the
+// server) - before sending anything to the server at all. On error, shows
+// the IDE-style popup and returns false (nothing is sent); on success,
+// returns true (the caller can submit the form normally - server-side
+// validation also stays in place as a last resort). Usage:
+// checkJsonSettingsFile(file).then(ok => ...)
 function checkJsonSettingsFile(file) {
   return file.text().then((source) => {
     let data;
     try {
       data = JSON.parse(source);
     } catch (err) {
+      const errors = _findAllJsonErrors(source);
       showJsonSyntaxError({
         title: 'Invalid settings file — syntax error',
-        message: err.message,
+        errors: errors.length ? errors : [{ line: 0, message: err.message }],
         source,
-        line: _jsonErrorLine(source),
       });
       return false;
     }
     if (data === null || typeof data !== 'object' || Array.isArray(data)) {
       showJsonSyntaxError({
         title: 'Invalid settings file',
-        message: 'Expected a JSON object (e.g. { "notify_days": [...], ... }), not ' + (Array.isArray(data) ? 'an array' : typeof data) + '.',
+        errors: [{
+          line: 1,
+          message: 'Expected a JSON object (e.g. { "notify_days": [...], ... }), not ' + (Array.isArray(data) ? 'an array' : typeof data) + '.',
+        }],
         source,
-        line: 1,
       });
       return false;
     }
     return true;
   }, (err) => {
-    showJsonSyntaxError({ title: 'Invalid settings file', message: 'Could not read the file: ' + err, source: '', line: 0 });
+    showJsonSyntaxError({ title: 'Invalid settings file', errors: [{ line: 0, message: 'Could not read the file: ' + err }], source: '' });
     return false;
   });
 }

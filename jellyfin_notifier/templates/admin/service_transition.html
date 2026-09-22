@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>{{ 'Service stopped' if action == 'stop' else 'Restarting' }} - Jellyfin Notifier</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:#0c0c0d; color:#e8e8ea; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  .box { text-align:center; max-width:440px; padding:32px; }
+  .spinner {
+    width:32px; height:32px; margin:0 auto 18px; border-radius:50%;
+    border:3px solid rgba(255,255,255,.15); border-top-color:#2ec2ff;
+    animation: spin 0.9s linear infinite;
+  }
+  .icon { font-size:30px; margin-bottom:16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  h1 { font-size:16px; margin:0 0 10px; }
+  p { font-size:13px; color:#9a9aa0; margin:0 0 6px; line-height:1.55; }
+  code {
+    display:inline-block; margin-top:14px; padding:9px 14px; background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.12); border-radius:8px; font-size:12.5px; color:#2ec2ff;
+    user-select:all;
+  }
+</style>
+</head>
+<body>
+<div class="box">
+  {% if action == 'stop' %}
+  <div class="icon">■</div>
+  <h1>Service stopped</h1>
+  <p>The poller and the admin interface are no longer running. Start it again from the server:</p>
+  <code>systemctl start {{ service_name }}</code>
+  <p style="margin-top:16px;">This page will redirect here automatically once the service is running again.</p>
+  {% else %}
+  <div class="spinner"></div>
+  <h1>Restarting the service…</h1>
+  <p>The admin interface is briefly unavailable. You'll be redirected automatically as soon as it's back up.</p>
+  {% endif %}
+</div>
+<script>
+  // Fire the actual stop/restart request. The service terminates this very
+  // process as part of handling it, so it may never get to send a response
+  // (connection reset) - that is expected here, not a failure to report.
+  fetch("{{ action_url }}", { method: "POST" }).catch(() => {});
+
+  function tryReconnect() {
+    fetch('/', { method: 'GET', cache: 'no-store' })
+      .then(() => { window.location.href = '/'; })
+      .catch(() => { setTimeout(tryReconnect, 2000); });
+  }
+  // Wait a moment before polling so an immediate stray success (served just
+  // before the process actually exits) doesn't redirect back into a service
+  // that is still in the middle of going down.
+  setTimeout(tryReconnect, {{ 4000 if action == 'restart' else 6000 }});
+</script>
+</body>
+</html>

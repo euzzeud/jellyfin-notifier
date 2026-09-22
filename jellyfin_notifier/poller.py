@@ -90,6 +90,44 @@ class JellyfinPoller:
         self.seen_path.parent.mkdir(parents=True, exist_ok=True)
         self.seen_path.write_text(json.dumps(sorted(self._seen_ids)))
 
+    def seen_count(self) -> int:
+        return len(self._seen_ids)
+
+    def seen_ids_sorted(self) -> list[str]:
+        return sorted(self._seen_ids)
+
+    def clear_seen(self) -> None:
+        """Empties the "already seen" set entirely. The poller then treats
+        every item currently in its fetch window as new on the next cycle -
+        e.g. to deliberately test that new-content mail gets sent. For a
+        routine reset (fixing a poller about to re-send old items) use
+        rebootstrap_seen() instead, which doesn't risk a mail flood."""
+        self._seen_ids = set()
+        self._save_seen()
+        logger.warning("Already-seen items cleared entirely - the next poll may re-notify recently added content.")
+
+    def rebootstrap_seen(self) -> tuple[bool, str]:
+        """Re-fetches the current recent-items window from Jellyfin and
+        marks it all as "already seen" WITHOUT sending any mail for it - the
+        same safe step normally only run once, automatically, on a fresh
+        install (see the bootstrap branch in _poll_once_impl). Returns
+        (ok, error)."""
+        settings = load_settings(self.config.settings_path)
+        try:
+            items = self.client.fetch_recent_items(
+                self.effective_item_types(settings), limit=self.effective_limit(settings)
+            )
+        except Exception as exc:
+            logger.exception("Failed to re-bootstrap already-seen items")
+            return False, str(exc)
+        self._seen_ids = {it["Id"] for it in items if it.get("Id")}
+        self._save_seen()
+        logger.warning(
+            "Already-seen items re-bootstrapped from the current library (%d item(s)), no mail sent.",
+            len(items),
+        )
+        return True, ""
+
     def poll_once(self) -> list[dict]:
         """Fait un cycle de poll (mesuré pour /metrics : poll_*_duration_ms,
         poll_cycles_total, poll_errors_total) en délégant le travail réel à

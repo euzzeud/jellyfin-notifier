@@ -108,6 +108,28 @@
   {% endif %}
 </div>
 
+<div class="card">
+  <h2>Already-seen items</h2>
+  <p class="muted" style="font-size:12.5px;">
+    The poller's dedup state (<code>seen_items.json</code>) — item IDs it already knows about, so they aren't
+    re-notified. Managing this is rarely needed day to day; it's mainly useful to fix a poller about to
+    re-send old items, or to inspect what it currently tracks.
+  </p>
+  <div class="grid" style="margin-top:14px;">
+    <div class="stat">
+      <div class="label">Tracked items</div>
+      <div class="value" id="seen-count">—</div>
+    </div>
+  </div>
+  <pre class="logbox" id="seen-ids-box" style="display:none; margin-top:14px; max-height:240px;"></pre>
+  <div class="actions">
+    <button type="button" class="secondary" id="seen-view-btn" onclick="toggleSeenIds()">View IDs</button>
+    <a href="{{ url_for('admin.poller_seen_export') }}" class="btn secondary">⬇ Export</a>
+    <button type="button" class="secondary" onclick="confirmSeenAction('rebootstrap')">↻ Re-bootstrap (safe)</button>
+    <button type="button" class="danger" onclick="confirmSeenAction('clear')">✕ Clear entirely</button>
+  </div>
+</div>
+
 {% if pending %}
 <div class="card">
   <h2>Queue ({{ pending|length }})</h2>
@@ -165,18 +187,24 @@ function serviceAction(action) {
     .catch(err => { showToast('Network error: ' + err, false); });
 }
 
-// Stop/Restart coupent la connexion à l'admin lui-même pendant quelques
-// secondes (et Stop la coupe carrément jusqu'au prochain démarrage manuel) -
-// une confirmation évite un clic accidentel qui rendrait l'admin
-// injoignable sans y avoir pensé.
+// Stop/Restart cut the connection to the admin interface itself for a few
+// seconds (and Stop cuts it entirely until the service is started again
+// manually) - a confirmation avoids an accidental click that would make the
+// admin unreachable without having thought about it. Once confirmed, the
+// user is sent to a dedicated page (instead of just calling the action here
+// and reloading) because the service terminates this very process as part
+// of stopping/restarting - it can't reliably respond to the fetch below, so
+// that page shows a clear "stopped"/"restarting" message immediately and
+// takes care of firing the action and reconnecting/redirecting afterwards.
 const SERVICE_ACTION_LABELS = {
   restart: { title: 'Restart the service?', message: 'The admin interface and the poller will be briefly unavailable while the service restarts.', confirmText: '⟳ Restart', danger: false },
   stop: { title: 'Stop the service?', message: 'The poller and the admin interface will stop responding until the service is started again from the server.', confirmText: '■ Stop service', danger: true },
 };
+const SERVICE_TRANSITION_URL = "{{ url_for('admin.service_transition', action='__ACTION__') }}";
 
 function confirmServiceAction(action) {
   const cfg = SERVICE_ACTION_LABELS[action];
-  showConfirm(cfg).then(ok => { if (ok) { serviceAction(action); } });
+  showConfirm(cfg).then(ok => { if (ok) { window.location.href = SERVICE_TRANSITION_URL.replace('__ACTION__', action); } });
 }
 
 function pollerAction(action) {
@@ -207,6 +235,62 @@ function handleSettingsImportFile(input) {
     }
   });
 }
+
+const SEEN_URL = "{{ url_for('admin.poller_seen_data') }}";
+let _seenIdsVisible = false;
+
+function refreshSeenCount() {
+  fetch(SEEN_URL).then(r => r.json()).then(data => {
+    document.getElementById('seen-count').textContent = data.count;
+  }).catch(() => {});
+}
+
+function toggleSeenIds() {
+  const box = document.getElementById('seen-ids-box');
+  const btn = document.getElementById('seen-view-btn');
+  _seenIdsVisible = !_seenIdsVisible;
+  if (!_seenIdsVisible) {
+    box.style.display = 'none';
+    btn.textContent = 'View IDs';
+    return;
+  }
+  btn.textContent = 'Hide IDs';
+  box.style.display = 'block';
+  box.textContent = 'Loading…';
+  fetch(SEEN_URL).then(r => r.json()).then(data => {
+    box.textContent = data.ids.length ? data.ids.join('\n') : '(empty)';
+    document.getElementById('seen-count').textContent = data.count;
+  }).catch(err => { box.textContent = 'Failed to load: ' + err; });
+}
+
+const SEEN_ACTION_LABELS = {
+  rebootstrap: {
+    title: 'Re-bootstrap already-seen items?',
+    message: 'Re-registers everything currently in the poller’s fetch window as "already seen", without sending any mail for it - the same safe step used on a fresh install. Use this to stop a poller about to re-send old items.',
+    confirmText: '↻ Re-bootstrap',
+    danger: false,
+  },
+  clear: {
+    title: 'Clear already-seen items entirely?',
+    message: 'The poller will then treat everything in its next fetch window as new content and may send mail for it. Only do this deliberately (e.g. to test that new-content mail works). This cannot be undone.',
+    confirmText: '✕ Clear entirely',
+    danger: true,
+  },
+};
+
+function confirmSeenAction(action) {
+  showConfirm(SEEN_ACTION_LABELS[action]).then(ok => {
+    if (!ok) return;
+    const url = action === 'clear' ? "{{ url_for('admin.poller_seen_clear') }}" : "{{ url_for('admin.poller_seen_rebootstrap') }}";
+    fetch(url, { method: 'POST' }).then(r => r.json()).then(data => {
+      showToast(data.ok ? 'Done.' : 'Failed: ' + (data.error || ''), data.ok);
+      document.getElementById('seen-count').textContent = data.count;
+      if (_seenIdsVisible) { toggleSeenIds(); toggleSeenIds(); }
+    }).catch(err => showToast('Network error: ' + err, false));
+  });
+}
+
+document.addEventListener('DOMContentLoaded', refreshSeenCount);
 
 // createTagInput est défini dans le script de base.html, qui apparaît
 // APRES le contenu de cette page dans le HTML final (base.html entoure le
