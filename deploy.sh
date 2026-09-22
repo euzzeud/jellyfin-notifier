@@ -82,8 +82,13 @@ else
 fi
 
 # ---- 4. Start and verify systemd -------------------------------------------------
-log "Enabling and starting the service"
-systemctl enable --now "$SERVICE_NAME"
+# `restart` (not `enable --now`) so a re-deploy onto an already-running
+# service actually picks up the new code - `enable --now`'s "start" is a
+# no-op when the unit is already active, which left a stale process serving
+# old code in memory even though every file on disk had been updated.
+log "Restarting the service"
+systemctl enable "$SERVICE_NAME"
+systemctl restart "$SERVICE_NAME"
 sleep 2
 
 if ! systemctl is-active --quiet "$SERVICE_NAME"; then
