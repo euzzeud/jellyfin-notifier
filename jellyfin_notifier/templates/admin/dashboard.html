@@ -58,7 +58,7 @@
         {% else %}<span class="pill ok">running</span>{% endif %}
       </div>
     </div>
-    <div class="stat"><div class="label">Last poll</div><div class="value" style="font-size:13px;">{{ poll_status.last_poll_at or "—" }}</div></div>
+    <div class="stat"><div class="label">Last poll</div><div class="value" style="font-size:13px;">{{ poll_status.last_poll_at | friendly_dt }}</div></div>
     <div class="stat"><div class="label">Interval</div><div class="value">{{ poll_status.poll_interval_seconds }}s</div></div>
     <div class="stat"><div class="label">Item types</div><div class="value" style="font-size:14px;">{{ poll_status.item_types|join(', ') }}</div></div>
     <div class="stat"><div class="label">Fetch limit</div><div class="value">{{ poll_status.limit }}</div></div>

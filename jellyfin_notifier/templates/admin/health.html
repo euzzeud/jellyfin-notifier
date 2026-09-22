@@ -11,7 +11,7 @@
     </div>
     {% if poll_status %}
     <div class="stat"><div class="label">Poller</div><div class="value"><span class="pill {{ 'ok' if poll_status.running else 'bad' }}">{{ 'running' if poll_status.running else 'stopped' }}</span></div></div>
-    <div class="stat"><div class="label">Last poll</div><div class="value" style="font-size:13px;">{{ poll_status.last_poll_at or "—" }}</div></div>
+    <div class="stat"><div class="label">Last poll</div><div class="value" style="font-size:13px;">{{ poll_status.last_poll_at | friendly_dt }}</div></div>
     <div class="stat"><div class="label">Last mail error</div><div class="value" style="font-size:12px;color:#e5484d;">{{ poll_status.last_email_error or "none" }}</div></div>
     {% else %}
     <div class="stat"><div class="label">Poller</div><div class="value"><span class="muted">disabled</span></div></div>

@@ -24,7 +24,7 @@ from jinja2 import TemplateSyntaxError
 from . import mail_history, metrics, service_control
 from .api_console import run_request
 from .config import SMTP_ENCRYPTIONS
-from .email_blocks import BLOCK_TYPES, compile_blocks_to_html
+from .email_blocks import BLOCK_TYPES, compile_blocks_to_html, resolve_blocks_json
 from .email_sender import TEMPLATES_DIR, render_preview_html, send_email, send_test_email
 from .jellyfin_client import JellyfinClient
 from .pending import load_pending
@@ -553,7 +553,7 @@ def _template_editor_view(scope: str, template_path: Path, active: str):
         raw_source=raw_source,
         saved=saved,
         raw_error=raw_error,
-        blocks_json=getattr(settings, f"{prefix}email_blocks", "[]") or "[]",
+        blocks_json=resolve_blocks_json(getattr(settings, f"{prefix}email_blocks", "")),
         block_types=BLOCK_TYPES,
         notifications_enabled=settings.new_notifications_enabled,
     )
@@ -806,7 +806,7 @@ def upcoming_view():
         raw_source=raw_source,
         saved=saved,
         raw_error=raw_error,
-        blocks_json=settings.upcoming_email_blocks or "[]",
+        blocks_json=resolve_blocks_json(settings.upcoming_email_blocks),
         block_types=BLOCK_TYPES,
         notifications_enabled=settings.upcoming_notifications_enabled,
         mail_enabled=settings.smtp_enabled,

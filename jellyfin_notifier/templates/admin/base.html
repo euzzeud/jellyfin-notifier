@@ -192,6 +192,10 @@
 
   .row { display:flex; gap:10px; flex-wrap:wrap; }
   .row > * { flex:1; min-width:140px; }
+  /* A button inside a .row (e.g. the "Copy" button next to a read-only URL
+     field) should size to its label, not stretch to share the row equally
+     with the input next to it - only the input(s) should flex to fill. */
+  .row > button, .row > .btn { flex:0 0 auto; min-width:0; }
   .checkboxes { display:flex; gap:8px; flex-wrap:wrap; }
   .checkboxes label {
     display:flex; align-items:center; gap:7px; background: var(--panel2); border:1px solid var(--border-soft);

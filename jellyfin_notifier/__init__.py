@@ -1,5 +1,6 @@
 import hashlib
 import logging
+from datetime import datetime, timezone
 
 from flask import Flask, request
 
@@ -25,10 +26,28 @@ _SKIP_ACCESS_LOG_PREFIXES = ("/assets/",)
 _SKIP_ACCESS_LOG_SUFFIXES = ("/live-preview",)
 
 
+def _format_timestamp(value: str | None) -> str:
+    """Jinja filter: turns a raw ISO 8601 timestamp (as stored/returned by
+    poller.status() - e.g. "2026-09-22T20:10:21.727673+00:00", kept as-is
+    there for /health and /metrics consumers) into a friendly display form
+    for the admin UI, e.g. "22 Sep 2026, 20:10:21 UTC". Falls back to the
+    raw value if it can't be parsed."""
+    if not value:
+        return "—"
+    try:
+        dt = datetime.fromisoformat(value)
+    except ValueError:
+        return value
+    tz_label = "UTC" if dt.tzinfo == timezone.utc else (dt.strftime("%Z") or "")
+    formatted = dt.strftime("%d %b %Y, %H:%M:%S")
+    return f"{formatted} {tz_label}".strip()
+
+
 def create_app(config: Config | None = None) -> Flask:
     app = Flask(__name__)
     cfg = config or Config.from_env()
     app.config["JF_CONFIG"] = cfg
+    app.jinja_env.filters["friendly_dt"] = _format_timestamp
 
     @app.after_request
     def _log_interface_access(response):

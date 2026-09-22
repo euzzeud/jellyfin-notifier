@@ -13,6 +13,7 @@ l'éditeur visuel et continuer à modifier."""
 from __future__ import annotations
 
 import html
+import json
 import uuid
 
 # ---------------------------------------------------------------------------
@@ -44,6 +45,27 @@ DEFAULT_PROPS: dict[str, dict] = {
 
 def new_block(block_type: str) -> dict:
     return {"id": uuid.uuid4().hex[:8], "type": block_type, "props": dict(DEFAULT_PROPS.get(block_type, {}))}
+
+
+def default_blocks() -> list[dict]:
+    """The block list matching the built-in default raw templates (a single
+    content card with its default options) - used only as a display fallback
+    so the Visual Block Builder isn't shown empty while the Live Preview
+    (which always reflects the currently saved raw template) shows a fully
+    rendered card. Nothing is written to disk/Settings until the admin
+    actually clicks "Save changes"."""
+    return [new_block("content_card")]
+
+
+def resolve_blocks_json(raw: str | None) -> str:
+    """Settings.email_blocks / upcoming_email_blocks defaults to "[]" (never
+    customized via the visual builder yet). In that case, fall back to
+    default_blocks() instead of showing an empty builder - see its
+    docstring. Any real saved block list (including one the admin emptied
+    out on purpose) is returned as-is."""
+    if not raw or raw == "[]":
+        return json.dumps(default_blocks())
+    return raw
 
 
 def _esc(value) -> str:
