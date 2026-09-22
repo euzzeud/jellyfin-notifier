@@ -817,7 +817,7 @@ def upcoming_live_preview():
 # Console API Jellyfin
 # ---------------------------------------------------------------------------
 
-@admin_bp.route("/api-console", methods=["GET", "POST"])
+@admin_bp.route("/api", methods=["GET", "POST"])
 def api_console_view():
     cfg = _config()
     settings = load_settings(cfg.settings_path)
@@ -871,7 +871,7 @@ def api_console_view():
     )
 
 
-@admin_bp.route("/api-console/test", methods=["POST"])
+@admin_bp.route("/api/test", methods=["POST"])
 def api_console_test():
     """Teste la connexion (GET /System/Info) SANS rien sauvegarder - reflète
     ce qui est actuellement tapé dans le formulaire (même si pas encore
