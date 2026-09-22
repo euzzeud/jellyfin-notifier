@@ -80,8 +80,10 @@
 
   <form method="post" style="margin-top:20px;">
     <input type="hidden" name="action" value="save_poller" />
-    <label>Item types to watch (comma-separated)</label>
-    <input type="text" name="poller_item_types_override" value="{{ settings.poller_item_types_override }}" placeholder="{{ default_item_types }} (default)" />
+    <label>Item types to watch</label>
+    <div class="tag-input" id="item-types-input"></div>
+    <input type="hidden" name="poller_item_types_override" id="poller_item_types_override" value="{{ settings.poller_item_types_override }}" />
+    <small class="hint">Empty = default ({{ default_item_types }}). Press space, enter, comma or semicolon to add a type — click a suggestion or start typing to filter them.</small>
     <div class="row">
       <div>
         <label>Poll interval (seconds)</label>
@@ -142,5 +144,19 @@ function pollerAction(action) {
     })
     .catch(err => { showToast('Network error: ' + err, false); });
 }
+
+// createTagInput est défini dans le script de base.html, qui apparaît
+// APRES le contenu de cette page dans le HTML final (base.html entoure le
+// contenu de chaque page) - donc pas encore défini au moment où ce script
+// s'exécute. On attend DOMContentLoaded (tout le document chargé) avant
+// de l'appeler.
+document.addEventListener('DOMContentLoaded', () => {
+  createTagInput({
+    root: document.getElementById('item-types-input'),
+    hiddenInput: document.getElementById('poller_item_types_override'),
+    suggestions: ['Movie', 'Series', 'Season', 'Episode', 'BoxSet', 'Audio', 'MusicAlbum', 'MusicVideo', 'Book', 'Photo'],
+    placeholder: 'Movie, Series...',
+  });
+});
 </script>
 {% endblock %}

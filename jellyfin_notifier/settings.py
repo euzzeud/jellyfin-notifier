@@ -14,7 +14,7 @@ DEFAULT_TEMPLATE_SUBJECT_SINGLE = "Nouveauté sur Jellyfin : {name}"
 DEFAULT_TEMPLATE_SUBJECT_MULTI = "Nouveautés sur Jellyfin : {count} ajouts"
 DEFAULT_INTRO_SINGLE = "Un nouveau contenu est disponible !"
 DEFAULT_INTRO_MULTI = "{count} nouveaux contenus sont disponibles !"
-DEFAULT_FOOTER = "Envoyé automatiquement par ton serveur Jellyfin - Enzo GIOIELLI"
+DEFAULT_FOOTER = "Envoyé automatiquement par Jellyfin - Enzo GIOIELLI"
 
 _lock = threading.Lock()
 

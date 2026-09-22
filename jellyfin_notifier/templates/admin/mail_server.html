@@ -69,8 +69,10 @@
   <label>Sender email (the "From" address — usually the same as the username)</label>
   <input type="text" name="sender_email_override" value="{{ settings.sender_email_override }}" placeholder="{{ default_username }} (default)" />
 
-  <label>Recipients (comma-separated)</label>
-  <input type="text" name="recipients_override" value="{{ settings.recipients_override }}" placeholder="{{ default_recipients }} (default)" />
+  <label>Recipients</label>
+  <div class="tag-input" id="recipients-input"></div>
+  <input type="hidden" name="recipients_override" id="recipients_override" value="{{ settings.recipients_override }}" />
+  <small class="hint">Empty = default ({{ default_recipients }}). Press space, enter, comma or semicolon to add an address — each one is checked for a valid email format.</small>
 
   <div class="actions">
     <button type="submit">Save changes</button>
@@ -88,4 +90,16 @@
   </div>
 </form>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  createTagInput({
+    root: document.getElementById('recipients-input'),
+    hiddenInput: document.getElementById('recipients_override'),
+    suggestions: [],
+    placeholder: 'name@example.com',
+    validate: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+    invalidMessage: 'That doesn\'t look like a valid email address.',
+  });
+});
+</script>
 {% endblock %}

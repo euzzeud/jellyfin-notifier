@@ -127,6 +127,44 @@
   .checkboxes label:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.2); }
   .checkboxes input { width:auto; accent-color: var(--blue); }
 
+  .tag-input {
+    position: relative; display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+    background: rgba(0,0,0,.22); border:1px solid var(--border); border-radius: var(--radius-sm);
+    padding:7px 9px; min-height:42px; cursor:text;
+    transition: border-color .18s var(--ease), box-shadow .18s var(--ease), background-color .18s var(--ease);
+  }
+  .tag-input:hover { border-color: rgba(255,255,255,.22); }
+  .tag-input:focus-within { border-color: var(--blue); background: rgba(18,179,240,.06); box-shadow: 0 0 0 3px rgba(18,179,240,.16); }
+  .tag-input-chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .tag-chip {
+    display:inline-flex; align-items:center; gap:6px; background: linear-gradient(135deg, var(--blue2), var(--purple2));
+    color:#fff; padding:4px 4px 4px 11px; border-radius:999px; font-size:12.5px; font-weight:600; white-space:nowrap;
+  }
+  .tag-chip button {
+    all:unset; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    width:16px; height:16px; border-radius:50%; background: rgba(255,255,255,.22); font-size:10px; line-height:1;
+    transition: background-color .15s var(--ease);
+  }
+  .tag-chip button:hover { background: rgba(255,255,255,.4); }
+  .tag-input-text {
+    flex:1; min-width:140px; background:none !important; border:none !important; padding:4px 2px !important;
+    box-shadow:none !important; color:var(--text); font-size:13.5px;
+  }
+  .tag-input-text:focus { outline:none; box-shadow:none !important; background:none !important; }
+  .tag-input-suggestions {
+    position:absolute; top:calc(100% + 6px); left:0; right:0; background: var(--panel-solid); border:1px solid var(--border);
+    border-radius: var(--radius-sm); box-shadow: var(--shadow-pop); max-height:220px; overflow:auto; z-index:30;
+    display:none; animation: alertin .15s var(--ease);
+  }
+  .tag-input-suggestions.open { display:block; }
+  .tag-input-suggestion { padding:9px 12px; font-size:13px; cursor:pointer; color:var(--text); }
+  .tag-input-suggestion:hover, .tag-input-suggestion.active { background: rgba(255,255,255,.08); }
+  .tag-input.tag-input-invalid { border-color: var(--red); box-shadow: 0 0 0 3px rgba(240,85,92,.16); animation: taginshake .3s var(--ease); }
+  @keyframes taginshake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  .tag-input-error-msg { display:none; color:var(--red); font-size:11.5px; margin-top:2px; flex-basis:100%; }
+  .tag-input-error-msg.show { display:block; }
+  .tag-chip.invalid { background: linear-gradient(135deg, #f0656c, #cf3b42); }
+
   button, .btn {
     background: linear-gradient(135deg, var(--blue), var(--blue2)); color:#fff; border:none;
     padding:10px 20px; border-radius: 999px; font-size:13px; font-weight:600; cursor:pointer;
@@ -227,6 +265,129 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast(el.textContent.trim(), el.classList.contains('ok'));
   });
 });
+
+// Champ "tags" réutilisable : espace/entrée/virgule/point-virgule
+// transforment le texte tapé en tag (avec une croix pour le retirer), et
+// une liste de suggestions s'affiche (toutes si le champ est vide, filtrées
+// sinon). `hiddenInput.value` reste une liste séparée par des virgules,
+// donc le formulaire qui le contient n'a rien à changer côté serveur.
+function createTagInput({ root, hiddenInput, suggestions = [], placeholder = 'Type to add...', validate = null, invalidMessage = 'Invalid value' }) {
+  const chipsEl = document.createElement('div');
+  chipsEl.className = 'tag-input-chips';
+  const textEl = document.createElement('input');
+  textEl.type = 'text';
+  textEl.className = 'tag-input-text';
+  textEl.autocomplete = 'off';
+  textEl.spellcheck = false;
+  textEl.placeholder = placeholder;
+  const suggEl = document.createElement('div');
+  suggEl.className = 'tag-input-suggestions';
+  const errorEl = document.createElement('div');
+  errorEl.className = 'tag-input-error-msg';
+  errorEl.textContent = invalidMessage;
+
+  root.innerHTML = '';
+  root.appendChild(chipsEl);
+  root.appendChild(textEl);
+  root.appendChild(suggEl);
+  root.appendChild(errorEl);
+
+  let tags = (hiddenInput.value || '').split(',').map(s => s.trim()).filter(Boolean);
+  let errTimer = null;
+
+  function showError() {
+    root.classList.add('tag-input-invalid');
+    errorEl.classList.add('show');
+    clearTimeout(errTimer);
+    errTimer = setTimeout(clearError, 2500);
+  }
+
+  function clearError() {
+    root.classList.remove('tag-input-invalid');
+    errorEl.classList.remove('show');
+  }
+
+  function sync() {
+    hiddenInput.value = tags.join(',');
+    hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+    renderChips();
+  }
+
+  function renderChips() {
+    chipsEl.innerHTML = '';
+    tags.forEach((tag, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip' + (validate && !validate(tag) ? ' invalid' : '');
+      const label = document.createElement('span');
+      label.textContent = tag;
+      if (validate && !validate(tag)) { label.title = invalidMessage; }
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('aria-label', 'Remove ' + tag);
+      btn.textContent = '✕';
+      btn.addEventListener('click', (e) => { e.stopPropagation(); tags.splice(i, 1); sync(); });
+      chip.appendChild(label);
+      chip.appendChild(btn);
+      chipsEl.appendChild(chip);
+    });
+  }
+
+  function addTag(raw) {
+    const value = raw.trim();
+    if (!value) { textEl.value = ''; renderSuggestions(); return; }
+    if (validate && !validate(value)) {
+      // Garde le texte tapé dans le champ pour que l'utilisateur puisse le
+      // corriger, au lieu de le faire disparaître silencieusement.
+      showError();
+      return;
+    }
+    clearError();
+    textEl.value = '';
+    if (!tags.some(t => t.toLowerCase() === value.toLowerCase())) {
+      tags.push(value);
+      sync();
+    }
+    renderSuggestions();
+  }
+
+  function renderSuggestions() {
+    const query = textEl.value.trim().toLowerCase();
+    const available = suggestions.filter(s => !tags.some(t => t.toLowerCase() === s.toLowerCase()));
+    const matches = query ? available.filter(s => s.toLowerCase().includes(query)) : available;
+    suggEl.innerHTML = '';
+    if (!matches.length) { suggEl.classList.remove('open'); return; }
+    matches.forEach(s => {
+      const item = document.createElement('div');
+      item.className = 'tag-input-suggestion';
+      item.textContent = s;
+      // mousedown (pas click) : se déclenche avant le blur du champ texte.
+      item.addEventListener('mousedown', (e) => { e.preventDefault(); addTag(s); textEl.focus(); });
+      suggEl.appendChild(item);
+    });
+    suggEl.classList.add('open');
+  }
+
+  textEl.addEventListener('input', () => { clearError(); renderSuggestions(); });
+  textEl.addEventListener('focus', renderSuggestions);
+  textEl.addEventListener('blur', () => setTimeout(() => suggEl.classList.remove('open'), 150));
+  textEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ',' || e.key === ';' || e.key === ' ') {
+      e.preventDefault();
+      addTag(textEl.value);
+    } else if (e.key === 'Backspace' && !textEl.value && tags.length) {
+      tags.pop();
+      sync();
+    } else if (e.key === 'Escape') {
+      suggEl.classList.remove('open');
+    }
+  });
+  root.addEventListener('mousedown', (e) => {
+    if (e.target === root || e.target === chipsEl) { textEl.focus(); }
+  });
+
+  renderChips();
+  return { getTags: () => tags.slice() };
+}
 </script>
 </body>
 </html>
