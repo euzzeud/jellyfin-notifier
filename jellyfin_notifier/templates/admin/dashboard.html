@@ -3,6 +3,8 @@
 {% block content %}
 
 {% if settings_reset %}<div class="alert ok flash-toast">Settings reset to their default values.</div>{% endif %}
+{% if imported %}<div class="alert ok flash-toast">Settings imported successfully.</div>{% endif %}
+{% if import_error %}<div class="alert err flash-toast">{{ import_error }}</div>{% endif %}
 
 <div class="card">
   <h2>Service</h2>
@@ -122,6 +124,20 @@
 <div class="card">
   <h2>Recent logs</h2>
   <pre class="logbox">{{ logs_tail }}</pre>
+</div>
+
+<div class="card">
+  <h2>Backup &amp; restore</h2>
+  <p class="muted" style="font-size:12.5px;">
+    Export all notifier settings (mail texts &amp; colors, schedule, poller/Jellyfin/SMTP overrides) to a JSON file, or restore a previously exported one — handy before moving to a new LXC/server. This does <strong>not</strong> include the queue, the "upcoming" titles, the mail history, or your raw HTML template edits.
+  </p>
+  <div class="actions" style="margin-top:0;">
+    <a href="{{ url_for('admin.settings_export') }}" class="btn secondary">⬇ Export settings</a>
+    <button type="button" class="secondary" onclick="document.getElementById('import-settings-input').click();">⬆ Import settings</button>
+  </div>
+  <form method="post" action="{{ url_for('admin.settings_import') }}" enctype="multipart/form-data" id="import-settings-form" style="display:none;">
+    <input type="file" name="settings_file" id="import-settings-input" accept="application/json" onchange="document.getElementById('import-settings-form').submit();" />
+  </form>
 </div>
 
 <div class="card danger-zone">

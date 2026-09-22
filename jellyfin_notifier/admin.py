@@ -21,7 +21,7 @@ from flask import Blueprint, Response, current_app, jsonify, redirect, render_te
 from jinja2 import Environment as JinjaEnv
 from jinja2 import TemplateSyntaxError
 
-from . import service_control
+from . import mail_history, service_control
 from .api_console import run_request
 from .config import SMTP_ENCRYPTIONS
 from .email_blocks import BLOCK_TYPES, compile_blocks_to_html
@@ -233,8 +233,10 @@ def login():
             # Sécurité minimale : n'autorise que les redirections internes (évite un open redirect).
             if not next_url.startswith("/"):
                 next_url = url_for("admin.dashboard")
+            logger.info("Login successful (user=%s, from=%s).", username, request.remote_addr)
             return redirect(next_url)
         error = "Invalid username or password."
+        logger.warning("Failed login attempt (user=%r, from=%s).", username, request.remote_addr)
 
     return render_template("admin/login.html", error=error, next=request.args.get("next", ""))
 
@@ -242,6 +244,7 @@ def login():
 @admin_bp.route("/logout", methods=["POST"])
 def logout():
     session.clear()
+    logger.info("Logout.")
     return redirect(url_for("admin.login"))
 
 
@@ -262,12 +265,15 @@ def dashboard():
         settings.poller_limit_override = request.form.get("poller_limit_override", type=int) or 0
         save_settings(cfg.settings_path, settings)
         poller_saved = True
+        logger.info("Poller settings saved (interval/limit/item types override).")
 
     poll_status = poller.status() if poller else None
     service_status = service_control.get_status()
     pending = load_pending(cfg.pending_items_path)
     logs_tail = service_control.get_logs(40)
     settings_reset = request.args.get("settings_reset") == "1"
+    imported = request.args.get("imported") == "1"
+    import_error = request.args.get("import_error")
 
     return render_template(
         "admin/dashboard.html",
@@ -281,6 +287,8 @@ def dashboard():
         next_slot=next_allowed_datetime(settings),
         poller_saved=poller_saved,
         settings_reset=settings_reset,
+        imported=imported,
+        import_error=import_error,
         default_item_types=",".join(sorted(cfg.notify_item_types)),
         default_interval=cfg.poll_interval_seconds,
     )
@@ -298,6 +306,7 @@ def dashboard():
 def settings_reset():
     cfg = _config()
     save_settings(cfg.settings_path, Settings())
+    logger.warning("All notifier settings reset to their defaults.")
     return redirect(url_for("admin.dashboard", settings_reset=1))
 
 
@@ -327,6 +336,7 @@ def poller_action(action: str):
     else:
         return jsonify({"ok": False, "error": "Unknown action."}), 400
 
+    logger.info("Poller action: %s.", action)
     return jsonify({"ok": True, "status": poller.status()})
 
 
@@ -337,19 +347,25 @@ def poller_action(action: str):
 @admin_bp.route("/service/<action>", methods=["POST"])
 def service_action_route(action: str):
     ok, output = service_control.service_action(action)
+    (logger.info if ok else logger.error)("Service action: %s -> %s.", action, "ok" if ok else "failed")
     return jsonify({"ok": ok, "output": output, "status": service_control.get_status()})
 
 
 @admin_bp.route("/logs")
 def logs():
     lines = request.args.get("lines", default=300, type=int)
-    return render_template("admin/logs.html", active="logs", logs_text=service_control.get_logs(lines), lines=lines)
+    return render_template(
+        "admin/logs.html",
+        active="logs",
+        logs=service_control.get_logs_structured(lines),
+        lines=lines,
+    )
 
 
 @admin_bp.route("/logs/data")
 def logs_data():
     lines = request.args.get("lines", default=300, type=int)
-    return jsonify({"logs": service_control.get_logs(lines), "service": service_control.get_status()})
+    return jsonify({"logs": service_control.get_logs_structured(lines), "service": service_control.get_status()})
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +389,7 @@ def schedule_view():
             pass
         save_settings(cfg.settings_path, settings)
         saved = True
+        logger.info("Schedule saved (days=%s, window=%s-%s).", days, settings.notify_hour_start, settings.notify_hour_end)
 
     return render_template(
         "admin/schedule.html",
@@ -495,17 +512,22 @@ def _template_editor_view(scope: str, template_path: Path, active: str):
         if form_type == "toggle":
             settings.new_notifications_enabled = request.form.get("enabled") == "1"
             save_settings(cfg.settings_path, settings)
+            logger.info("New Content Notifications module %s.", "enabled" if settings.new_notifications_enabled else "disabled")
             return redirect(url_for("admin.template_view"))
 
         elif form_type == "simple":
             _save_simple_texts(scope, settings, cfg)
             saved = "simple"
+            logger.info("New Content template: texts/colors saved.")
 
         elif form_type == "raw":
             raw_source = request.form.get("raw_source", raw_source)
             valid, error = _save_raw_template(template_path, raw_source)
             saved = "raw" if valid else None
             raw_error = None if valid else error
+            (logger.info if valid else logger.warning)(
+                "New Content template: raw HTML %s.", "saved" if valid else f"rejected ({error})"
+            )
 
         elif form_type == "blocks":
             valid, error = _save_blocks(scope, settings, cfg, template_path, request.form.get("blocks_json", "[]"))
@@ -513,6 +535,9 @@ def _template_editor_view(scope: str, template_path: Path, active: str):
             raw_error = None if valid else error
             if valid:
                 raw_source = template_path.read_text(encoding="utf-8")
+            (logger.info if valid else logger.warning)(
+                "New Content template: visual layout %s.", "saved" if valid else f"rejected ({error})"
+            )
 
     prefix = _FIELD_PREFIX[scope]
     return render_template(
@@ -682,10 +707,12 @@ def upcoming_view():
                         "admin.upcoming_view",
                         add_error=f'"{name}" was added, but the poster was not saved (allowed formats: {allowed}).',
                     ))
+            logger.info("Upcoming title added: %r.", name)
             return redirect(url_for("admin.upcoming_view"))
 
         elif action == "delete":
             delete_upcoming(cfg.upcoming_path, request.form.get("id", ""))
+            logger.info("Upcoming title deleted (id=%s).", request.form.get("id", ""))
             return redirect(url_for("admin.upcoming_view"))
 
         elif action == "announce":
@@ -727,18 +754,23 @@ def upcoming_view():
             toggle_settings = load_settings(cfg.settings_path)
             toggle_settings.upcoming_notifications_enabled = request.form.get("enabled") == "1"
             save_settings(cfg.settings_path, toggle_settings)
+            logger.info("Upcoming Content Notifications module %s.", "enabled" if toggle_settings.upcoming_notifications_enabled else "disabled")
             return redirect(url_for("admin.upcoming_view"))
 
         elif form_type == "simple":
             settings = load_settings(cfg.settings_path)
             _save_simple_texts("upcoming", settings, cfg)
             saved = "simple"
+            logger.info("Upcoming template: texts/colors saved.")
 
         elif form_type == "raw":
             raw_source = request.form.get("raw_source", raw_source)
             valid, error = _save_raw_template(EMAIL_UPCOMING_TEMPLATE_PATH, raw_source)
             saved = "raw" if valid else None
             raw_error = None if valid else error
+            (logger.info if valid else logger.warning)(
+                "Upcoming template: raw HTML %s.", "saved" if valid else f"rejected ({error})"
+            )
 
         elif form_type == "blocks":
             blocks_settings = load_settings(cfg.settings_path)
@@ -749,6 +781,9 @@ def upcoming_view():
             raw_error = None if valid else error
             if valid:
                 raw_source = EMAIL_UPCOMING_TEMPLATE_PATH.read_text(encoding="utf-8")
+            (logger.info if valid else logger.warning)(
+                "Upcoming template: visual layout %s.", "saved" if valid else f"rejected ({error})"
+            )
 
     sent = request.args.get("sent") == "1"
     announce_error = request.args.get("announce_error")
@@ -853,6 +888,7 @@ def api_console_view():
             save_msg = "Connection saved."
             effective_url = settings.jellyfin_url_override or cfg.jellyfin_url
             effective_key = settings.jellyfin_api_key_override or cfg.jellyfin_api_key
+            logger.info("Jellyfin connection settings saved (url=%s).", effective_url)
 
         elif action == "run":
             method = request.form.get("method", "GET")
@@ -966,7 +1002,7 @@ def mail_server_view():
                 test_result = {"ok": False, "error": "No recipient configured to send the test to."}
             else:
                 try:
-                    send_test_email(smtp, test_recipient)
+                    send_test_email(smtp, test_recipient, history_path=cfg.mail_history_path)
                     test_result = {"ok": True, "recipient": test_recipient}
                     # La config actuellement SAUVEGARDÉE vient de prouver
                     # qu'elle fonctionne -> elle devient éligible à
@@ -1011,3 +1047,79 @@ def mail_server_view():
         is_validated=is_validated,
         mail_active=settings.smtp_enabled and is_validated,
     )
+
+
+# ---------------------------------------------------------------------------
+# Historique des mails envoyés (notifications, annonces, tests) - un vrai
+# journal consultable plutôt que juste le statut du dernier envoi.
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/mail-history")
+def mail_history_view():
+    cfg = _config()
+    limit = request.args.get("limit", default=200, type=int)
+    return render_template(
+        "admin/mail_history.html",
+        active="mail_history",
+        history=mail_history.list_history(cfg.mail_history_path, limit),
+        limit=limit,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Page "Health" - reflète l'endpoint public /health (sans authentification,
+# pensé pour un système de supervision externe type Uptime Kuma), avec le
+# lien direct à copier dedans.
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/monitoring")
+def health_view():
+    poller = _poller()
+    poll_status = poller.status() if poller else None
+    healthy = bool(poll_status["healthy"]) if poll_status else True
+    return render_template(
+        "admin/health.html",
+        active="health",
+        poll_status=poll_status,
+        healthy=healthy,
+        health_url=url_for("webhook.health", _external=True),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Export / import de settings.json (sauvegarde/restauration en un clic) -
+# ne touche PAS aux données (file d'attente, titres "à venir" + affiches,
+# historique des mails, état "déjà vu" du poller) ni aux templates HTML.
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/settings/export")
+def settings_export():
+    cfg = _config()
+    settings = load_settings(cfg.settings_path)
+    payload = json.dumps(settings.to_dict(), indent=2, ensure_ascii=False)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    logger.info("Settings exported.")
+    return Response(
+        payload,
+        mimetype="application/json",
+        headers={"Content-Disposition": f'attachment; filename="jellyfin-notifier-settings-{stamp}.json"'},
+    )
+
+
+@admin_bp.route("/settings/import", methods=["POST"])
+def settings_import():
+    cfg = _config()
+    upload = request.files.get("settings_file")
+    if not upload or not upload.filename:
+        return redirect(url_for("admin.dashboard", import_error="Choose a settings JSON file first."))
+    try:
+        data = json.loads(upload.read().decode("utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("expected a JSON object")
+        imported = Settings.from_dict(data)
+    except Exception as exc:
+        logger.warning("Settings import rejected: %s", exc)
+        return redirect(url_for("admin.dashboard", import_error=f"Invalid settings file: {exc}"))
+    save_settings(cfg.settings_path, imported)
+    logger.warning("Settings imported from %r, overwriting the current configuration.", upload.filename)
+    return redirect(url_for("admin.dashboard", imported=1))

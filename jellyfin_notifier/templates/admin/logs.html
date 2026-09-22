@@ -3,27 +3,112 @@
 {% block content %}
 
 <div class="card">
-  <h2>Service logs (last {{ lines }} lines)</h2>
+  <h2>Logs (last {{ lines }} lines)</h2>
+  <p class="muted" style="font-size:12px;">
+    "Interface" is everything the admin web UI did (page requests, saves, toggles, service actions). "Service" is the background poller/webhook loop. "Mail" is SMTP sending. Everything else (systemd, process startup) falls under "Other".
+  </p>
+
+  <div class="log-toolbar">
+    <div class="log-filters" id="category-filters">
+      <button type="button" class="log-chip active" data-category="all">All <span class="log-chip-count" id="count-all">0</span></button>
+      <button type="button" class="log-chip" data-category="interface">Interface <span class="log-chip-count" id="count-interface">0</span></button>
+      <button type="button" class="log-chip" data-category="service">Service <span class="log-chip-count" id="count-service">0</span></button>
+      <button type="button" class="log-chip" data-category="mail">Mail <span class="log-chip-count" id="count-mail">0</span></button>
+      <button type="button" class="log-chip" data-category="other">Other <span class="log-chip-count" id="count-other">0</span></button>
+    </div>
+    <div class="log-filters" id="level-filters">
+      <button type="button" class="log-chip level-chip active" data-level="all">All levels</button>
+      <button type="button" class="log-chip level-chip lvl-error" data-level="ERROR">Error/Critical</button>
+      <button type="button" class="log-chip level-chip lvl-warning" data-level="WARNING">Warning</button>
+      <button type="button" class="log-chip level-chip lvl-info" data-level="INFO">Info</button>
+    </div>
+  </div>
+
   <div class="actions" style="margin-top:0;margin-bottom:14px;">
     <button onclick="refreshLogs()" class="secondary">↻ Refresh</button>
     <label style="display:flex;align-items:center;gap:6px;margin:0;">
       <input type="checkbox" id="auto-refresh" style="width:auto;" /> Auto (5s)
     </label>
+    <label style="display:flex;align-items:center;gap:6px;margin:0;">
+      <input type="checkbox" id="follow-scroll" style="width:auto;" checked /> Follow latest
+    </label>
   </div>
-  <pre class="logbox" id="logbox">{{ logs_text }}</pre>
+
+  <div class="logbox log-lines" id="logbox"></div>
 </div>
 
 <script>
 const dataUrl = "{{ url_for('admin.logs_data', lines=lines) }}";
+const INITIAL_LOGS = {{ logs | tojson }};
+let allLogs = INITIAL_LOGS;
+let activeCategory = 'all';
+let activeLevel = 'all';
 let interval = null;
+
+const LEVEL_CLASS = { ERROR: 'lvl-error', CRITICAL: 'lvl-error', WARNING: 'lvl-warning', INFO: 'lvl-info', DEBUG: 'lvl-debug', OTHER: 'lvl-other' };
+const CATEGORY_LABEL = { interface: 'Interface', service: 'Service', mail: 'Mail', other: 'Other' };
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function render() {
+  const box = document.getElementById('logbox');
+  const counts = { interface: 0, service: 0, mail: 0, other: 0 };
+  const filtered = [];
+
+  for (const entry of allLogs) {
+    counts[entry.category] = (counts[entry.category] || 0) + 1;
+    const categoryOk = activeCategory === 'all' || entry.category === activeCategory;
+    const levelOk = activeLevel === 'all' || entry.level === activeLevel || (activeLevel === 'ERROR' && entry.level === 'CRITICAL');
+    if (categoryOk && levelOk) filtered.push(entry);
+  }
+
+  document.getElementById('count-all').textContent = allLogs.length;
+  document.getElementById('count-interface').textContent = counts.interface;
+  document.getElementById('count-service').textContent = counts.service;
+  document.getElementById('count-mail').textContent = counts.mail;
+  document.getElementById('count-other').textContent = counts.other;
+
+  if (!filtered.length) {
+    box.innerHTML = '<div class="log-empty">No matching log lines.</div>';
+    return;
+  }
+
+  const wasAtBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
+  box.innerHTML = filtered.map(entry => {
+    const cls = LEVEL_CLASS[entry.level] || 'lvl-other';
+    const tag = CATEGORY_LABEL[entry.category] || 'Other';
+    return `<div class="log-line ${cls}"><span class="log-badge">${tag}</span><span class="log-text">${escapeHtml(entry.raw)}</span></div>`;
+  }).join('');
+
+  if (document.getElementById('follow-scroll').checked && wasAtBottom) {
+    box.scrollTop = box.scrollHeight;
+  }
+}
 
 function refreshLogs() {
   fetch(dataUrl).then(r => r.json()).then(data => {
-    const box = document.getElementById('logbox');
-    box.textContent = data.logs;
-    box.scrollTop = box.scrollHeight;
+    allLogs = data.logs;
+    render();
   });
 }
+
+document.getElementById('category-filters').addEventListener('click', (e) => {
+  const btn = e.target.closest('.log-chip');
+  if (!btn) return;
+  activeCategory = btn.dataset.category;
+  document.querySelectorAll('#category-filters .log-chip').forEach(b => b.classList.toggle('active', b === btn));
+  render();
+});
+
+document.getElementById('level-filters').addEventListener('click', (e) => {
+  const btn = e.target.closest('.log-chip');
+  if (!btn) return;
+  activeLevel = btn.dataset.level;
+  document.querySelectorAll('#level-filters .log-chip').forEach(b => b.classList.toggle('active', b === btn));
+  render();
+});
 
 document.getElementById('auto-refresh').addEventListener('change', (e) => {
   if (e.target.checked) {
@@ -32,6 +117,9 @@ document.getElementById('auto-refresh').addEventListener('change', (e) => {
     clearInterval(interval);
   }
 });
+
+render();
+document.getElementById('logbox').scrollTop = document.getElementById('logbox').scrollHeight;
 </script>
 
 {% endblock %}

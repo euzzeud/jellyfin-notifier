@@ -44,6 +44,7 @@ class Config:
     settings_path: str
     pending_items_path: str
     upcoming_path: str
+    mail_history_path: str
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -88,6 +89,7 @@ class Config:
             settings_path=os.environ.get("SETTINGS_PATH", "settings.json"),
             pending_items_path=os.environ.get("PENDING_ITEMS_PATH", "pending_items.json"),
             upcoming_path=os.environ.get("UPCOMING_PATH", "upcoming.json"),
+            mail_history_path=os.environ.get("MAIL_HISTORY_PATH", "mail_history.json"),
         )
 
 

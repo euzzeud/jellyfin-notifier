@@ -14,6 +14,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from . import mail_history
 from .config import Config, SmtpSettings
 from .jellyfin_client import JellyfinClient
 from .settings import ScopedEmailSettings, Settings
@@ -332,25 +333,42 @@ def send_email(
     smtp = smtp or _default_smtp(config)
     recipients = recipients if recipients is not None else smtp.recipients
     html, inline_images = _prepare_content(items, jf_client, settings, template_name=template_name)
+    subject = _build_subject(items, settings)
+    # "upcoming" est le seul autre template utilisé en pratique (cf. les
+    # appels avec template_name="email_upcoming.html") - inféré ici plutôt
+    # que de faire remonter un paramètre "scope" jusqu'à tous les appelants.
+    scope = "upcoming" if template_name != DEFAULT_TEMPLATE_NAME else "new"
 
-    smtp_cls = smtplib.SMTP_SSL if smtp.encryption == "ssl" else smtplib.SMTP
-    with smtp_cls(smtp.host, smtp.port, timeout=20) as server:
-        if smtp.encryption == "starttls":
-            server.starttls()
-        if smtp.username:
-            server.login(smtp.username, smtp.password)
-        for recipient in recipients:
-            msg = build_email(items, smtp, recipient, html, inline_images, settings)
-            server.sendmail(smtp.sender_email, [recipient], msg.as_string())
+    try:
+        smtp_cls = smtplib.SMTP_SSL if smtp.encryption == "ssl" else smtplib.SMTP
+        with smtp_cls(smtp.host, smtp.port, timeout=20) as server:
+            if smtp.encryption == "starttls":
+                server.starttls()
+            if smtp.username:
+                server.login(smtp.username, smtp.password)
+            for recipient in recipients:
+                msg = build_email(items, smtp, recipient, html, inline_images, settings)
+                server.sendmail(smtp.sender_email, [recipient], msg.as_string())
+    except Exception as exc:
+        mail_history.record(
+            config.mail_history_path, scope=scope, subject=subject, recipients=recipients,
+            item_names=[i.get("name", "?") for i in items], success=False, error=str(exc),
+        )
+        raise
     logger.info("Mail envoyé à %d destinataire(s) pour %d item(s)", len(recipients), len(items))
+    mail_history.record(
+        config.mail_history_path, scope=scope, subject=subject, recipients=recipients,
+        item_names=[i.get("name", "?") for i in items], success=True,
+    )
 
 
-def send_test_email(smtp: SmtpSettings, to: str) -> None:
+def send_test_email(smtp: SmtpSettings, to: str, history_path: str | None = None) -> None:
     """Envoie un mail de test minimal (texte brut, sans Jellyfin ni
     template) - utilisé par la page "Mail server" de l'admin pour vérifier
     une config SMTP avant de compter dessus pour les vraies notifs."""
+    subject = "Test - Jellyfin Notifier"
     msg = MIMEMultipart()
-    msg["Subject"] = "Test - Jellyfin Notifier"
+    msg["Subject"] = subject
     msg["From"] = f"{smtp.sender_name} <{smtp.sender_email}>"
     msg["To"] = to
     msg.attach(
@@ -361,10 +379,17 @@ def send_test_email(smtp: SmtpSettings, to: str) -> None:
             "utf-8",
         )
     )
-    smtp_cls = smtplib.SMTP_SSL if smtp.encryption == "ssl" else smtplib.SMTP
-    with smtp_cls(smtp.host, smtp.port, timeout=20) as server:
-        if smtp.encryption == "starttls":
-            server.starttls()
-        if smtp.username:
-            server.login(smtp.username, smtp.password)
-        server.sendmail(smtp.sender_email, [to], msg.as_string())
+    try:
+        smtp_cls = smtplib.SMTP_SSL if smtp.encryption == "ssl" else smtplib.SMTP
+        with smtp_cls(smtp.host, smtp.port, timeout=20) as server:
+            if smtp.encryption == "starttls":
+                server.starttls()
+            if smtp.username:
+                server.login(smtp.username, smtp.password)
+            server.sendmail(smtp.sender_email, [to], msg.as_string())
+    except Exception as exc:
+        if history_path:
+            mail_history.record(history_path, scope="test", subject=subject, recipients=[to], item_names=[], success=False, error=str(exc))
+        raise
+    if history_path:
+        mail_history.record(history_path, scope="test", subject=subject, recipients=[to], item_names=[], success=True)
