@@ -8,18 +8,20 @@ pensée pour un accès LAN uniquement (pas exposée sur internet)."""
 from __future__ import annotations
 
 import hmac
+import html.parser
 import logging
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
 
-from flask import Blueprint, Response, current_app, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, Response, current_app, jsonify, redirect, render_template, request, send_from_directory, url_for
 from jinja2 import Environment as JinjaEnv
 from jinja2 import TemplateSyntaxError
 
 from . import service_control
 from .api_console import run_request
-from .email_sender import TEMPLATES_DIR, _prepare_content, send_email
+from .email_sender import TEMPLATES_DIR, render_preview_html, send_email
 from .jellyfin_client import JellyfinClient
 from .pending import load_pending
 from .schedule import WEEKDAY_NAMES_FR, is_within_window, next_allowed_datetime
@@ -31,6 +33,7 @@ logger = logging.getLogger(__name__)
 admin_bp = Blueprint("admin", __name__)
 
 EMAIL_TEMPLATE_PATH = TEMPLATES_DIR / "email.html"
+ASSETS_DIR = Path(__file__).parent / "assets"
 
 FAKE_PREVIEW_ITEMS = [
     {
@@ -57,6 +60,101 @@ def _config():
 
 def _poller():
     return current_app.config.get("JF_POLLER")
+
+
+# ---------------------------------------------------------------------------
+# Fichiers statiques (logo affiché dans le header de l'admin)
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/assets/<path:filename>")
+def assets(filename: str):
+    return send_from_directory(ASSETS_DIR, filename)
+
+
+# ---------------------------------------------------------------------------
+# Validation HTML : la validation Jinja seule (compile + rend le template)
+# ne détecte AUCUN problème de balisage HTML - un attribut mal formé du
+# genre `<html =d1d1>` est du Jinja/texte parfaitement valide, donc "compile"
+# sans erreur. On ajoute donc une vérification structurelle légère (balises
+# non fermées / mal imbriquées, attributs mal formés) en plus du check Jinja.
+# ---------------------------------------------------------------------------
+
+_VOID_ELEMENTS = {
+    "area", "base", "br", "col", "embed", "hr", "img", "input",
+    "link", "meta", "param", "source", "track", "wbr",
+}
+
+# Attribut valide : nom (lettres/chiffres/-/:/_ , doit commencer par une
+# lettre) suivi optionnellement de ="valeur"/'valeur'/valeur. Un attribut du
+# genre `=d1d1` (nom vide, commence par "=") ne matche pas -> signalé.
+_ATTR_RE = re.compile(
+    r'\s+([a-zA-Z][a-zA-Z0-9\-:_]*)(\s*=\s*("[^"]*"|\'[^\']*\'|[^\s"\'=<>`]+))?'
+)
+
+
+def _check_html_structure(source: str) -> str | None:
+    """Retourne un message d'erreur (ou None si rien détecté). Ignore les
+    blocs Jinja ({% ... %}, {{ ... }}) pour ne pas les confondre avec du HTML."""
+    # Neutralise les blocs Jinja pour ne pas perturber le parseur HTML
+    # (ex: {% for item in items %} contient des `<`/`>` implicites via le texte
+    # généré, mais surtout on ne veut pas que le tag-balancer s'embrouille).
+    cleaned = re.sub(r"\{%.*?%\}|\{\{.*?\}\}|\{#.*?#\}", "", source, flags=re.DOTALL)
+
+    errors: list[str] = []
+    stack: list[tuple[str, int]] = []
+
+    class _Checker(html.parser.HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            if tag not in _VOID_ELEMENTS:
+                stack.append((tag, self.getpos()[0]))
+
+        def handle_startendtag(self, tag, attrs):
+            pass  # auto-fermée (<br />) : rien à empiler
+
+        def handle_endtag(self, tag):
+            if tag in _VOID_ELEMENTS:
+                return
+            if not stack:
+                errors.append(f"ligne {self.getpos()[0]} : balise fermante </{tag}> sans balise ouvrante correspondante")
+                return
+            # Cherche la balise ouvrante correspondante dans la pile (gère les
+            # balises mal imbriquées comme <a><b></a></b>)
+            for i in range(len(stack) - 1, -1, -1):
+                if stack[i][0] == tag:
+                    unclosed = stack[i + 1:]
+                    if unclosed:
+                        names = ", ".join(f"<{n}>" for n, _ in unclosed)
+                        errors.append(f"ligne {self.getpos()[0]} : {names} non fermée avant </{tag}>")
+                    del stack[i:]
+                    return
+            errors.append(f"ligne {self.getpos()[0]} : </{tag}> ne correspond à aucune balise ouverte")
+
+        def error(self, message):  # requis par certaines versions de html.parser
+            errors.append(message)
+
+    parser = _Checker(convert_charrefs=True)
+    try:
+        parser.feed(cleaned)
+        parser.close()
+    except Exception as exc:  # pragma: no cover - garde-fou
+        return f"Erreur de parsing HTML : {exc}"
+
+    if stack:
+        names = ", ".join(f"<{n}> (ligne {ln})" for n, ln in stack)
+        errors.append(f"balise(s) jamais fermée(s) : {names}")
+
+    # Vérifie les attributs mal formés dans chaque balise ouvrante (ex: <html =d1d1>)
+    for m in re.finditer(r"<([a-zA-Z][a-zA-Z0-9\-:_]*)((?:\s+[^<>]*?)?)\s*/?>", cleaned):
+        tag, attr_blob = m.group(1), m.group(2)
+        if not attr_blob.strip():
+            continue
+        consumed = _ATTR_RE.sub("", attr_blob)
+        leftover = consumed.strip()
+        if leftover:
+            line = cleaned[: m.start()].count("\n") + 1
+            errors.append(f"ligne {line} : attribut mal formé dans <{tag}> près de « {leftover[:30]} »")
+
+    return errors[0] if errors else None
 
 
 @admin_bp.before_request
@@ -162,6 +260,7 @@ def schedule_view():
 
 def _validate_template_source(source: str) -> tuple[bool, str]:
     env = JinjaEnv(autoescape=True)
+    settings = Settings()
     try:
         template = env.from_string(source)
         template.render(
@@ -169,7 +268,7 @@ def _validate_template_source(source: str) -> tuple[bool, str]:
                 {
                     "name": "Exemple", "year": 2024, "overview": "Synopsis d'exemple.",
                     "type_label": "Film", "genres": "Action", "rating": "7.5",
-                    "duration": "1h47", "image_cid": None, "deep_link": "#",
+                    "duration": "1h47", "image_cid": None, "image_url": None, "deep_link": "#",
                 }
             ],
             count=1,
@@ -177,11 +276,23 @@ def _validate_template_source(source: str) -> tuple[bool, str]:
             logo_src=None,
             intro_text="Un nouveau contenu est disponible !",
             footer_text="Envoyé automatiquement par ton serveur Jellyfin",
+            color_bg=settings.color_bg,
+            color_card=settings.color_card,
+            color_header=settings.color_header,
+            color_accent=settings.color_accent,
+            color_button=settings.color_button,
+            color_text=settings.color_text,
+            color_muted=settings.color_muted,
         )
     except TemplateSyntaxError as exc:
         return False, f"Erreur de syntaxe ligne {exc.lineno} : {exc.message}"
     except Exception as exc:
         return False, f"Erreur au rendu : {exc}"
+
+    html_error = _check_html_structure(source)
+    if html_error:
+        return False, f"HTML invalide : {html_error}"
+
     return True, ""
 
 
@@ -209,6 +320,10 @@ def template_view():
             settings.template_intro_single = request.form.get("template_intro_single", settings.template_intro_single)
             settings.template_intro_multi = request.form.get("template_intro_multi", settings.template_intro_multi)
             settings.template_footer = request.form.get("template_footer", settings.template_footer)
+            for field in ("color_bg", "color_card", "color_header", "color_accent", "color_button", "color_text", "color_muted"):
+                value = request.form.get(field)
+                if value:
+                    setattr(settings, field, value)
             save_settings(cfg.settings_path, settings)
             saved = "simple"
 
@@ -228,11 +343,42 @@ def template_view():
     return render_template(
         "admin/template.html",
         active="template",
+        wide_layout=True,
         settings=settings,
         raw_source=raw_source,
         saved=saved,
         raw_error=raw_error,
     )
+
+
+@admin_bp.route("/template/live-preview", methods=["POST"])
+def template_live_preview():
+    """Aperçu instantané (rien n'est sauvegardé) pour le panneau de droite de
+    l'éditeur : reflète le HTML brut ET les champs simples tels qu'ils sont
+    actuellement tapés dans le formulaire, pas la version sur disque."""
+    cfg = _config()
+    payload = request.get_json(silent=True) or {}
+    settings = load_settings(cfg.settings_path)
+
+    for field in (
+        "template_intro_single", "template_intro_multi", "template_footer",
+        "color_bg", "color_card", "color_header", "color_accent", "color_button", "color_text", "color_muted",
+    ):
+        if payload.get(field):
+            setattr(settings, field, payload[field])
+
+    raw_source = payload.get("raw_source")
+    valid, error = (True, "") if raw_source is None else _validate_template_source(raw_source)
+    if not valid:
+        return jsonify({"ok": False, "error": error})
+
+    client = JellyfinClient(cfg.jellyfin_url, cfg.jellyfin_api_key, cfg.jellyfin_public_url)
+    logo_url = url_for("admin.assets", filename="jellyfin-logo.png")
+    try:
+        html_out = render_preview_html(FAKE_PREVIEW_ITEMS, client, settings, raw_source=raw_source, logo_url=logo_url)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Erreur au rendu : {exc}"})
+    return jsonify({"ok": True, "html": html_out})
 
 
 # ---------------------------------------------------------------------------
@@ -241,15 +387,9 @@ def template_view():
 
 @admin_bp.route("/preview")
 def preview():
-    cfg = _config()
-    settings = load_settings(cfg.settings_path)
-    pending = load_pending(cfg.pending_items_path)
-    items = pending if pending else FAKE_PREVIEW_ITEMS
-    is_fake = not pending
-
-    client = JellyfinClient(cfg.jellyfin_url, cfg.jellyfin_api_key, cfg.jellyfin_public_url)
-    html, _ = _prepare_content(items, client, settings)
-    return render_template("admin/preview.html", active="preview", is_fake=is_fake, item_count=len(items), preview_html=html)
+    # L'aperçu vit désormais directement dans l'onglet "Notifications ajout
+    # d'items" (édition + aperçu côte à côte) - on redirige l'ancienne URL.
+    return redirect(url_for("admin.template_view"))
 
 
 @admin_bp.route("/preview/frame")
@@ -259,8 +399,9 @@ def preview_frame():
     pending = load_pending(cfg.pending_items_path)
     items = pending if pending else FAKE_PREVIEW_ITEMS
     client = JellyfinClient(cfg.jellyfin_url, cfg.jellyfin_api_key, cfg.jellyfin_public_url)
-    html, _ = _prepare_content(items, client, settings)
-    return Response(html, mimetype="text/html")
+    logo_url = url_for("admin.assets", filename="jellyfin-logo.png")
+    html_out = render_preview_html(items, client, settings, logo_url=logo_url)
+    return Response(html_out, mimetype="text/html")
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +446,30 @@ def upcoming_view():
         return redirect(url_for("admin.upcoming_view", sent=int(sent)))
 
     sent = request.args.get("sent") == "1"
-    return render_template("admin/upcoming.html", active="upcoming", items=list_upcoming(cfg.upcoming_path), sent=sent)
+    return render_template(
+        "admin/upcoming.html",
+        active="upcoming",
+        wide_layout=True,
+        items=list_upcoming(cfg.upcoming_path),
+        sent=sent,
+    )
+
+
+@admin_bp.route("/upcoming/preview")
+def upcoming_preview():
+    """Aperçu de l'annonce "Bientôt disponible" pour les titres actuellement
+    cochés dans l'onglet À venir (ids passés en query string, mis à jour en
+    JS à chaque changement de case) - un exemple si rien n'est coché."""
+    cfg = _config()
+    settings = load_settings(cfg.settings_path)
+    ids = request.args.getlist("ids")
+    entries = get_many(cfg.upcoming_path, ids) if ids else []
+    items = [item_from_upcoming(e) for e in entries] if entries else FAKE_PREVIEW_ITEMS
+
+    client = JellyfinClient(cfg.jellyfin_url, cfg.jellyfin_api_key, cfg.jellyfin_public_url)
+    logo_url = url_for("admin.assets", filename="jellyfin-logo.png")
+    html_out = render_preview_html(items, client, settings, logo_url=logo_url)
+    return Response(html_out, mimetype="text/html")
 
 
 # ---------------------------------------------------------------------------

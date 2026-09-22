@@ -34,6 +34,18 @@ class Settings:
     template_intro_multi: str = DEFAULT_INTRO_MULTI
     template_footer: str = DEFAULT_FOOTER
 
+    # Couleurs du mail (éditables depuis l'onglet "Notifications ajout
+    # d'items" avec des color pickers) - injectées dans email.html, qui garde
+    # des styles inline (obligatoire pour la compat clients mail type
+    # Outlook, pas de variables CSS possibles).
+    color_bg: str = "#101010"
+    color_card: str = "#18181b"
+    color_header: str = "#101014"
+    color_accent: str = "#AA5CC3"
+    color_button: str = "#00A4DC"
+    color_text: str = "#ffffff"
+    color_muted: str = "#8a8a8e"
+
     # Surcharges optionnelles, éditables depuis la console API de l'admin,
     # sans avoir à modifier le .env ni redémarrer le service.
     jellyfin_api_key_override: str = ""

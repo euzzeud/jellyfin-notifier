@@ -4,66 +4,99 @@
 
 {% if sent %}<div class="alert ok">Annonce envoyée par mail.</div>{% endif %}
 
-<form method="post" class="card">
-  <input type="hidden" name="action" value="add" />
-  <h2>Annoncer un titre à venir</h2>
-  <div class="row">
-    <div>
-      <label>Nom</label>
-      <input type="text" name="name" required />
-    </div>
-    <div>
-      <label>Année (optionnel)</label>
-      <input type="text" name="year" />
-    </div>
-    <div>
-      <label>Type</label>
-      <select name="type_label">
-        <option value="Film">Film</option>
-        <option value="Série">Série</option>
-      </select>
-    </div>
-  </div>
-  <label>Note (optionnel — sert de synopsis dans le mail)</label>
-  <input type="text" name="note" placeholder="Ex: prévu pour la semaine prochaine" />
-  <div class="actions">
-    <button type="submit">Ajouter à la liste</button>
-  </div>
-</form>
+<div class="split">
+  <div class="edit-col">
 
-<form method="post" class="card">
-  <h2>Titres en attente d'annonce</h2>
-  {% if items %}
-  <table>
-    <tr><th></th><th>Titre</th><th>Année</th><th>Type</th><th>Note</th><th></th></tr>
-    {% for item in items %}
-    <tr>
-      <td><input type="checkbox" name="ids" value="{{ item.id }}" form="announce-form" /></td>
-      <td>{{ item.name }}</td>
-      <td>{{ item.year or "—" }}</td>
-      <td>{{ item.type_label }}</td>
-      <td class="muted">{{ item.note or "—" }}</td>
-      <td>
-        <button type="submit" name="action" value="delete" onclick="this.form.id.value='{{ item.id }}'" class="secondary" formnovalidate>Suppr.</button>
-      </td>
-    </tr>
-    {% endfor %}
-  </table>
-  <input type="hidden" name="id" value="" />
-  {% else %}
-  <p class="muted">Aucun titre à venir pour le moment.</p>
-  {% endif %}
-</form>
+    <form method="post" class="card">
+      <input type="hidden" name="action" value="add" />
+      <h2>Annoncer un titre à venir</h2>
+      <div class="row">
+        <div>
+          <label>Nom</label>
+          <input type="text" name="name" required />
+        </div>
+        <div>
+          <label>Année (optionnel)</label>
+          <input type="text" name="year" />
+        </div>
+        <div>
+          <label>Type</label>
+          <select name="type_label">
+            <option value="Film">Film</option>
+            <option value="Série">Série</option>
+          </select>
+        </div>
+      </div>
+      <label>Note (optionnel — sert de synopsis dans le mail)</label>
+      <input type="text" name="note" placeholder="Ex: prévu pour la semaine prochaine" />
+      <div class="actions">
+        <button type="submit">Ajouter à la liste</button>
+      </div>
+    </form>
 
-{% if items %}
-<form method="post" id="announce-form" class="card">
-  <input type="hidden" name="action" value="announce" />
-  <h2>Envoyer une annonce</h2>
-  <p class="muted">Coche les titres ci-dessus puis envoie un mail "Bientôt disponible" pour ceux sélectionnés.</p>
-  <div class="actions">
-    <button type="submit">📣 Envoyer l'annonce</button>
+    <form method="post" class="card">
+      <h2>Titres en attente d'annonce</h2>
+      {% if items %}
+      <table>
+        <tr><th></th><th>Titre</th><th>Année</th><th>Type</th><th>Note</th><th></th></tr>
+        {% for item in items %}
+        <tr>
+          <td><input type="checkbox" class="upcoming-check" name="ids" value="{{ item.id }}" form="announce-form" /></td>
+          <td>{{ item.name }}</td>
+          <td>{{ item.year or "—" }}</td>
+          <td>{{ item.type_label }}</td>
+          <td class="muted">{{ item.note or "—" }}</td>
+          <td>
+            <button type="submit" name="action" value="delete" onclick="this.form.id.value='{{ item.id }}'" class="secondary" formnovalidate>Suppr.</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+      <input type="hidden" name="id" value="" />
+      {% else %}
+      <p class="muted">Aucun titre à venir pour le moment.</p>
+      {% endif %}
+    </form>
+
+    {% if items %}
+    <form method="post" id="announce-form" class="card">
+      <input type="hidden" name="action" value="announce" />
+      <h2>Envoyer une annonce</h2>
+      <p class="muted">Coche les titres ci-dessus (l'aperçu à droite se met à jour) puis envoie un mail "Bientôt disponible" pour ceux sélectionnés.</p>
+      <div class="actions">
+        <button type="submit">📣 Envoyer l'annonce</button>
+      </div>
+    </form>
+    {% endif %}
+
   </div>
-</form>
-{% endif %}
+
+  <div class="preview-col">
+    <div class="card">
+      <h2>Aperçu en direct</h2>
+      <p class="muted" style="font-size:12px;margin-top:-8px;">
+        {% if items %}Coche un ou plusieurs titres à gauche pour les voir ici — sinon, exemple générique.{% else %}Ajoute un titre pour voir l'aperçu.{% endif %}
+      </p>
+      <div class="preview-frame-wrap">
+        <iframe id="preview-frame" title="Aperçu de l'annonce" src="{{ url_for('admin.upcoming_preview') }}"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const frame = document.getElementById('preview-frame');
+const baseUrl = "{{ url_for('admin.upcoming_preview') }}";
+
+function refreshPreview() {
+  const checked = Array.from(document.querySelectorAll('.upcoming-check:checked')).map(el => el.value);
+  const qs = checked.map(id => 'ids=' + encodeURIComponent(id)).join('&');
+  frame.src = baseUrl + (qs ? '?' + qs : '');
+}
+
+document.querySelectorAll('.upcoming-check').forEach(el => {
+  el.addEventListener('change', refreshPreview);
+});
+</script>
 
 {% endblock %}

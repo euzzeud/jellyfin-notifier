@@ -1,56 +1,90 @@
 {% extends "admin/base.html" %}
-{% block title %}Template - Admin{% endblock %}
+{% block title %}Notifications ajout d'items - Admin{% endblock %}
 {% block content %}
 
-{% if saved == "simple" %}<div class="alert ok">Textes enregistrés.</div>{% endif %}
+{% if saved == "simple" %}<div class="alert ok">Textes et couleurs enregistrés.</div>{% endif %}
 {% if saved == "raw" %}<div class="alert ok">Template HTML enregistré (sauvegarde de l'ancienne version conservée).</div>{% endif %}
 {% if raw_error %}<div class="alert err">Erreur, rien n'a été enregistré : {{ raw_error }}</div>{% endif %}
 
-<form method="post" class="card">
-  <input type="hidden" name="form_type" value="simple" />
-  <h2>Textes du mail (édition simple)</h2>
+<div class="split">
+  <div class="edit-col">
 
-  <label>Sujet — un seul item ({{ '{name}' }} disponible)</label>
-  <input type="text" name="template_subject_single" value="{{ settings.template_subject_single }}" />
+    <form method="post" class="card" id="simple-form">
+      <input type="hidden" name="form_type" value="simple" />
+      <h2>Textes &amp; couleurs</h2>
 
-  <label>Sujet — plusieurs items ({{ '{count}' }} disponible)</label>
-  <input type="text" name="template_subject_multi" value="{{ settings.template_subject_multi }}" />
+      <label>Intro — un seul item</label>
+      <input type="text" name="template_intro_single" id="template_intro_single" value="{{ settings.template_intro_single }}" />
 
-  <label>Intro — un seul item</label>
-  <input type="text" name="template_intro_single" value="{{ settings.template_intro_single }}" />
+      <label>Intro — plusieurs items ({{ '{count}' }} disponible)</label>
+      <input type="text" name="template_intro_multi" id="template_intro_multi" value="{{ settings.template_intro_multi }}" />
 
-  <label>Intro — plusieurs items ({{ '{count}' }} disponible)</label>
-  <input type="text" name="template_intro_multi" value="{{ settings.template_intro_multi }}" />
+      <label>Sujet — un seul item ({{ '{name}' }} disponible)</label>
+      <input type="text" name="template_subject_single" value="{{ settings.template_subject_single }}" />
 
-  <label>Pied de page</label>
-  <input type="text" name="template_footer" value="{{ settings.template_footer }}" />
+      <label>Sujet — plusieurs items ({{ '{count}' }} disponible)</label>
+      <input type="text" name="template_subject_multi" value="{{ settings.template_subject_multi }}" />
 
-  <div class="actions">
-    <button type="submit">Enregistrer les textes</button>
+      <label>Pied de page</label>
+      <input type="text" name="template_footer" id="template_footer" value="{{ settings.template_footer }}" />
+
+      <label>Couleurs du mail</label>
+      <div class="color-row">
+        <div class="color-field"><input type="color" name="color_bg" id="color_bg" value="{{ settings.color_bg }}" /><span>Fond</span></div>
+        <div class="color-field"><input type="color" name="color_card" id="color_card" value="{{ settings.color_card }}" /><span>Carte</span></div>
+        <div class="color-field"><input type="color" name="color_header" id="color_header" value="{{ settings.color_header }}" /><span>Header/footer</span></div>
+        <div class="color-field"><input type="color" name="color_accent" id="color_accent" value="{{ settings.color_accent }}" /><span>Accent</span></div>
+        <div class="color-field"><input type="color" name="color_button" id="color_button" value="{{ settings.color_button }}" /><span>Bouton</span></div>
+        <div class="color-field"><input type="color" name="color_text" id="color_text" value="{{ settings.color_text }}" /><span>Texte</span></div>
+        <div class="color-field"><input type="color" name="color_muted" id="color_muted" value="{{ settings.color_muted }}" /><span>Texte discret</span></div>
+      </div>
+      <small class="hint">L'aperçu à droite se met à jour instantanément. Clique sur "Enregistrer" pour sauvegarder ces réglages.</small>
+
+      <div class="actions">
+        <button type="submit">Enregistrer les textes &amp; couleurs</button>
+      </div>
+    </form>
+
+    <form method="post" class="card" id="raw-form">
+      <input type="hidden" name="form_type" value="raw" />
+      <h2>Template HTML brut (Jinja2)</h2>
+      <div id="syntax-status" class="alert ok" style="display:none;"></div>
+      <textarea name="raw_source" id="raw_source" rows="22" spellcheck="false">{{ raw_source }}</textarea>
+      <small class="hint">
+        Variables disponibles : items (liste), count, date, logo_src, intro_text, footer_text, color_*.
+        Chaque item a : name, year, overview, type_label, genres, rating, duration, image_cid, image_url, deep_link.
+        Une sauvegarde horodatée de la version précédente est conservée dans templates/backups/.
+      </small>
+      <div class="actions">
+        <button type="submit" id="save-btn">Enregistrer le template</button>
+      </div>
+    </form>
+
   </div>
-</form>
 
-<form method="post" class="card" id="raw-form">
-  <input type="hidden" name="form_type" value="raw" />
-  <h2>Template HTML brut (Jinja2)</h2>
-  <div id="syntax-status" class="alert ok" style="display:none;"></div>
-  <textarea name="raw_source" id="raw_source" rows="24" spellcheck="false">{{ raw_source }}</textarea>
-  <small class="hint">
-    Variables disponibles : items (liste), count, date, logo_src, intro_text, footer_text.
-    Chaque item a : name, year, overview, type_label, genres, rating, duration, image_cid, deep_link.
-    Une sauvegarde horodatée de la version précédente est conservée dans templates/backups/.
-  </small>
-  <div class="actions">
-    <button type="submit" id="save-btn">Enregistrer le template</button>
+  <div class="preview-col">
+    <div class="card">
+      <h2>Aperçu en direct</h2>
+      <p class="muted" style="font-size:12px;margin-top:-8px;">Basé sur un exemple ("Terminator") — reflète tes modifications avant même d'enregistrer.</p>
+      <div class="preview-frame-wrap">
+        <iframe id="preview-frame" title="Aperçu du mail"></iframe>
+      </div>
+    </div>
   </div>
-</form>
+</div>
 
 <script>
 const textarea = document.getElementById('raw_source');
 const status = document.getElementById('syntax-status');
 const saveBtn = document.getElementById('save-btn');
 const validateUrl = "{{ url_for('admin.template_validate') }}";
+const livePreviewUrl = "{{ url_for('admin.template_live_preview') }}";
+const frame = document.getElementById('preview-frame');
+const watchedIds = ['template_intro_single', 'template_intro_multi', 'template_footer',
+                     'color_bg', 'color_card', 'color_header', 'color_accent', 'color_button', 'color_text', 'color_muted'];
+
 let timer = null;
+let previewTimer = null;
 
 function checkSyntax() {
   fetch(validateUrl, {
@@ -71,9 +105,32 @@ function checkSyntax() {
   }).catch(() => { status.style.display = 'none'; });
 }
 
+function refreshPreview() {
+  const payload = { raw_source: textarea.value };
+  watchedIds.forEach(id => { payload[id] = document.getElementById(id).value; });
+  fetch(livePreviewUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(r => r.json()).then(data => {
+    if (data.ok) { frame.srcdoc = data.html; }
+  }).catch(() => {});
+}
+
 textarea.addEventListener('input', () => {
   clearTimeout(timer);
   timer = setTimeout(checkSyntax, 600);
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(refreshPreview, 500);
+});
+
+watchedIds.forEach(id => {
+  const el = document.getElementById(id);
+  const evt = el.type === 'color' ? 'input' : 'input';
+  el.addEventListener(evt, () => {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(refreshPreview, 200);
+  });
 });
 
 document.getElementById('raw-form').addEventListener('submit', (e) => {
@@ -81,6 +138,7 @@ document.getElementById('raw-form').addEventListener('submit', (e) => {
 });
 
 checkSyntax();
+refreshPreview();
 </script>
 
 {% endblock %}

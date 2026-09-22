@@ -126,33 +126,44 @@ def _build_intro(count: int, settings: Settings) -> str:
     return settings.template_intro_multi.format(count=count)
 
 
-def _prepare_content(
+def _color_kwargs(settings: Settings) -> dict:
+    return {
+        "color_bg": settings.color_bg,
+        "color_card": settings.color_card,
+        "color_header": settings.color_header,
+        "color_accent": settings.color_accent,
+        "color_button": settings.color_button,
+        "color_text": settings.color_text,
+        "color_muted": settings.color_muted,
+    }
+
+
+def _build_render_items(
     items: list[dict],
     jf_client: JellyfinClient,
-    settings: Settings | None = None,
-) -> tuple[str, list[MIMEImage]]:
-    """Prépare le HTML rendu et les images inline (logo + posters), une seule
-    fois, pour être réutilisés pour chaque destinataire (évite de refaire les
-    appels API Jellyfin/posters une fois par destinataire)."""
-    settings = settings or Settings()
+    settings: Settings,
+    for_preview: bool,
+) -> tuple[list[dict], list[MIMEImage]]:
+    """Normalise les items pour le rendu. En mode aperçu navigateur
+    (for_preview=True), utilise des URLs directes vers Jellyfin pour les
+    affiches au lieu de pièces jointes `cid:` (qui ne s'affichent que dans un
+    client mail, jamais dans un <img> de navigateur)."""
     render_items = []
     inline_images = []
 
-    if LOGO_PATH.exists():
-        logo_img = MIMEImage(LOGO_PATH.read_bytes())
-        logo_img.add_header("Content-ID", f"<{LOGO_CID}>")
-        logo_img.add_header("Content-Disposition", "inline", filename="jellyfin-logo.png")
-        inline_images.append(logo_img)
-
     for idx, item in enumerate(items):
-        image_bytes = jf_client.fetch_poster(item["item_id"]) if item.get("item_id") else None
         cid = None
-        if image_bytes:
-            cid = f"poster{idx}"
-            img = MIMEImage(image_bytes)
-            img.add_header("Content-ID", f"<{cid}>")
-            img.add_header("Content-Disposition", "inline", filename=f"{cid}.jpg")
-            inline_images.append(img)
+        image_url = None
+        if for_preview:
+            image_url = jf_client.poster_url(item["item_id"]) if item.get("item_id") else None
+        else:
+            image_bytes = jf_client.fetch_poster(item["item_id"]) if item.get("item_id") else None
+            if image_bytes:
+                cid = f"poster{idx}"
+                img = MIMEImage(image_bytes)
+                img.add_header("Content-ID", f"<{cid}>")
+                img.add_header("Content-Disposition", "inline", filename=f"{cid}.jpg")
+                inline_images.append(img)
 
         render_items.append(
             {
@@ -164,9 +175,33 @@ def _prepare_content(
                 "rating": _format_rating(item.get("community_rating")),
                 "duration": _format_duration(item.get("run_time_ticks")),
                 "image_cid": cid,
+                "image_url": image_url,
                 "deep_link": jf_client.deep_link(item["item_id"]) if item.get("item_id") else None,
             }
         )
+    return render_items, inline_images
+
+
+def _prepare_content(
+    items: list[dict],
+    jf_client: JellyfinClient,
+    settings: Settings | None = None,
+) -> tuple[str, list[MIMEImage]]:
+    """Prépare le HTML rendu et les images inline (logo + posters), une seule
+    fois, pour être réutilisés pour chaque destinataire (évite de refaire les
+    appels API Jellyfin/posters une fois par destinataire). Utilisé pour le
+    VRAI envoi de mail (cid: pour les images)."""
+    settings = settings or Settings()
+    inline_images = []
+
+    if LOGO_PATH.exists():
+        logo_img = MIMEImage(LOGO_PATH.read_bytes())
+        logo_img.add_header("Content-ID", f"<{LOGO_CID}>")
+        logo_img.add_header("Content-Disposition", "inline", filename="jellyfin-logo.png")
+        inline_images.append(logo_img)
+
+    render_items, item_images = _build_render_items(items, jf_client, settings, for_preview=False)
+    inline_images.extend(item_images)
 
     template = _env.get_template("email.html")
     html = template.render(
@@ -176,8 +211,34 @@ def _prepare_content(
         logo_src=f"cid:{LOGO_CID}" if LOGO_PATH.exists() else None,
         intro_text=_build_intro(len(render_items), settings),
         footer_text=settings.template_footer,
+        **_color_kwargs(settings),
     )
     return html, inline_images
+
+
+def render_preview_html(
+    items: list[dict],
+    jf_client: JellyfinClient,
+    settings: Settings | None = None,
+    raw_source: str | None = None,
+    logo_url: str | None = None,
+) -> str:
+    """Rendu HTML pour affichage dans le navigateur (admin), donc SANS pièces
+    jointes `cid:`. `raw_source`, si fourni, permet de prévisualiser un
+    template en cours d'édition, PAS ENCORE sauvegardé sur disque."""
+    settings = settings or Settings()
+    render_items, _ = _build_render_items(items, jf_client, settings, for_preview=True)
+
+    template = _env.from_string(raw_source) if raw_source is not None else _env.get_template("email.html")
+    return template.render(
+        items=render_items,
+        count=len(render_items),
+        date=datetime.now().strftime("%d/%m/%Y %H:%M"),
+        logo_src=logo_url,
+        intro_text=_build_intro(len(render_items), settings),
+        footer_text=settings.template_footer,
+        **_color_kwargs(settings),
+    )
 
 
 def build_email(

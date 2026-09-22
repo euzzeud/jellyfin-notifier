@@ -40,6 +40,15 @@ class JellyfinClient:
             logger.exception("Erreur réseau en récupérant le poster de %s", item_id)
         return None
 
+    def poster_url(self, item_id: str, max_width: int = 400) -> str | None:
+        """URL directe (auth par query param) vers l'affiche d'un item -
+        utilisée UNIQUEMENT pour l'aperçu dans le navigateur (l'admin), qui ne
+        peut pas afficher les `cid:` utilisés dans le vrai mail (ceux-ci ne
+        fonctionnent que dans un client mail, pas dans un <img> de navigateur)."""
+        if not item_id:
+            return None
+        return f"{self.public_url}/Items/{item_id}/Images/Primary?maxWidth={max_width}&api_key={self.api_key}"
+
     def deep_link(self, item_id: str) -> str:
         """Lien direct vers la fiche de l'item dans le client web Jellyfin
         (utilise public_url, pensé pour être cliqué depuis un mail)."""
