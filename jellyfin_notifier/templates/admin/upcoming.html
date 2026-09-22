@@ -256,11 +256,15 @@ document.addEventListener('DOMContentLoaded', () => {
   try {
     initialBlocks = JSON.parse(document.getElementById('initial-blocks-data').textContent.replace(/<\\\//g, '</'));
   } catch (e) { initialBlocks = []; }
+  let blockPreviewTimer = null;
   window._blockBuilder = createBlockBuilder({
     root: document.getElementById('block-builder-root'),
     hiddenInput: document.getElementById('blocks_json'),
     initialBlocks: initialBlocks,
-    onChange: () => refreshBlockPreview(window._blockBuilder.getBlocks()),
+    onChange: () => {
+      clearTimeout(blockPreviewTimer);
+      blockPreviewTimer = setTimeout(() => refreshBlockPreview(window._blockBuilder.getBlocks()), 400);
+    },
   });
 });
 </script>

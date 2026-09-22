@@ -520,9 +520,21 @@ function createBlockBuilder({ root, hiddenInput, initialBlocks = [], onChange = 
   root.appendChild(addRow);
 
   function sync() {
+    // Ré-affiche toute la liste - nécessaire quand la structure change
+    // (ajout/suppression/réordonnancement d'un bloc, ou une case à cocher
+    // qui affiche/masque un autre champ, ex: la date personnalisée).
     hiddenInput.value = JSON.stringify(blocks);
     hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
     render();
+    if (onChange) onChange();
+  }
+
+  function syncData() {
+    // Met juste à jour le JSON + l'aperçu, SANS reconstruire le DOM - sinon
+    // un champ texte/textarea perdrait le focus (et le curseur repartirait
+    // au début) à chaque lettre tapée, ce qui rendait la saisie saccadée.
+    hiddenInput.value = JSON.stringify(blocks);
+    hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
     if (onChange) onChange();
   }
 
@@ -548,17 +560,17 @@ function createBlockBuilder({ root, hiddenInput, initialBlocks = [], onChange = 
       el = document.createElement('textarea');
       el.rows = 3;
       el.value = value || '';
-      el.addEventListener('input', () => { block.props[field.key] = el.value; sync(); });
+      el.addEventListener('input', () => { block.props[field.key] = el.value; syncData(); });
     } else if (field.type === 'number') {
       el = document.createElement('input');
       el.type = 'number';
       el.value = value != null ? value : '';
-      el.addEventListener('input', () => { block.props[field.key] = el.value === '' ? '' : Number(el.value); sync(); });
+      el.addEventListener('input', () => { block.props[field.key] = el.value === '' ? '' : Number(el.value); syncData(); });
     } else {
       el = document.createElement('input');
       el.type = 'text';
       el.value = value || '';
-      el.addEventListener('input', () => { block.props[field.key] = el.value; sync(); });
+      el.addEventListener('input', () => { block.props[field.key] = el.value; syncData(); });
     }
     return el;
   }
