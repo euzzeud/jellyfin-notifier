@@ -17,11 +17,22 @@
     </div>
     <div>
       <label>API key (leave empty to use the .env value)</label>
-      <input type="password" name="jellyfin_api_key_override" placeholder="••••••••" />
+      <input type="password" name="jellyfin_api_key_override" id="jellyfin_api_key_override" placeholder="{{ '••••••••  (override saved, leave empty to keep it)' if has_api_key_override else '(default from .env, leave empty to keep it)' }}" autocomplete="new-password" />
+      {% if has_api_key_override %}
+      <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-weight:400;">
+        <input type="checkbox" name="clear_api_key_override" value="1" style="width:auto;" />
+        Clear the saved API key override (fall back to the .env value)
+      </label>
+      {% endif %}
     </div>
   </div>
   <div class="actions">
     <button type="submit">Save changes</button>
+    <button type="button" class="secondary" id="test-connection-btn">⚡ Test connection</button>
+  </div>
+  <div id="test-connection-result" style="display:none; margin-top:16px;">
+    <h2 style="margin-bottom:8px;">Test result — <span class="pill" id="test-connection-pill"></span></h2>
+    <pre class="logbox" id="test-connection-body"></pre>
   </div>
 </form>
 
@@ -57,5 +68,42 @@
   <pre class="logbox">{{ result.body | tojson(indent=2) }}</pre>
 </div>
 {% endif %}
+
+<script>
+document.getElementById('test-connection-btn').addEventListener('click', () => {
+  const btn = document.getElementById('test-connection-btn');
+  const box = document.getElementById('test-connection-result');
+  const pill = document.getElementById('test-connection-pill');
+  const body = document.getElementById('test-connection-body');
+  const originalText = btn.textContent;
+
+  btn.disabled = true;
+  btn.textContent = 'Testing…';
+
+  fetch("{{ url_for('admin.api_console_test') }}", {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jellyfin_url_override: document.querySelector('input[name="jellyfin_url_override"]').value,
+      jellyfin_api_key_override: document.getElementById('jellyfin_api_key_override').value,
+    }),
+  })
+    .then(r => r.json())
+    .then(data => {
+      pill.className = 'pill ' + (data.ok ? 'ok' : 'bad');
+      pill.textContent = data.status_code || 'network error';
+      body.textContent = JSON.stringify(data.body, null, 2);
+      box.style.display = 'block';
+      showToast(data.ok ? 'Connection OK.' : 'Connection test failed.', data.ok);
+    })
+    .catch(err => {
+      showToast('Network error: ' + err, false);
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    });
+});
+</script>
 
 {% endblock %}

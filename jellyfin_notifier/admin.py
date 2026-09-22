@@ -832,7 +832,18 @@ def api_console_view():
 
         if action == "save_connection":
             settings.jellyfin_url_override = request.form.get("jellyfin_url_override", "").strip()
-            settings.jellyfin_api_key_override = request.form.get("jellyfin_api_key_override", "").strip()
+
+            new_key = request.form.get("jellyfin_api_key_override", "").strip()
+            if new_key:
+                settings.jellyfin_api_key_override = new_key
+            elif request.form.get("clear_api_key_override"):
+                settings.jellyfin_api_key_override = ""
+            # Sinon (champ laissé vide, comme toujours puisqu'il n'est jamais
+            # pré-rempli, et case "effacer" pas cochée) : on garde la clé déjà
+            # enregistrée telle quelle - avant, sauvegarder juste l'URL
+            # effaçait silencieusement la clé API en surcharge (même bug de
+            # classe que celui déjà corrigé pour le mot de passe SMTP).
+
             save_settings(cfg.settings_path, settings)
             save_msg = "Connection saved."
             effective_url = settings.jellyfin_url_override or cfg.jellyfin_url
@@ -851,12 +862,33 @@ def api_console_view():
         effective_key=effective_key,
         url_override_value=settings.jellyfin_url_override,
         using_override=bool(settings.jellyfin_url_override or settings.jellyfin_api_key_override),
+        has_api_key_override=bool(settings.jellyfin_api_key_override),
         result=result,
         save_msg=save_msg,
         method=request.form.get("method", "GET"),
         path=request.form.get("path", "/System/Info"),
         query_string=request.form.get("query_string", ""),
     )
+
+
+@admin_bp.route("/api-console/test", methods=["POST"])
+def api_console_test():
+    """Teste la connexion (GET /System/Info) SANS rien sauvegarder - reflète
+    ce qui est actuellement tapé dans le formulaire (même si pas encore
+    enregistré), retombe sur la surcharge déjà sauvegardée puis sur .env si
+    les champs sont laissés vides. Réponse JSON affichée directement dans la
+    page, sans rechargement."""
+    cfg = _config()
+    settings = load_settings(cfg.settings_path)
+    payload = request.get_json(silent=True) or {}
+
+    url_override = (payload.get("jellyfin_url_override") or "").strip()
+    key_override = (payload.get("jellyfin_api_key_override") or "").strip()
+    effective_url = url_override or settings.jellyfin_url_override or cfg.jellyfin_url
+    effective_key = key_override or settings.jellyfin_api_key_override or cfg.jellyfin_api_key
+
+    result = run_request(effective_url, effective_key, "GET", "/System/Info", "")
+    return jsonify(result)
 
 
 # ---------------------------------------------------------------------------

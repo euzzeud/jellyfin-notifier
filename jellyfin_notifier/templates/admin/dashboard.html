@@ -130,7 +130,7 @@
     Resets all notifier settings (mail texts &amp; colors, schedule, poller options, Jellyfin connection overrides, SMTP server configuration) back to their default values.
     This does <strong>not</strong> touch the queue, the "upcoming" titles list and their posters, the poller's "already seen" state, or your raw HTML template edits.
   </p>
-  <form method="post" action="{{ url_for('admin.settings_reset') }}" onsubmit="return confirm('Reset ALL notifier settings to their defaults? Custom texts, colors, schedule, poller and connection overrides will be lost. This cannot be undone.');">
+  <form method="post" action="{{ url_for('admin.settings_reset') }}" id="reset-settings-form">
     <div class="actions">
       <button type="submit" class="danger">⟲ Reset settings to defaults</button>
     </div>
@@ -171,6 +171,17 @@ document.addEventListener('DOMContentLoaded', () => {
     hiddenInput: document.getElementById('poller_item_types_override'),
     suggestions: ['Movie', 'Series', 'Season', 'Episode', 'BoxSet', 'Audio', 'MusicAlbum', 'MusicVideo', 'Book', 'Photo'],
     placeholder: 'Movie, Series...',
+  });
+
+  const resetForm = document.getElementById('reset-settings-form');
+  resetForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    showConfirm({
+      title: 'Reset all settings to their defaults?',
+      message: 'Custom texts, colors, schedule, poller and connection overrides will be lost. This cannot be undone.',
+      confirmText: '⟲ Reset settings',
+      danger: true,
+    }).then(ok => { if (ok) { resetForm.submit(); } });
   });
 });
 </script>

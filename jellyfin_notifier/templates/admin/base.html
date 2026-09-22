@@ -318,6 +318,26 @@
   .unsaved-bar button.save { padding:9px 20px; }
   @media (max-width: 620px) { .unsaved-bar { padding:12px 16px; } .unsaved-bar .msg { font-size:13px; } }
 
+  /* Boîte de confirmation personnalisée (remplace window.confirm(), qui
+     affiche une boîte du navigateur au look générique et pas centrée sur
+     la page - ici centrée, dans le thème de l'admin, fermable par Échap
+     ou clic en dehors. */
+  .modal-overlay {
+    position: fixed; inset:0; background: rgba(4,4,6,.62); backdrop-filter: blur(5px);
+    display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px;
+    opacity:0; pointer-events:none; transition: opacity .2s var(--ease);
+  }
+  .modal-overlay.show { opacity:1; pointer-events:auto; }
+  .modal-box {
+    background: var(--panel-solid); border:1px solid var(--border); border-radius: var(--radius-lg);
+    padding:26px 28px; max-width:440px; width:100%; box-shadow: var(--shadow-pop);
+    transform: translateY(10px) scale(.97); transition: transform .22s var(--ease);
+  }
+  .modal-overlay.show .modal-box { transform:none; }
+  .modal-box h3 { margin:0 0 10px; font-size:16.5px; font-weight:700; }
+  .modal-box p { margin:0 0 22px; font-size:13.5px; line-height:1.55; color:var(--muted); }
+  .modal-box .actions { display:flex; justify-content:flex-end; gap:10px; margin-top:0; }
+
   .toast-container {
     position: fixed; top:20px; right:20px; z-index:999; display:flex; flex-direction:column;
     gap:10px; pointer-events:none; max-width: 340px;
@@ -337,6 +357,16 @@
 </head>
 <body>
 <div class="toast-container" id="toast-container"></div>
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <h3 id="modal-title"></h3>
+    <p id="modal-message"></p>
+    <div class="actions">
+      <button type="button" class="secondary" id="modal-cancel">Cancel</button>
+      <button type="button" id="modal-confirm"></button>
+    </div>
+  </div>
+</div>
 <div class="unsaved-bar" id="unsaved-bar">
   <span class="msg">Careful — you have unsaved changes!</span>
   <div class="unsaved-actions">
@@ -384,6 +414,44 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast(el.textContent.trim(), el.classList.contains('ok'));
   });
 });
+
+// Boîte de confirmation personnalisée (remplace window.confirm()) - promesse
+// résolue à true/false. Fermable par Échap, clic en dehors, ou Cancel.
+// Usage : showConfirm({ title, message, confirmText, danger }).then(ok => ...)
+function showConfirm({ title, message, confirmText = 'Confirm', danger = false }) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('modal-overlay');
+    const titleEl = document.getElementById('modal-title');
+    const msgEl = document.getElementById('modal-message');
+    const okBtn = document.getElementById('modal-confirm');
+    const cancelBtn = document.getElementById('modal-cancel');
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    okBtn.textContent = confirmText;
+    okBtn.className = danger ? 'danger' : '';
+    overlay.classList.add('show');
+    okBtn.focus();
+
+    function cleanup(result) {
+      overlay.classList.remove('show');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      overlay.removeEventListener('mousedown', onOverlay);
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+    function onOk() { cleanup(true); }
+    function onCancel() { cleanup(false); }
+    function onOverlay(e) { if (e.target === overlay) cleanup(false); }
+    function onKey(e) { if (e.key === 'Escape') cleanup(false); }
+
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    overlay.addEventListener('mousedown', onOverlay);
+    document.addEventListener('keydown', onKey);
+  });
+}
 
 // Champ "tags" réutilisable : espace/entrée/virgule/point-virgule
 // transforment le texte tapé en tag (avec une croix pour le retirer), et
