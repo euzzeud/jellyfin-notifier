@@ -71,6 +71,19 @@ def _run(cmd: list[str], timeout: int = 15) -> tuple[bool, str]:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         output = (result.stdout or "") + (result.stderr or "")
         return result.returncode == 0, output.strip()
+    except FileNotFoundError:
+        # `systemctl`/`journalctl`/`sudo` don't exist at all (ex: running
+        # locally on Windows/macOS for development) - a raw OS error message
+        # ("[WinError 2] The system cannot find the file specified") is
+        # confusing on its own, so it's worth spelling out WHY explicitly:
+        # this whole card/page only works under a real systemd deployment
+        # (the target LXC), not a local dev run.
+        return False, (
+            f"'{cmd[0]}' was not found on this system. Service control and "
+            "the Logs page require systemd (journalctl/systemctl), which "
+            "only exists on the target Linux deployment - not when running "
+            "locally for development (e.g. on Windows or macOS)."
+        )
     except Exception as exc:
         return False, str(exc)
 

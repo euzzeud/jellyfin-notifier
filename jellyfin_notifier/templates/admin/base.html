@@ -356,7 +356,8 @@
   .block-item-fields .checkline label { margin:0; font-size:12.5px; color:var(--text); font-weight:500; cursor:pointer; }
   .block-add-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
   .block-add-row button { font-size:12px; padding:8px 14px; }
-  .block-empty { color:var(--muted-dim); font-size:12.5px; text-align:center; padding:18px 0; border:1px dashed var(--border-soft); border-radius: var(--radius-md); }
+  .block-empty { color:var(--muted-dim); font-size:12.5px; text-align:center; padding:18px 22px; border:1px dashed var(--border-soft); border-radius: var(--radius-md); }
+  .block-empty-hint { margin-top:6px; font-size:11.5px; }
 
   /* Alerte "modifications non enregistrées" - barre fixée en bas de l'écran
      + léger tremblement de la page (façon "wizz" MSN Messenger) si on
@@ -896,7 +897,7 @@ function createTagInput({ root, hiddenInput, suggestions = [], placeholder = 'Ty
 // changement, prêt à être posté avec le formulaire.
 const BLOCK_TYPE_DEFS = {
   content_card: {
-    label: 'Content card (poster + info)',
+    label: 'Content card',
     fields: [
       { key: 'show_synopsis', type: 'checkbox', label: 'Show synopsis' },
       { key: 'show_genres', type: 'checkbox', label: 'Show genres' },
@@ -906,7 +907,7 @@ const BLOCK_TYPE_DEFS = {
     ],
   },
   text_title: {
-    label: 'Text + heading',
+    label: 'Heading',
     fields: [
       { key: 'heading', type: 'text', label: 'Heading' },
       { key: 'body', type: 'textarea', label: 'Body text', full: true },
@@ -914,7 +915,7 @@ const BLOCK_TYPE_DEFS = {
     ],
   },
   button: {
-    label: 'Standalone button',
+    label: 'Button',
     fields: [
       { key: 'text', type: 'text', label: 'Button text' },
       { key: 'url', type: 'text', label: 'Link URL' },
@@ -922,14 +923,14 @@ const BLOCK_TYPE_DEFS = {
     ],
   },
   spacer: {
-    label: 'Divider / spacer',
+    label: 'Divider',
     fields: [
       { key: 'height', type: 'number', label: 'Height (px)' },
       { key: 'show_line', type: 'checkbox', label: 'Show divider line' },
     ],
   },
   text_date: {
-    label: 'Text + date',
+    label: 'Date',
     fields: [
       { key: 'text', type: 'textarea', label: 'Text', full: true },
       { key: 'use_send_date', type: 'checkbox', label: 'Use the send date automatically' },
@@ -1032,7 +1033,18 @@ function createBlockBuilder({ root, hiddenInput, initialBlocks = [], onChange = 
     if (!blocks.length) {
       const empty = document.createElement('div');
       empty.className = 'block-empty';
-      empty.textContent = 'No blocks yet — add one below.';
+      const line1 = document.createElement('div');
+      line1.textContent = 'No blocks yet — add one below.';
+      const line2 = document.createElement('div');
+      line2.className = 'block-empty-hint';
+      // Le preview à droite continue de refléter le template actuellement
+      // enregistré (édité en HTML brut, ou jamais encore construit ici) tant
+      // qu'aucun bloc n'a été ajouté - sans cette précision, un contenu
+      // visible dans l'aperçu alors que la liste ci-dessus est vide donne
+      // l'impression d'un bug plutôt que de deux modes d'édition distincts.
+      line2.textContent = "The preview still shows your current saved template — it won't change until you add a block here and save.";
+      empty.appendChild(line1);
+      empty.appendChild(line2);
       listEl.appendChild(empty);
       return;
     }

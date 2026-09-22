@@ -20,11 +20,11 @@ import uuid
 # ---------------------------------------------------------------------------
 
 BLOCK_TYPES: dict[str, str] = {
-    "content_card": "Content card (poster + info)",
-    "text_title": "Text + heading",
-    "button": "Standalone button",
-    "spacer": "Divider / spacer",
-    "text_date": "Text + date",
+    "content_card": "Content card",
+    "text_title": "Heading",
+    "button": "Button",
+    "spacer": "Divider",
+    "text_date": "Date",
 }
 
 DEFAULT_PROPS: dict[str, dict] = {
