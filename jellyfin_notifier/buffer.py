@@ -40,4 +40,4 @@ class DebounceBuffer:
         try:
             self._on_flush(items)
         except Exception:
-            logger.exception("Échec du callback de flush du buffer")
+            logger.exception("Buffer flush callback failed")

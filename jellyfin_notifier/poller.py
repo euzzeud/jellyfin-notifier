@@ -83,7 +83,7 @@ class JellyfinPoller:
             try:
                 return set(json.loads(self.seen_path.read_text()))
             except Exception:
-                logger.exception("Impossible de lire %s, on repart de zéro", self.seen_path)
+                logger.exception("Could not read %s, starting from an empty seen-items set", self.seen_path)
         return set()
 
     def _save_seen(self) -> None:
@@ -111,7 +111,7 @@ class JellyfinPoller:
         client = self.client
 
         if settings.poller_paused:
-            logger.info("Poller en pause (settings.poller_paused=true), cycle ignoré")
+            logger.info("Poller paused (settings.poller_paused=true), cycle skipped")
             return []
 
         try:
@@ -123,7 +123,7 @@ class JellyfinPoller:
         except Exception as exc:
             self.last_fetch_success = False
             self.last_fetch_error = str(exc)
-            logger.exception("Erreur en récupérant les items récents depuis Jellyfin")
+            logger.exception("Error fetching recent items from Jellyfin")
             return []
 
         # Filtre défensif : les BoxSet (collections, ex: "Prometheus - Saga")
@@ -142,7 +142,7 @@ class JellyfinPoller:
 
         if self._bootstrap_needed:
             logger.info(
-                "Bootstrap initial : %d item(s) existant(s) enregistrés comme déjà vus, pas de mail envoyé",
+                "Initial bootstrap: %d existing item(s) recorded as already seen, no mail sent",
                 len(items),
             )
             self._bootstrap_needed = False
@@ -156,7 +156,7 @@ class JellyfinPoller:
             # tout ce qui s'est accumulé pendant que c'était coupé.
             if new_items:
                 logger.info(
-                    "%d nouvel(nouveaux) item(s) détecté(s) mais notifications 'New Content' désactivées, aucun mail envoyé",
+                    "%d new item(s) detected but 'New Content' notifications are disabled, no mail sent",
                     len(new_items),
                 )
             return []
@@ -175,7 +175,7 @@ class JellyfinPoller:
             # jeter - ils partiront dès que l'envoi sera réactivé.
             save_pending(self.config.pending_items_path, to_consider)
             logger.info(
-                "%d item(s) à notifier mais l'envoi de mail est désactivé (page Mail Server) -> mis en file d'attente (total en attente: %d)",
+                "%d item(s) to notify but mail sending is disabled (Mail Server page) -> queued (total pending: %d)",
                 len(parsed_new),
                 len(to_consider),
             )
@@ -184,7 +184,7 @@ class JellyfinPoller:
         if not is_within_window(settings, self.last_poll_at):
             save_pending(self.config.pending_items_path, to_consider)
             logger.info(
-                "%d item(s) détecté(s) hors créneau autorisé (%s-%s, jours=%s) -> mis en file d'attente (total en attente: %d)",
+                "%d item(s) detected outside the allowed window (%s-%s, days=%s) -> queued (total pending: %d)",
                 len(parsed_new),
                 settings.notify_hour_start,
                 settings.notify_hour_end,
@@ -193,14 +193,14 @@ class JellyfinPoller:
             )
             return []
 
-        logger.info("%d item(s) à notifier (dont %d en file d'attente)", len(to_consider), len(pending))
+        logger.info("%d item(s) to notify (including %d already queued)", len(to_consider), len(pending))
         try:
             send_email(to_consider, self.config, client, settings, smtp=settings.resolve_smtp(self.config))
             clear_pending(self.config.pending_items_path)
             self.last_email_error = None
         except Exception as exc:
             self.last_email_error = str(exc)
-            logger.exception("Échec d'envoi du mail depuis le poller")
+            logger.exception("Failed to send mail from the poller")
             return []
         return to_consider
 
@@ -264,7 +264,7 @@ class JellyfinPoller:
         self._thread = threading.Thread(target=self._run, daemon=True, name="jellyfin-poller")
         self._thread.start()
         logger.info(
-            "Poller démarré (intervalle=%ss, types=%s)",
+            "Poller started (interval=%ss, types=%s)",
             self.config.poll_interval_seconds,
             self.config.notify_item_types,
         )

@@ -744,7 +744,7 @@ def upcoming_view():
                     sent = True
                     logger.info("Upcoming announcement sent for %d title(s).", len(items))
                 except Exception as exc:
-                    logger.exception("Échec d'envoi de l'annonce des titres à venir")
+                    logger.exception("Failed to send the upcoming titles announcement")
                     # Message court dans l'URL de redirection (pas de session
                     # nécessaire) - suffisant pour une erreur SMTP typique.
                     announce_error = f"Failed to send: {exc}"[:300]
@@ -1015,7 +1015,7 @@ def mail_server_view():
                     save_settings(cfg.settings_path, settings)
                     logger.info("Mail server: test mail sent successfully to %s, configuration validated.", test_recipient)
                 except Exception as exc:
-                    logger.exception("Échec de l'envoi du mail de test")
+                    logger.exception("Failed to send the test mail")
                     test_result = {"ok": False, "error": str(exc)}
 
         elif action == "toggle":

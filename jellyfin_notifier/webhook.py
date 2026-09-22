@@ -35,7 +35,7 @@ def _get_buffer() -> DebounceBuffer:
                 # le webhook peut rester actif (ex: si le poller est aussi
                 # utilisé en parallèle) sans jamais envoyer de mail.
                 logger.info(
-                    "%d item(s) reçu(s) via webhook mais notifications 'New Content' désactivées, aucun mail envoyé",
+                    "%d item(s) received via webhook but 'New Content' notifications are disabled, no mail sent",
                     len(items),
                 )
                 return
@@ -45,7 +45,7 @@ def _get_buffer() -> DebounceBuffer:
                 # file d'attente comme le poller, donc ces items sont perdus
                 # (comme n'importe quel item détecté pendant une coupure).
                 logger.info(
-                    "%d item(s) reçu(s) via webhook mais l'envoi de mail est désactivé (page Mail Server), aucun mail envoyé",
+                    "%d item(s) received via webhook but mail sending is disabled (Mail Server page), no mail sent",
                     len(items),
                 )
                 return

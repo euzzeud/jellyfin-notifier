@@ -35,9 +35,9 @@ class JellyfinClient:
             )
             if resp.ok:
                 return resp.content
-            logger.warning("Poster indisponible pour %s (HTTP %s)", item_id, resp.status_code)
+            logger.warning("Poster unavailable for %s (HTTP %s)", item_id, resp.status_code)
         except requests.RequestException:
-            logger.exception("Erreur réseau en récupérant le poster de %s", item_id)
+            logger.exception("Network error fetching the poster for %s", item_id)
         return None
 
     def poster_url(self, item_id: str, max_width: int = 400) -> str | None:

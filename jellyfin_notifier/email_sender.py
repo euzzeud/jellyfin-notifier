@@ -355,7 +355,7 @@ def send_email(
             item_names=[i.get("name", "?") for i in items], success=False, error=str(exc),
         )
         raise
-    logger.info("Mail envoyé à %d destinataire(s) pour %d item(s)", len(recipients), len(items))
+    logger.info("Mail sent to %d recipient(s) for %d item(s)", len(recipients), len(items))
     mail_history.record(
         config.mail_history_path, scope=scope, subject=subject, recipients=recipients,
         item_names=[i.get("name", "?") for i in items], success=True,
