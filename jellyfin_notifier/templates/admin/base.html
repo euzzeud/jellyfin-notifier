@@ -9,9 +9,9 @@
     --bg:#0b0b0d; --bg-glow: radial-gradient(1100px 520px at 12% -10%, rgba(0,164,220,.14), transparent 60%),
                               radial-gradient(900px 480px at 100% 0%, rgba(170,92,195,.12), transparent 55%);
     --panel: rgba(255,255,255,.045); --panel-solid:#17171a; --panel2: rgba(255,255,255,.03);
-    --border: rgba(255,255,255,.09); --border-soft: rgba(255,255,255,.06);
-    --purple:#b476d1; --purple2:#8e4fb0; --blue:#12b3f0; --blue2:#0092c7;
-    --text:#f4f4f6; --muted:#93939c; --muted-dim:#6b6b74;
+    --border: rgba(255,255,255,.14); --border-soft: rgba(255,255,255,.1);
+    --purple:#c589e0; --purple2:#a166c4; --blue:#2ec2ff; --blue2:#0ba8dd;
+    --text:#ffffff; --muted:#b4b4bd; --muted-dim:#8c8c96;
     --green:#3ecf6e; --red:#f0555c;
     --radius-lg:16px; --radius-md:11px; --radius-sm:8px;
     --shadow-card: 0 1px 0 rgba(255,255,255,.03) inset, 0 10px 30px -14px rgba(0,0,0,.55);
@@ -103,16 +103,17 @@
   .pill.ok { background:rgba(62,207,110,.13); color:var(--green); box-shadow: inset 0 0 0 1px rgba(62,207,110,.2); }
   .pill.bad { background:rgba(240,85,92,.13); color:var(--red); box-shadow: inset 0 0 0 1px rgba(240,85,92,.2); }
 
-  label { display:block; font-size:12px; color:var(--muted); margin: 16px 0 7px; font-weight:500; }
+  label { display:block; font-size:12.5px; color:var(--muted); margin: 16px 0 7px; font-weight:600; }
   input[type=text], input[type=password], input[type=number], input[type=time], select, textarea {
-    width:100%; background: rgba(0,0,0,.22); border:1px solid var(--border); color:var(--text);
+    width:100%; background: rgba(0,0,0,.32); border:1px solid var(--border); color:var(--text);
     padding:10px 12px; border-radius: var(--radius-sm); font-size:13.5px; font-family: inherit;
     transition: border-color .18s var(--ease), box-shadow .18s var(--ease), background-color .18s var(--ease);
   }
-  input:hover, select:hover, textarea:hover { border-color: rgba(255,255,255,.22); }
+  input::placeholder, textarea::placeholder { color: var(--muted-dim); opacity: 1; }
+  input:hover, select:hover, textarea:hover { border-color: rgba(255,255,255,.3); }
   input:focus, select:focus, textarea:focus {
-    outline:none; border-color: var(--blue); background: rgba(18,179,240,.06);
-    box-shadow: 0 0 0 3px rgba(18,179,240,.16);
+    outline:none; border-color: var(--blue); background: rgba(46,194,255,.08);
+    box-shadow: 0 0 0 3px rgba(46,194,255,.22);
   }
   textarea { font-family: "SF Mono", Consolas, "Cascadia Code", monospace; font-size:12.5px; line-height:1.55; }
 
