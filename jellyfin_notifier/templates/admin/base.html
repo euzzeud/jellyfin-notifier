@@ -398,6 +398,34 @@
   .modal-box p { margin:0 0 22px; font-size:13.5px; line-height:1.55; color:var(--muted); }
   .modal-box .actions { display:flex; justify-content:flex-end; gap:10px; margin-top:0; }
 
+  /* Popup de validation JSON (import de settings.json) : même thème que la
+     boîte de confirmation, mais plus large et avec le contenu du fichier
+     affiché ligne par ligne (numéros + coloration) façon éditeur de code,
+     pour repérer la ligne fautive d'un coup d'oeil au lieu d'un message
+     d'erreur brut type "Expecting value: line 4 column 1". */
+  .json-modal-box { max-width:640px; }
+  .json-modal-box .json-error-msg {
+    margin:0 0 16px; padding:10px 13px; border-radius: var(--radius-sm);
+    background: rgba(48,20,21,.55); border:1px solid rgba(240,85,92,.35);
+    color:#ffb3b6; font-size:12.5px; font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    line-height:1.5; white-space:pre-wrap; word-break:break-word;
+  }
+  .json-lines {
+    margin:0; max-height:min(50vh, 420px); overflow:auto; border-radius: var(--radius-sm);
+    border:1px solid var(--border-soft); background: rgba(0,0,0,.28);
+    font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size:12.5px; line-height:1.6;
+  }
+  .json-line { display:flex; padding:0 12px; white-space:pre; }
+  .json-line .ln {
+    flex:0 0 auto; width:38px; text-align:right; margin-right:14px; color:var(--muted-dim);
+    -webkit-user-select:none; user-select:none;
+  }
+  .json-line .txt { color:#d7d7df; white-space:pre-wrap; word-break:break-word; }
+  .json-line.err { background: rgba(240,85,92,.16); border-left:3px solid var(--red); margin-left:-3px; }
+  .json-line.err .ln { color:var(--red); font-weight:700; }
+  .json-line.err .txt { color:#ffd7d8; }
+  .json-modal-box .actions { margin-top:20px; }
+
   .toast-container {
     position: fixed; top:20px; right:20px; z-index:999; display:flex; flex-direction:column;
     gap:10px; pointer-events:none; max-width: 340px;
@@ -424,6 +452,16 @@
     <div class="actions">
       <button type="button" class="secondary" id="modal-cancel">Cancel</button>
       <button type="button" id="modal-confirm"></button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="json-modal-overlay">
+  <div class="modal-box json-modal-box">
+    <h3 id="json-modal-title">Invalid settings file</h3>
+    <div class="json-error-msg" id="json-modal-error"></div>
+    <pre class="json-lines" id="json-modal-lines"></pre>
+    <div class="actions">
+      <button type="button" id="json-modal-close">Close</button>
     </div>
   </div>
 </div>
@@ -512,6 +550,201 @@ function showConfirm({ title, message, confirmText = 'Confirm', danger = false }
     cancelBtn.addEventListener('click', onCancel);
     overlay.addEventListener('mousedown', onOverlay);
     document.addEventListener('keydown', onKey);
+  });
+}
+
+// Popup d'erreur JSON (import de settings.json) : affiche le fichier ligne
+// par ligne avec la ligne fautive surlignée en rouge, façon IDE, au lieu
+// d'un message d'erreur texte brut. `line` est en 1-indexé (comme
+// JSON.parse le rapporte) ; 0/undefined = pas de ligne précise à surligner.
+function showJsonSyntaxError({ title = 'Invalid settings file', message = '', source = '', line = 0 }) {
+  const overlay = document.getElementById('json-modal-overlay');
+  const titleEl = document.getElementById('json-modal-title');
+  const errEl = document.getElementById('json-modal-error');
+  const linesEl = document.getElementById('json-modal-lines');
+  const closeBtn = document.getElementById('json-modal-close');
+
+  titleEl.textContent = title;
+  errEl.textContent = message;
+  linesEl.innerHTML = '';
+
+  const lines = source.split('\n');
+  let errRowEl = null;
+  lines.forEach((text, i) => {
+    const n = i + 1;
+    const row = document.createElement('div');
+    row.className = 'json-line' + (n === line ? ' err' : '');
+    const lnEl = document.createElement('span');
+    lnEl.className = 'ln';
+    lnEl.textContent = String(n);
+    const txtEl = document.createElement('span');
+    txtEl.className = 'txt';
+    txtEl.textContent = text.length ? text : ' ';
+    row.appendChild(lnEl);
+    row.appendChild(txtEl);
+    linesEl.appendChild(row);
+    if (n === line) errRowEl = row;
+  });
+
+  overlay.classList.add('show');
+  closeBtn.focus();
+  // Centre la ligne en erreur dans la zone scrollable plutôt que de laisser
+  // l'utilisateur la chercher lui-même dans un fichier potentiellement long.
+  if (errRowEl) {
+    requestAnimationFrame(() => {
+      errRowEl.scrollIntoView({ block: 'center' });
+    });
+  }
+
+  function cleanup() {
+    overlay.classList.remove('show');
+    closeBtn.removeEventListener('click', onClose);
+    overlay.removeEventListener('mousedown', onOverlay);
+    document.removeEventListener('keydown', onKey);
+  }
+  function onClose() { cleanup(); }
+  function onOverlay(e) { if (e.target === overlay) cleanup(); }
+  function onKey(e) { if (e.key === 'Escape') cleanup(); }
+
+  closeBtn.addEventListener('click', onClose);
+  overlay.addEventListener('mousedown', onOverlay);
+  document.addEventListener('keydown', onKey);
+}
+
+// Retrouve le numéro de ligne (1-indexé) fautif. JSON.parse() ne donne pas
+// de ligne/colonne structurée (contrairement au json.JSONDecodeError de
+// Python côté serveur) et le format de son message texte diffère d'un
+// moteur à l'autre (Chrome/Edge : "at position N" ; Firefox : "at line N
+// column M" ; Chrome récent : un simple extrait du texte sans position du
+// tout, comme vu en test) - trop fragile pour s'appuyer dessus. On fait donc
+// tourner notre propre mini-scanner JSON (juste assez de grammaire pour
+// suivre les lignes/accolades/crochets/chaînes) qui s'arrête au premier
+// caractère structurellement invalide et rapporte sa ligne directement,
+// indépendamment du moteur JS.
+function _jsonErrorLine(source) {
+  let i = 0, line = 1;
+  const n = source.length;
+  function peek() { return source[i]; }
+  function advance() { if (source[i] === '\n') line++; i++; }
+  function fail() { const err = new Error('syntax'); err._line = line; throw err; }
+  function skipWs() { while (i < n && /\s/.test(source[i])) advance(); }
+  function parseString() {
+    advance(); // opening quote
+    while (true) {
+      if (i >= n) fail();
+      const c = peek();
+      if (c === '"') { advance(); return; }
+      if (c === '\\') { advance(); if (i >= n) fail(); advance(); continue; }
+      if (c === '\n') fail(); // unescaped newline in a string
+      advance();
+    }
+  }
+  function parseLiteral(word) {
+    if (source.slice(i, i + word.length) !== word) fail();
+    for (let k = 0; k < word.length; k++) advance();
+  }
+  function parseNumber() {
+    const start = i;
+    if (peek() === '-') advance();
+    if (!/[0-9]/.test(peek() || '')) fail();
+    while (i < n && /[0-9]/.test(peek())) advance();
+    if (peek() === '.') { advance(); if (!/[0-9]/.test(peek() || '')) fail(); while (i < n && /[0-9]/.test(peek())) advance(); }
+    if (peek() === 'e' || peek() === 'E') {
+      advance();
+      if (peek() === '+' || peek() === '-') advance();
+      if (!/[0-9]/.test(peek() || '')) fail();
+      while (i < n && /[0-9]/.test(peek())) advance();
+    }
+    if (i === start) fail();
+  }
+  function parseValue() {
+    skipWs();
+    if (i >= n) fail();
+    const c = peek();
+    if (c === '"') return parseString();
+    if (c === '{') return parseObject();
+    if (c === '[') return parseArray();
+    if (c === '-' || /[0-9]/.test(c)) return parseNumber();
+    if (c === 't') return parseLiteral('true');
+    if (c === 'f') return parseLiteral('false');
+    if (c === 'n') return parseLiteral('null');
+    fail();
+  }
+  function parseObject() {
+    advance(); // {
+    skipWs();
+    if (peek() === '}') { advance(); return; }
+    while (true) {
+      skipWs();
+      if (peek() !== '"') fail();
+      parseString();
+      skipWs();
+      if (peek() !== ':') fail();
+      advance();
+      parseValue();
+      skipWs();
+      if (peek() === ',') { advance(); continue; }
+      if (peek() === '}') { advance(); return; }
+      fail();
+    }
+  }
+  function parseArray() {
+    advance(); // [
+    skipWs();
+    if (peek() === ']') { advance(); return; }
+    while (true) {
+      parseValue();
+      skipWs();
+      if (peek() === ',') { advance(); continue; }
+      if (peek() === ']') { advance(); return; }
+      fail();
+    }
+  }
+  try {
+    parseValue();
+    skipWs();
+    if (i < n) fail(); // trailing garbage after the top-level value
+    return 0; // parses fine - shouldn't be called in that case anyway
+  } catch (err) {
+    return err._line || line;
+  }
+}
+
+// Validation cote client d'un fichier settings.json avant upload : lit le
+// fichier, vérifie que c'est du JSON syntaxiquement valide ET que c'est bien
+// un objet (pas un tableau/nombre/etc, comme l'exige Settings.from_dict côté
+// serveur) - avant même d'envoyer quoi que ce soit au serveur. En cas
+// d'erreur, affiche le popup façon IDE et retourne false (rien n'est
+// envoyé) ; en cas de succès, retourne true (l'appelant peut soumettre le
+// formulaire normalement - la validation serveur reste aussi en place en
+// dernier recours). Usage : checkJsonSettingsFile(file).then(ok => ...)
+function checkJsonSettingsFile(file) {
+  return file.text().then((source) => {
+    let data;
+    try {
+      data = JSON.parse(source);
+    } catch (err) {
+      showJsonSyntaxError({
+        title: 'Invalid settings file — syntax error',
+        message: err.message,
+        source,
+        line: _jsonErrorLine(source),
+      });
+      return false;
+    }
+    if (data === null || typeof data !== 'object' || Array.isArray(data)) {
+      showJsonSyntaxError({
+        title: 'Invalid settings file',
+        message: 'Expected a JSON object (e.g. { "notify_days": [...], ... }), not ' + (Array.isArray(data) ? 'an array' : typeof data) + '.',
+        source,
+        line: 1,
+      });
+      return false;
+    }
+    return true;
+  }, (err) => {
+    showJsonSyntaxError({ title: 'Invalid settings file', message: 'Could not read the file: ' + err, source: '', line: 0 });
+    return false;
   });
 }
 

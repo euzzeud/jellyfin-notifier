@@ -136,7 +136,7 @@
     <button type="button" class="secondary" onclick="document.getElementById('import-settings-input').click();">⬆ Import settings</button>
   </div>
   <form method="post" action="{{ url_for('admin.settings_import') }}" enctype="multipart/form-data" id="import-settings-form" style="display:none;">
-    <input type="file" name="settings_file" id="import-settings-input" accept="application/json" onchange="document.getElementById('import-settings-form').submit();" />
+    <input type="file" name="settings_file" id="import-settings-input" accept="application/json" onchange="handleSettingsImportFile(this)" />
   </form>
 </div>
 
@@ -188,6 +188,24 @@ function pollerAction(action) {
       setTimeout(() => location.reload(), 900);
     })
     .catch(err => { showToast('Network error: ' + err, false); });
+}
+
+// Vérifie le fichier settings.json choisi (syntaxe JSON + forme attendue)
+// avant de l'envoyer au serveur - popup façon IDE avec la ligne fautive en
+// rouge en cas d'erreur, plutôt qu'un aller-retour serveur pour l'apprendre.
+// Voir checkJsonSettingsFile() dans base.html.
+function handleSettingsImportFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  checkJsonSettingsFile(file).then((ok) => {
+    if (ok) {
+      document.getElementById('import-settings-form').submit();
+    } else {
+      // Réinitialise le champ pour que choisir à nouveau LE MÊME fichier
+      // (après correction) redéclenche bien "onchange".
+      input.value = '';
+    }
+  });
 }
 
 // createTagInput est défini dans le script de base.html, qui apparaît
