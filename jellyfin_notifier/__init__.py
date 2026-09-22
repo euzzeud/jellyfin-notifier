@@ -19,7 +19,10 @@ from .webhook import webhook_bp
 # (rather than redirecting to /setup) so deploy.sh's health check and any
 # external monitoring keep getting a real answer during setup mode instead
 # of a 302 they'd mistake for the service being down.
-_SETUP_EXEMPT_ENDPOINTS = {"setup.setup_view", "setup.setup_save", "setup.setup_import", "admin.assets", "webhook.health"}
+_SETUP_EXEMPT_ENDPOINTS = {
+    "setup.setup_view", "setup.setup_save", "setup.setup_import", "setup.setup_test_jellyfin",
+    "admin.assets", "webhook.health",
+}
 
 # Logger dedicated to the admin interface's HTTP requests (Logs page ->
 # "Interface" filter) - waitress (the production server, see run.py) does

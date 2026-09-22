@@ -51,9 +51,15 @@
     {{ field.key }}{% if field.required %} <span style="color:var(--red);">*</span>{% endif %}
   </label>
   {% if field.secret %}
-  <input type="password" name="{{ field.key }}" placeholder="{{ '••••••••  (saved, leave empty to keep it)' if field.has_saved_value else '(leave empty to keep unset)' }}" autocomplete="new-password" />
+  <input type="password" name="{{ field.key }}" id="field-{{ field.key }}" placeholder="{{ '••••••••  (saved, leave empty to keep it)' if field.has_saved_value else '(leave empty to keep unset)' }}" autocomplete="new-password" />
   {% else %}
-  <input type="text" name="{{ field.key }}" value="{{ field.value }}" />
+  <input type="text" name="{{ field.key }}" id="field-{{ field.key }}" value="{{ field.value }}" />
+  {% endif %}
+  {% if field.key == 'JELLYFIN_URL' %}
+  <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+    <button type="button" class="secondary" onclick="testJellyfinConnection()">Test connection</button>
+    <span id="jellyfin-test-result" style="font-size:12.5px;"></span>
+  </div>
   {% endif %}
   {% if field.help %}
   <small class="hint">{{ field.help }}</small>
@@ -63,5 +69,32 @@
     <button type="submit">Save &amp; restart</button>
   </div>
 </form>
+
+<script>
+function testJellyfinConnection() {
+  const urlField = document.getElementById('field-JELLYFIN_URL');
+  const keyField = document.getElementById('field-JELLYFIN_API_KEY');
+  const resultEl = document.getElementById('jellyfin-test-result');
+  resultEl.textContent = 'Testing…';
+  resultEl.style.color = 'var(--muted)';
+  fetch("{{ url_for('setup.setup_test_jellyfin') }}", {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jellyfin_url: urlField ? urlField.value.trim() : '',
+      jellyfin_api_key: keyField ? keyField.value.trim() : '',
+    }),
+  })
+    .then(r => r.json())
+    .then(data => {
+      resultEl.textContent = (data.ok ? '✓ ' : '✗ ') + data.message;
+      resultEl.style.color = data.ok ? 'var(--green)' : 'var(--red)';
+    })
+    .catch(err => {
+      resultEl.textContent = '✗ Network error: ' + err;
+      resultEl.style.color = 'var(--red)';
+    });
+}
+</script>
 
 {% endblock %}

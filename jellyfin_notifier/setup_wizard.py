@@ -16,9 +16,10 @@ import threading
 import time
 from pathlib import Path
 
-from flask import Blueprint, current_app, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session, url_for
 
 from . import env_setup
+from .api_console import run_request
 from .config import Config
 
 setup_bp = Blueprint("setup", __name__)
@@ -122,6 +123,33 @@ def setup_save():
 
     _schedule_restart()
     return render_template("admin/setup_restarting.html")
+
+
+@setup_bp.route("/setup/test-jellyfin", methods=["POST"])
+def setup_test_jellyfin():
+    """Live connectivity test for the Jellyfin URL/API key currently typed
+    into the form - nothing is saved. This is what makes the wizard actually
+    guide the admin: a wrong IP/port is caught right here, instead of only
+    surfacing later as a red error on the dashboard once the poller starts
+    trying (and failing) to reach it every cycle."""
+    payload = request.get_json(silent=True) or {}
+    url = (payload.get("jellyfin_url") or "").strip()
+    api_key = (payload.get("jellyfin_api_key") or "").strip()
+    if not url:
+        return jsonify({"ok": False, "message": "Enter a Jellyfin URL first."})
+
+    # /System/Info/Public doesn't require an API key, so this still gives a
+    # useful answer ("the server is reachable") even before the admin has
+    # typed the key in - and a wrong/missing key on the real server would
+    # only cause 401s on other endpoints later, not a connection failure.
+    result = run_request(url, api_key, "GET", "/System/Info/Public", "")
+    if result["ok"]:
+        body = result["body"] if isinstance(result["body"], dict) else {}
+        name = body.get("ServerName") or "Jellyfin"
+        version = body.get("Version")
+        suffix = f" (v{version})" if version else ""
+        return jsonify({"ok": True, "message": f'Connected to "{name}"{suffix}.'})
+    return jsonify({"ok": False, "message": f"Could not reach {url}: {result['body']}"})
 
 
 @setup_bp.route("/setup/import", methods=["POST"])
