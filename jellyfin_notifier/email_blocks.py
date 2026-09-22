@@ -232,9 +232,12 @@ _RENDERERS = {
 
 
 def compile_blocks_to_html(blocks: list[dict]) -> str:
-    """Assemble les blocs dans le même squelette (header logo+date, corps,
-    footer) que les templates email.html/email_upcoming.html écrits à la
-    main, pour un rendu cohérent quel que soit le mode d'édition utilisé."""
+    """Assemble les blocs dans le même squelette (header logo+date,
+    introduction, corps, footer) que les templates email.html/
+    email_upcoming.html écrits à la main, pour un rendu cohérent quel que
+    soit le mode d'édition utilisé. Le texte d'intro (comme le header/footer)
+    reste défini dans l'onglet "Texts & colors", partagé par les 3 modes
+    d'édition - ce n'est pas un bloc en soi."""
     body_rows = []
     for block in blocks:
         renderer = _RENDERERS.get(block.get("type"))
@@ -285,6 +288,17 @@ def compile_blocks_to_html(blocks: list[dict]) -> str:
                 </td>
               </tr>
             </table>
+          </td>
+        </tr>
+
+        <!-- Introduction (texte défini dans l'onglet "Texts & colors" - fixe,
+             comme le header/footer, pour rester visible et éditable quel que
+             soit le mode d'édition utilisé) -->
+        <tr>
+          <td style="padding:20px 24px 4px 24px;">
+            <div style="color:{{{{ color_text }}}};font-size:16px;font-weight:bold;">
+              {{{{ intro_text }}}}
+            </div>
           </td>
         </tr>
 

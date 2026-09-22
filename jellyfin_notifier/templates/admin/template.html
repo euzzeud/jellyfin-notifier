@@ -14,10 +14,10 @@
       <input type="hidden" name="form_type" value="simple" />
       <h2>Texts &amp; colors</h2>
 
-      <label>Intro — single item</label>
+      <label>Introduction — single item</label>
       <input type="text" name="template_intro_single" id="template_intro_single" value="{{ settings.template_intro_single }}" />
 
-      <label>Intro — multiple items ({{ '{count}' }} available)</label>
+      <label>Introduction — multiple items ({{ '{count}' }} available)</label>
       <input type="text" name="template_intro_multi" id="template_intro_multi" value="{{ settings.template_intro_multi }}" />
 
       <label>Subject — single item ({{ '{name}' }} available)</label>
@@ -51,6 +51,7 @@
       <h2>Visual block builder (drag &amp; drop)</h2>
       <p class="muted" style="font-size:12px;margin-top:-8px;">
         Stack blocks, drag the ⠿ handle to reorder. Saving replaces the raw HTML template below (a backup of the previous version is kept).
+        The logo, date, <strong>introduction text</strong> and footer are not blocks — they always show above/below your blocks, and are edited in "Texts &amp; colors" above.
       </p>
       <div id="block-builder-root"></div>
       <input type="hidden" name="blocks_json" id="blocks_json" />
