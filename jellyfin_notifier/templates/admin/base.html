@@ -314,7 +314,7 @@
     all:unset; cursor:pointer; color:var(--blue); font-weight:600; font-size:13px;
     transition: color .15s var(--ease);
   }
-  .unsaved-bar .reset-link:hover { color:#fff; text-decoration:underline; }
+  .unsaved-bar .reset-link:hover { color:#fff; }
   .unsaved-bar button.save { padding:9px 20px; }
   @media (max-width: 620px) { .unsaved-bar { padding:12px 16px; } .unsaved-bar .msg { font-size:13px; } }
 
@@ -832,7 +832,14 @@ function initUnsavedGuard() {
       const href = link.href;
       const now = Date.now();
       if (leaveOverride && leaveOverride.href === href && now < leaveOverride.expiresAt) {
-        return; // deuxième clic sur le même lien : on laisse partir
+        // Deuxième clic sur le même lien : on laisse partir - et on éteint
+        // la garde AVANT que la navigation ne parte, sinon "beforeunload"
+        // se déclenche quand même juste après et affiche EN PLUS la boîte
+        // de dialogue native du navigateur ("Quitter le site Web ?"), ce
+        // qui donnait l'impression que l'avertissement du nav "revenait"
+        // malgré le clic de confirmation.
+        clearDirty();
+        return;
       }
       e.preventDefault();
       leaveOverride = { href, expiresAt: now + 4000 };
