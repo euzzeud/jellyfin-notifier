@@ -190,7 +190,7 @@
 <body>
 <div class="toast-container" id="toast-container"></div>
 <header>
-  <div class="brand"><img src="{{ url_for('admin.assets', filename='jellyfin-logo.svg') }}" alt="Jellyfin" height="30" style="display:block;" /><span>Notifier</span></div>
+  <div class="brand"><img src="{{ url_for('admin.assets', filename='jellyfin-logo.svg') }}" alt="Jellyfin" style="display:block; height:30px; width:auto;" /><span>Notifier</span></div>
   <div class="right">
     <div class="muted" style="font-size:12px;">{{ config.jellyfin_url if config is defined else "" }}</div>
     <form class="logout-form" method="post" action="{{ url_for('admin.logout') }}">
@@ -204,6 +204,7 @@
   <a href="{{ url_for('admin.upcoming_view') }}" class="{{ 'active' if active=='upcoming' else '' }}">Upcoming Content Notifications</a>
   <a href="{{ url_for('admin.schedule_view') }}" class="{{ 'active' if active=='schedule' else '' }}">Schedule</a>
   <a href="{{ url_for('admin.api_console_view') }}" class="{{ 'active' if active=='api_console' else '' }}">Jellyfin Connection</a>
+  <a href="{{ url_for('admin.mail_server_view') }}" class="{{ 'active' if active=='mail_server' else '' }}">Mail Server</a>
   <a href="{{ url_for('admin.logs') }}" class="{{ 'active' if active=='logs' else '' }}">Logs</a>
 </nav>
 <main class="{{ 'wide' if wide_layout else '' }}">

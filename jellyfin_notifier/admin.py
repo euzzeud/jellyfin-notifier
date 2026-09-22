@@ -21,7 +21,8 @@ from jinja2 import TemplateSyntaxError
 
 from . import service_control
 from .api_console import run_request
-from .email_sender import TEMPLATES_DIR, render_preview_html, send_email
+from .config import SMTP_ENCRYPTIONS
+from .email_sender import TEMPLATES_DIR, render_preview_html, send_email, send_test_email
 from .jellyfin_client import JellyfinClient
 from .pending import load_pending
 from .schedule import WEEKDAY_NAMES_EN, is_within_window, next_allowed_datetime
@@ -596,11 +597,15 @@ def upcoming_view():
             ids = request.form.getlist("ids")
             entries = get_many(cfg.upcoming_path, ids)
             if entries:
-                settings = load_settings(cfg.settings_path).scoped("upcoming")
+                full_settings = load_settings(cfg.settings_path)
+                settings = full_settings.scoped("upcoming")
                 client = JellyfinClient(cfg.jellyfin_url, cfg.jellyfin_api_key, cfg.jellyfin_public_url)
                 items = _upcoming_items_for_send(entries)
                 try:
-                    send_email(items, cfg, client, settings, template_name="email_upcoming.html")
+                    send_email(
+                        items, cfg, client, settings,
+                        smtp=full_settings.resolve_smtp(cfg), template_name="email_upcoming.html",
+                    )
                     sent = True
                 except Exception:
                     logger.exception("Échec d'envoi de l'annonce des titres à venir")
@@ -714,4 +719,77 @@ def api_console_view():
         method=request.form.get("method", "GET"),
         path=request.form.get("path", "/System/Info"),
         query_string=request.form.get("query_string", ""),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Serveur mail (SMTP) - hôte/port/chiffrement, identifiants, expéditeur,
+# destinataires. Configurable depuis l'admin, sans redémarrer le service.
+# N'importe quel fournisseur SMTP standard est supporté (pas seulement
+# Gmail, qui reste juste la valeur par défaut historique).
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/mail-server", methods=["GET", "POST"])
+def mail_server_view():
+    cfg = _config()
+    settings = load_settings(cfg.settings_path)
+    saved = False
+    test_result = None
+
+    if request.method == "POST":
+        action = request.form.get("action")
+
+        if action == "save":
+            settings.smtp_host_override = request.form.get("smtp_host_override", "").strip()
+            settings.smtp_port_override = request.form.get("smtp_port_override", type=int) or 0
+            encryption = request.form.get("smtp_encryption_override", "").strip().lower()
+            settings.smtp_encryption_override = encryption if encryption in SMTP_ENCRYPTIONS else ""
+            settings.smtp_username_override = request.form.get("smtp_username_override", "").strip()
+
+            new_password = request.form.get("smtp_password_override", "")
+            if new_password:
+                settings.smtp_password_override = new_password
+            elif request.form.get("clear_password_override"):
+                settings.smtp_password_override = ""
+            # Sinon (champ laissé vide, pas de case "effacer" cochée) : on
+            # garde le mot de passe déjà enregistré tel quel - on ne veut pas
+            # qu'une sauvegarde d'un autre champ efface le mot de passe juste
+            # parce que le formulaire ne le réaffiche jamais en clair.
+
+            settings.sender_name_override = request.form.get("sender_name_override", "").strip()
+            settings.sender_email_override = request.form.get("sender_email_override", "").strip()
+            settings.recipients_override = request.form.get("recipients_override", "").strip()
+            save_settings(cfg.settings_path, settings)
+            saved = True
+
+        elif action == "test":
+            smtp = settings.resolve_smtp(cfg)
+            test_recipient = request.form.get("test_recipient", "").strip() or (smtp.recipients[0] if smtp.recipients else "")
+            if not test_recipient:
+                test_result = {"ok": False, "error": "No recipient configured to send the test to."}
+            else:
+                try:
+                    send_test_email(smtp, test_recipient)
+                    test_result = {"ok": True, "recipient": test_recipient}
+                except Exception as exc:
+                    logger.exception("Échec de l'envoi du mail de test")
+                    test_result = {"ok": False, "error": str(exc)}
+
+    smtp = settings.resolve_smtp(cfg)
+    return render_template(
+        "admin/mail_server.html",
+        active="mail_server",
+        settings=settings,
+        smtp=smtp,
+        default_host=cfg.smtp_host,
+        default_port=cfg.smtp_port,
+        default_encryption=cfg.smtp_encryption,
+        default_username=cfg.smtp_username,
+        default_sender_name=cfg.sender_name,
+        default_sender_email=cfg.sender_email,
+        default_recipients=", ".join(cfg.recipients),
+        has_password_override=bool(settings.smtp_password_override),
+        encryptions=SMTP_ENCRYPTIONS,
+        saved=saved,
+        test_result=test_result,
     )

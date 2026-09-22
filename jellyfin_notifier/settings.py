@@ -75,6 +75,19 @@ class Settings:
     poller_limit_override: int = 0  # 0 = valeur par défaut (200)
     poller_paused: bool = False  # true = le thread tourne mais ne fait rien à chaque cycle
 
+    # Serveur SMTP / expéditeur / destinataires - éditables depuis l'admin,
+    # sans redémarrer le service. Vide/0 = valeur de .env (Config) utilisée
+    # telle quelle. N'importe quel fournisseur SMTP standard est supporté,
+    # pas seulement Gmail.
+    smtp_host_override: str = ""
+    smtp_port_override: int = 0
+    smtp_encryption_override: str = ""  # "" = Config, sinon "starttls"/"ssl"/"none"
+    smtp_username_override: str = ""
+    smtp_password_override: str = ""
+    sender_name_override: str = ""
+    sender_email_override: str = ""
+    recipients_override: str = ""  # séparés par des virgules
+
     def to_dict(self) -> dict:
         return asdict(self)
 
@@ -119,6 +132,30 @@ class Settings:
             color_button=self.color_button,
             color_text=self.color_text,
             color_muted=self.color_muted,
+        )
+
+    def resolve_smtp(self, config) -> "SmtpSettings":
+        """Fusionne les valeurs de .env (Config, figées au démarrage) avec
+        les surcharges éditables depuis l'admin (page "Mail server") -
+        n'importe quel champ vide/0 dans Settings retombe sur la valeur de
+        Config."""
+        from .config import SmtpSettings
+
+        encryption = self.smtp_encryption_override.strip() or config.smtp_encryption
+        if self.recipients_override.strip():
+            recipients = [r.strip() for r in self.recipients_override.split(",") if r.strip()]
+        else:
+            recipients = config.recipients
+
+        return SmtpSettings(
+            host=self.smtp_host_override.strip() or config.smtp_host,
+            port=self.smtp_port_override or config.smtp_port,
+            encryption=encryption,
+            username=self.smtp_username_override.strip() or config.smtp_username,
+            password=self.smtp_password_override or config.smtp_password,
+            sender_name=self.sender_name_override.strip() or config.sender_name,
+            sender_email=self.sender_email_override.strip() or config.sender_email,
+            recipients=recipients,
         )
 
 

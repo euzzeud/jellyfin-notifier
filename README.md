@@ -20,6 +20,7 @@ Au premier lancement, tout le catalogue existant est enregistré comme "déjà v
   - Aperçu du prochain mail.
   - Titres à venir : annonce manuelle de contenus pas encore dans la bibliothèque.
   - Console API Jellyfin ad-hoc.
+  - Serveur mail (SMTP) : hôte/port/chiffrement, identifiants, expéditeur, destinataires — n'importe quel fournisseur SMTP standard (pas seulement Gmail), + envoi d'un mail de test.
   - Gestion du service systemd + logs `journalctl` depuis l'admin.
 - Endpoint `/health` pour le monitoring (Telegraf/Grafana ou autre).
 

@@ -1,4 +1,6 @@
-"""Construction et envoi du mail (thème Jellyfin) via SMTP Gmail."""
+"""Construction et envoi du mail (thème Jellyfin) via SMTP - Gmail par
+défaut, mais n'importe quel serveur SMTP standard (STARTTLS, SSL implicite,
+ou sans chiffrement) fonctionne, cf. Settings.resolve_smtp()."""
 
 from __future__ import annotations
 
@@ -12,7 +14,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from .config import Config
+from .config import Config, SmtpSettings
 from .jellyfin_client import JellyfinClient
 from .settings import ScopedEmailSettings, Settings
 
@@ -265,9 +267,25 @@ def render_preview_html(
     )
 
 
+def _default_smtp(config: Config) -> SmtpSettings:
+    """SmtpSettings basé uniquement sur Config (.env) - utilisé quand
+    l'appelant ne fournit pas explicitement les surcharges de Settings
+    (ex: webhook.py, ou tout appel sans admin en cours)."""
+    return SmtpSettings(
+        host=config.smtp_host,
+        port=config.smtp_port,
+        encryption=config.smtp_encryption,
+        username=config.smtp_username,
+        password=config.smtp_password,
+        sender_name=config.sender_name,
+        sender_email=config.sender_email,
+        recipients=config.recipients,
+    )
+
+
 def build_email(
     items: list[dict],
-    config: Config,
+    smtp: SmtpSettings,
     recipient: str,
     html: str,
     inline_images: list[MIMEImage],
@@ -279,7 +297,7 @@ def build_email(
     settings = settings or Settings()
     msg = MIMEMultipart("related")
     msg["Subject"] = _build_subject(items, settings)
-    msg["From"] = f"{config.sender_name} <{config.gmail_address}>"
+    msg["From"] = f"{smtp.sender_name} <{smtp.sender_email}>"
     msg["To"] = recipient
 
     alt = MIMEMultipart("alternative")
@@ -302,16 +320,51 @@ def send_email(
     config: Config,
     jf_client: JellyfinClient,
     settings: EmailSettings | None = None,
+    smtp: SmtpSettings | None = None,
     recipients: list[str] | None = None,
     template_name: str = DEFAULT_TEMPLATE_NAME,
 ) -> None:
+    """Envoie le mail via SMTP. `smtp`, si fourni, prévaut sur Config
+    (permet aux appelants qui ont accès aux Settings courants de fusionner
+    les surcharges éditées depuis l'admin - cf. Settings.resolve_smtp()).
+    Sans `smtp`, retombe sur les valeurs figées de Config (.env)."""
     settings = settings or Settings()
-    recipients = recipients if recipients is not None else config.recipients
+    smtp = smtp or _default_smtp(config)
+    recipients = recipients if recipients is not None else smtp.recipients
     html, inline_images = _prepare_content(items, jf_client, settings, template_name=template_name)
-    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-        server.starttls()
-        server.login(config.gmail_address, config.gmail_app_password)
+
+    smtp_cls = smtplib.SMTP_SSL if smtp.encryption == "ssl" else smtplib.SMTP
+    with smtp_cls(smtp.host, smtp.port, timeout=20) as server:
+        if smtp.encryption == "starttls":
+            server.starttls()
+        if smtp.username:
+            server.login(smtp.username, smtp.password)
         for recipient in recipients:
-            msg = build_email(items, config, recipient, html, inline_images, settings)
-            server.sendmail(config.gmail_address, [recipient], msg.as_string())
+            msg = build_email(items, smtp, recipient, html, inline_images, settings)
+            server.sendmail(smtp.sender_email, [recipient], msg.as_string())
     logger.info("Mail envoyé à %d destinataire(s) pour %d item(s)", len(recipients), len(items))
+
+
+def send_test_email(smtp: SmtpSettings, to: str) -> None:
+    """Envoie un mail de test minimal (texte brut, sans Jellyfin ni
+    template) - utilisé par la page "Mail server" de l'admin pour vérifier
+    une config SMTP avant de compter dessus pour les vraies notifs."""
+    msg = MIMEMultipart()
+    msg["Subject"] = "Test - Jellyfin Notifier"
+    msg["From"] = f"{smtp.sender_name} <{smtp.sender_email}>"
+    msg["To"] = to
+    msg.attach(
+        MIMEText(
+            "Ceci est un mail de test envoyé depuis l'interface d'admin de Jellyfin Notifier.\n"
+            "Si tu reçois ce message, la configuration du serveur SMTP fonctionne.",
+            "plain",
+            "utf-8",
+        )
+    )
+    smtp_cls = smtplib.SMTP_SSL if smtp.encryption == "ssl" else smtplib.SMTP
+    with smtp_cls(smtp.host, smtp.port, timeout=20) as server:
+        if smtp.encryption == "starttls":
+            server.starttls()
+        if smtp.username:
+            server.login(smtp.username, smtp.password)
+        server.sendmail(smtp.sender_email, [to], msg.as_string())

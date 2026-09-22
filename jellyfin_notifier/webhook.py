@@ -9,6 +9,7 @@ from flask import Blueprint, current_app, jsonify, request
 from .buffer import DebounceBuffer
 from .email_sender import item_from_payload, send_email
 from .jellyfin_client import JellyfinClient
+from .settings import load_settings
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,8 @@ def _get_buffer() -> DebounceBuffer:
     key = id(config)
     if key not in _buffers_by_config_id:
         def flush(items: list[dict]):
-            send_email(items, config, jf_client)
+            settings = load_settings(config.settings_path)
+            send_email(items, config, jf_client, settings, smtp=settings.resolve_smtp(config))
 
         _buffers_by_config_id[key] = DebounceBuffer(config.debounce_seconds, flush)
     return _buffers_by_config_id[key]

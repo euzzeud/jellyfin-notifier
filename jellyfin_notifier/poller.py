@@ -149,7 +149,7 @@ class JellyfinPoller:
 
         logger.info("%d item(s) à notifier (dont %d en file d'attente)", len(to_consider), len(pending))
         try:
-            send_email(to_consider, self.config, client, settings)
+            send_email(to_consider, self.config, client, settings, smtp=settings.resolve_smtp(self.config))
             clear_pending(self.config.pending_items_path)
             self.last_email_error = None
         except Exception as exc:

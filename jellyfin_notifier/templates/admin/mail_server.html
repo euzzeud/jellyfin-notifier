@@ -1,0 +1,91 @@
+{% extends "admin/base.html" %}
+{% block title %}Mail Server - Admin{% endblock %}
+{% block content %}
+
+{% if saved %}<div class="alert ok flash-toast">Mail server settings saved.</div>{% endif %}
+{% if test_result %}
+  {% if test_result.ok %}
+  <div class="alert ok flash-toast">Test mail sent to {{ test_result.recipient }}.</div>
+  {% else %}
+  <div class="alert err flash-toast">Test mail failed: {{ test_result.error }}</div>
+  {% endif %}
+{% endif %}
+
+<div class="card">
+  <h2>Currently effective</h2>
+  <p class="muted" style="font-size:12px;">
+    Any field left empty below falls back to the value from the service configuration (.env). Works with any standard SMTP provider — Gmail, Outlook, a self-hosted server, etc.
+  </p>
+  <div class="grid">
+    <div class="stat"><div class="label">Host</div><div class="value" style="font-size:14px;">{{ smtp.host }}</div></div>
+    <div class="stat"><div class="label">Port</div><div class="value">{{ smtp.port }}</div></div>
+    <div class="stat"><div class="label">Encryption</div><div class="value" style="font-size:14px;">{{ smtp.encryption|upper }}</div></div>
+    <div class="stat"><div class="label">Username</div><div class="value" style="font-size:13px;">{{ smtp.username }}</div></div>
+    <div class="stat"><div class="label">Sender</div><div class="value" style="font-size:13px;">{{ smtp.sender_name }} &lt;{{ smtp.sender_email }}&gt;</div></div>
+    <div class="stat"><div class="label">Recipients</div><div class="value" style="font-size:13px;">{{ smtp.recipients|join(', ') }}</div></div>
+  </div>
+</div>
+
+<form method="post" class="card">
+  <input type="hidden" name="action" value="save" />
+  <h2>SMTP server</h2>
+  <div class="row">
+    <div>
+      <label>Host</label>
+      <input type="text" name="smtp_host_override" value="{{ settings.smtp_host_override }}" placeholder="{{ default_host }} (default)" />
+    </div>
+    <div style="max-width:140px;">
+      <label>Port</label>
+      <input type="number" name="smtp_port_override" min="0" value="{{ settings.smtp_port_override or '' }}" placeholder="{{ default_port }} (default)" />
+    </div>
+    <div style="max-width:180px;">
+      <label>Encryption</label>
+      <select name="smtp_encryption_override">
+        <option value="" {{ 'selected' if not settings.smtp_encryption_override else '' }}>Default ({{ default_encryption|upper }})</option>
+        {% for enc in encryptions %}
+        <option value="{{ enc }}" {{ 'selected' if settings.smtp_encryption_override == enc else '' }}>{{ enc|upper }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <small class="hint">STARTTLS (usually port 587) is the most common. SSL is implicit TLS (usually port 465). NONE means an unencrypted connection — only for a trusted local network.</small>
+
+  <label>Username</label>
+  <input type="text" name="smtp_username_override" value="{{ settings.smtp_username_override }}" placeholder="{{ default_username }} (default)" />
+
+  <label>Password</label>
+  <input type="password" name="smtp_password_override" placeholder="{{ '••••••••  (override saved, leave empty to keep it)' if has_password_override else '(default from .env, leave empty to keep it)' }}" autocomplete="new-password" />
+  {% if has_password_override %}
+  <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-weight:400;">
+    <input type="checkbox" name="clear_password_override" value="1" style="width:auto;" />
+    Clear the saved password override (fall back to the .env value)
+  </label>
+  {% endif %}
+  <small class="hint">Never pre-filled for security. Leaving it empty keeps whatever is already saved — it does not erase it.</small>
+
+  <label>Sender name</label>
+  <input type="text" name="sender_name_override" value="{{ settings.sender_name_override }}" placeholder="{{ default_sender_name }} (default)" />
+
+  <label>Sender email (the "From" address — usually the same as the username)</label>
+  <input type="text" name="sender_email_override" value="{{ settings.sender_email_override }}" placeholder="{{ default_username }} (default)" />
+
+  <label>Recipients (comma-separated)</label>
+  <input type="text" name="recipients_override" value="{{ settings.recipients_override }}" placeholder="{{ default_recipients }} (default)" />
+
+  <div class="actions">
+    <button type="submit">Save changes</button>
+  </div>
+</form>
+
+<form method="post" class="card">
+  <input type="hidden" name="action" value="test" />
+  <h2>Send a test mail</h2>
+  <p class="muted" style="font-size:12px;">Sends a minimal plain-text mail using the currently saved settings, to verify the connection works. Save your changes above first if you just edited them.</p>
+  <label>Recipient (optional — defaults to the first configured recipient)</label>
+  <input type="text" name="test_recipient" placeholder="{{ smtp.recipients[0] if smtp.recipients else 'someone@example.com' }}" />
+  <div class="actions">
+    <button type="submit" class="secondary">✉ Send test mail</button>
+  </div>
+</form>
+
+{% endblock %}
