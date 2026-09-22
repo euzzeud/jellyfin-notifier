@@ -361,6 +361,13 @@
   .unsaved-bar button.save { padding:9px 20px; }
   @media (max-width: 620px) { .unsaved-bar { padding:12px 16px; } .unsaved-bar .msg { font-size:13px; } }
 
+  /* La barre "unsaved changes" est en position fixe en bas de l'écran : sans
+     ça, elle passe PAR-DESSUS le bas du formulaire (ex: le champ
+     Destinataires de la page Mail Server) à la position de défilement où
+     elle apparaît, le cachant complètement plutôt que de simplement se
+     poser sous lui. */
+  body.unsaved-bar-open main { padding-bottom:130px; transition: padding-bottom .2s var(--ease); }
+
   /* Boîte de confirmation personnalisée (remplace window.confirm(), qui
      affiche une boîte du navigateur au look générique et pas centrée sur
      la page - ici centrée, dans le thème de l'admin, fermable par Échap
@@ -889,11 +896,32 @@ function initUnsavedGuard() {
   function setDirty(form) {
     dirtyForm = form;
     bar.classList.add('show');
+    // La barre est en position fixe en bas de l'écran, sans espace réservé
+    // pour elle : sans cette classe, elle recouvre purement et simplement
+    // le bas du formulaire (ex: le champ Destinataires de la page Mail
+    // Server) dès qu'elle apparaît à cette position de défilement.
+    document.body.classList.add('unsaved-bar-open');
+    // Ça ne suffit pas si le champ qu'on est justement en train de modifier
+    // se trouve DÉJÀ tout en bas de l'écran à l'instant où la barre glisse
+    // vers le haut : elle passe alors PAR-DESSUS, le cachant complètement
+    // sous les yeux de l'utilisateur en train de taper dedans. On vérifie
+    // donc si le champ actif serait recouvert, et si oui on scrolle juste
+    // assez pour le faire réapparaître au-dessus de la barre.
+    const active = document.activeElement;
+    if (active && form.contains(active)) {
+      const rect = active.getBoundingClientRect();
+      const visibleBottom = window.innerHeight - bar.offsetHeight;
+      const overlap = rect.bottom - visibleBottom;
+      if (overlap > 0) {
+        window.scrollBy({ top: overlap + 16, behavior: 'smooth' });
+      }
+    }
   }
 
   function clearDirty() {
     dirtyForm = null;
     bar.classList.remove('show');
+    document.body.classList.remove('unsaved-bar-open');
   }
 
   function checkForm(form) {
