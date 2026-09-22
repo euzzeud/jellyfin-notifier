@@ -92,10 +92,12 @@ log "/health returned 200 - service is operational"
 cat /tmp/health_response.json
 
 # ---- 6. Admin interface check ----------------------------------------------------
+# The admin blueprint is mounted at the site root (no /admin prefix) - the
+# login page is at /login, not /admin/login.
 log "Checking that the admin interface responds"
-ADMIN_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}/admin/login" || echo "000")
-[ "$ADMIN_CODE" = "200" ] || fail "The admin interface did not respond ($ADMIN_CODE) on /admin/login."
-log "Admin interface reachable: http://<lxc-ip>:${PORT}/admin"
+ADMIN_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}/login" || echo "000")
+[ "$ADMIN_CODE" = "200" ] || fail "The admin interface did not respond ($ADMIN_CODE) on /login."
+log "Admin interface reachable: http://<lxc-ip>:${PORT}/"
 
 # ---- 7. Cleanup -------------------------------------------------------------------
 log "Cleaning up the source directory"
@@ -104,6 +106,6 @@ rm -rf "$SRC_DIR"
 log "Deployment finished successfully."
 echo "  - Service : systemctl status $SERVICE_NAME"
 echo "  - Logs    : journalctl -u $SERVICE_NAME -f"
-echo "  - Admin   : http://<lxc-ip>:${PORT}/admin"
+echo "  - Admin   : http://<lxc-ip>:${PORT}/"
 echo "  - Health  : http://<lxc-ip>:${PORT}/health"
 echo "  - Metrics : http://<lxc-ip>:${PORT}/metrics"
