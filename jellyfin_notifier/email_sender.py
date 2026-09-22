@@ -373,8 +373,8 @@ def send_test_email(smtp: SmtpSettings, to: str, history_path: str | None = None
     msg["To"] = to
     msg.attach(
         MIMEText(
-            "Ceci est un mail de test envoyé depuis l'interface d'admin de Jellyfin Notifier.\n"
-            "Si tu reçois ce message, la configuration du serveur SMTP fonctionne.",
+            "This is a test mail sent from the Jellyfin Notifier admin interface.\n"
+            "If you received this message, the SMTP server configuration is working.",
             "plain",
             "utf-8",
         )
