@@ -95,7 +95,7 @@
       </div>
       <div>
         <label>Fetch limit</label>
-        <input type="number" name="poller_limit_override" min="0" value="{{ settings.poller_limit_override or '' }}" placeholder="200 (default)" />
+        <input type="number" name="poller_limit_override" min="0" value="{{ settings.poller_limit_override or '' }}" placeholder="{{ default_limit }} (default)" />
       </div>
     </div>
     <small class="hint">Leave a field empty to use the default from the service configuration. Changes apply on the next poll cycle, no restart needed.</small>

@@ -28,6 +28,7 @@ from .email_blocks import BLOCK_TYPES, compile_blocks_to_html
 from .email_sender import TEMPLATES_DIR, render_preview_html, send_email, send_test_email
 from .jellyfin_client import JellyfinClient
 from .pending import load_pending
+from .poller import DEFAULT_POLLER_LIMIT
 from .schedule import WEEKDAY_NAMES_EN, is_within_window, next_allowed_datetime
 from .settings import Settings, load_settings, save_settings
 from .upcoming import ALLOWED_POSTER_EXTENSIONS, UPLOADS_DIR, add_upcoming, delete_upcoming, get_many, item_from_upcoming, list_upcoming, save_poster
@@ -291,6 +292,7 @@ def dashboard():
         import_error=import_error,
         default_item_types=",".join(sorted(cfg.notify_item_types)),
         default_interval=cfg.poll_interval_seconds,
+        default_limit=DEFAULT_POLLER_LIMIT,
     )
 
 
@@ -444,7 +446,7 @@ def _validate_template_source(source: str) -> tuple[bool, str]:
     return True, ""
 
 
-@admin_bp.route("/template/validate", methods=["POST"])
+@admin_bp.route("/new-content/validate", methods=["POST"])
 def template_validate():
     source = (request.get_json(silent=True) or {}).get("source", "")
     valid, error = _validate_template_source(source)
@@ -592,12 +594,12 @@ def _template_live_preview(scope: str, template_name: str, fake_items: list[dict
     return jsonify({"ok": True, "html": html_out})
 
 
-@admin_bp.route("/template", methods=["GET", "POST"])
+@admin_bp.route("/new-content", methods=["GET", "POST"])
 def template_view():
     return _template_editor_view("new", EMAIL_TEMPLATE_PATH, active="template")
 
 
-@admin_bp.route("/template/live-preview", methods=["POST"])
+@admin_bp.route("/new-content/live-preview", methods=["POST"])
 def template_live_preview():
     return _template_live_preview("new", "email.html", FAKE_PREVIEW_ITEMS)
 

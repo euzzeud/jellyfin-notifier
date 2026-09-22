@@ -29,6 +29,12 @@ from .settings import Settings, load_settings
 
 logger = logging.getLogger(__name__)
 
+# Pas de variable d'env dédiée pour ça (contrairement à l'intervalle ou aux
+# types d'items) - une constante nommée plutôt qu'un 200 répété en dur dans
+# effective_limit() ET dans le placeholder du dashboard admin, pour ne pas
+# risquer que les deux divergent silencieusement si l'un des deux change.
+DEFAULT_POLLER_LIMIT = 200
+
 
 class JellyfinPoller:
     def __init__(self, config: Config, client: JellyfinClient | None = None):
@@ -56,7 +62,7 @@ class JellyfinPoller:
         return settings.poller_interval_seconds_override or self.config.poll_interval_seconds
 
     def effective_limit(self, settings: Settings) -> int:
-        return settings.poller_limit_override or 200
+        return settings.poller_limit_override or DEFAULT_POLLER_LIMIT
 
     @property
     def client(self) -> JellyfinClient:
