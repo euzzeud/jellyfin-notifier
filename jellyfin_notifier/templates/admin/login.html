@@ -3,8 +3,15 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="view-transition" content="same-origin" />
 <title>Sign in - Jellyfin Notifier</title>
 <style>
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root), ::view-transition-new(root) {
+    animation-duration: .22s;
+    animation-timing-function: cubic-bezier(.16,.84,.44,1);
+  }
+
   :root {
     --bg:#0b0b0d; --bg-glow: radial-gradient(1100px 520px at 12% -10%, rgba(0,164,220,.14), transparent 60%),
                               radial-gradient(900px 480px at 100% 0%, rgba(170,92,195,.12), transparent 55%);
