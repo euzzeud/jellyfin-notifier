@@ -1,36 +1,36 @@
 {% extends "admin/base.html" %}
-{% block title %}Connexion Jellyfin - Admin{% endblock %}
+{% block title %}Jellyfin Connection - Admin{% endblock %}
 {% block content %}
 
 {% if save_msg %}<div class="alert ok">{{ save_msg }}</div>{% endif %}
 
 <form method="post" class="card">
   <input type="hidden" name="action" value="save_connection" />
-  <h2>Connexion Jellyfin</h2>
+  <h2>Jellyfin connection</h2>
   <p class="muted" style="font-size:12px;">
-    {% if using_override %}Une surcharge est active (utilisée aussi par le poller et les mails).{% else %}Utilise actuellement les valeurs de .env ({{ effective_url }}).{% endif %}
+    {% if using_override %}An override is active (also used by the poller and the mails).{% else %}Currently using the .env values ({{ effective_url }}).{% endif %}
   </p>
   <div class="row">
     <div>
-      <label>URL Jellyfin (laisser vide pour utiliser celle du .env)</label>
+      <label>Jellyfin URL (leave empty to use the .env value)</label>
       <input type="text" name="jellyfin_url_override" placeholder="{{ effective_url }}" value="{{ url_override_value }}" />
     </div>
     <div>
-      <label>Clé API (laisser vide pour utiliser celle du .env)</label>
+      <label>API key (leave empty to use the .env value)</label>
       <input type="password" name="jellyfin_api_key_override" placeholder="••••••••" />
     </div>
   </div>
   <div class="actions">
-    <button type="submit">Enregistrer la connexion</button>
+    <button type="submit">Save connection</button>
   </div>
 </form>
 
 <form method="post" class="card">
   <input type="hidden" name="action" value="run" />
-  <h2>Requête API</h2>
+  <h2>API console</h2>
   <div class="row">
     <div style="max-width:120px;">
-      <label>Méthode</label>
+      <label>Method</label>
       <select name="method">
         {% for m in ["GET", "POST"] %}
         <option value="{{ m }}" {{ 'selected' if method == m else '' }}>{{ m }}</option>
@@ -38,21 +38,21 @@
       </select>
     </div>
     <div style="flex:3;">
-      <label>Chemin (relatif à {{ effective_url }})</label>
+      <label>Path (relative to {{ effective_url }})</label>
       <input type="text" name="path" value="{{ path }}" placeholder="/Items" />
     </div>
   </div>
-  <label>Paramètres (un par ligne, clé=valeur)</label>
+  <label>Parameters (one per line, key=value)</label>
   <textarea name="query_string" rows="4" placeholder="Recursive=true&#10;IncludeItemTypes=Movie&#10;Limit=10">{{ query_string }}</textarea>
   <div class="actions">
-    <button type="submit">▶ Exécuter</button>
+    <button type="submit">▶ Run</button>
   </div>
-  <small class="hint">Raccourcis utiles : /System/Info, /Items, /Library/VirtualFolders, /Users</small>
+  <small class="hint">Useful shortcuts: /System/Info, /Items, /Library/VirtualFolders, /Users</small>
 </form>
 
 {% if result %}
 <div class="card">
-  <h2>Réponse — <span class="pill {{ 'ok' if result.ok else 'bad' }}">{{ result.status_code or 'erreur réseau' }}</span></h2>
+  <h2>Response — <span class="pill {{ 'ok' if result.ok else 'bad' }}">{{ result.status_code or 'network error' }}</span></h2>
   <p class="muted" style="font-size:12px;word-break:break-all;">{{ result.url }}</p>
   <pre class="logbox">{{ result.body | tojson(indent=2) }}</pre>
 </div>

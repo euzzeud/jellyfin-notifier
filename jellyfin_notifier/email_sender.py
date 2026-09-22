@@ -165,6 +165,13 @@ def _build_render_items(
                 img.add_header("Content-Disposition", "inline", filename=f"{cid}.jpg")
                 inline_images.append(img)
 
+        deep_link = jf_client.deep_link(item["item_id"]) if item.get("item_id") else None
+        if deep_link is None and for_preview and item.get("_fake_deep_link"):
+            # Aperçu navigateur d'un item d'exemple sans item_id réel : on
+            # affiche quand même le bouton "Regarder" (lien factice) pour que
+            # l'admin voie à quoi ressemblera le mail final.
+            deep_link = item["_fake_deep_link"]
+
         render_items.append(
             {
                 "name": item["name"],
@@ -176,7 +183,7 @@ def _build_render_items(
                 "duration": _format_duration(item.get("run_time_ticks")),
                 "image_cid": cid,
                 "image_url": image_url,
-                "deep_link": jf_client.deep_link(item["item_id"]) if item.get("item_id") else None,
+                "deep_link": deep_link,
             }
         )
     return render_items, inline_images

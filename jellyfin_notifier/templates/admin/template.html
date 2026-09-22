@@ -1,62 +1,62 @@
 {% extends "admin/base.html" %}
-{% block title %}Notifications ajout d'items - Admin{% endblock %}
+{% block title %}New Content Notifications - Admin{% endblock %}
 {% block content %}
 
-{% if saved == "simple" %}<div class="alert ok">Textes et couleurs enregistrés.</div>{% endif %}
-{% if saved == "raw" %}<div class="alert ok">Template HTML enregistré (sauvegarde de l'ancienne version conservée).</div>{% endif %}
-{% if raw_error %}<div class="alert err">Erreur, rien n'a été enregistré : {{ raw_error }}</div>{% endif %}
+{% if saved == "simple" %}<div class="alert ok">Texts and colors saved.</div>{% endif %}
+{% if saved == "raw" %}<div class="alert ok">HTML template saved (previous version kept as backup).</div>{% endif %}
+{% if raw_error %}<div class="alert err">Error, nothing was saved: {{ raw_error }}</div>{% endif %}
 
 <div class="split">
   <div class="edit-col">
 
     <form method="post" class="card" id="simple-form">
       <input type="hidden" name="form_type" value="simple" />
-      <h2>Textes &amp; couleurs</h2>
+      <h2>Texts &amp; colors</h2>
 
-      <label>Intro — un seul item</label>
+      <label>Intro — single item</label>
       <input type="text" name="template_intro_single" id="template_intro_single" value="{{ settings.template_intro_single }}" />
 
-      <label>Intro — plusieurs items ({{ '{count}' }} disponible)</label>
+      <label>Intro — multiple items ({{ '{count}' }} available)</label>
       <input type="text" name="template_intro_multi" id="template_intro_multi" value="{{ settings.template_intro_multi }}" />
 
-      <label>Sujet — un seul item ({{ '{name}' }} disponible)</label>
+      <label>Subject — single item ({{ '{name}' }} available)</label>
       <input type="text" name="template_subject_single" value="{{ settings.template_subject_single }}" />
 
-      <label>Sujet — plusieurs items ({{ '{count}' }} disponible)</label>
+      <label>Subject — multiple items ({{ '{count}' }} available)</label>
       <input type="text" name="template_subject_multi" value="{{ settings.template_subject_multi }}" />
 
-      <label>Pied de page</label>
+      <label>Footer</label>
       <input type="text" name="template_footer" id="template_footer" value="{{ settings.template_footer }}" />
 
-      <label>Couleurs du mail</label>
+      <label>Mail colors</label>
       <div class="color-row">
-        <div class="color-field"><input type="color" name="color_bg" id="color_bg" value="{{ settings.color_bg }}" /><span>Fond</span></div>
-        <div class="color-field"><input type="color" name="color_card" id="color_card" value="{{ settings.color_card }}" /><span>Carte</span></div>
+        <div class="color-field"><input type="color" name="color_bg" id="color_bg" value="{{ settings.color_bg }}" /><span>Background</span></div>
+        <div class="color-field"><input type="color" name="color_card" id="color_card" value="{{ settings.color_card }}" /><span>Card</span></div>
         <div class="color-field"><input type="color" name="color_header" id="color_header" value="{{ settings.color_header }}" /><span>Header/footer</span></div>
         <div class="color-field"><input type="color" name="color_accent" id="color_accent" value="{{ settings.color_accent }}" /><span>Accent</span></div>
-        <div class="color-field"><input type="color" name="color_button" id="color_button" value="{{ settings.color_button }}" /><span>Bouton</span></div>
-        <div class="color-field"><input type="color" name="color_text" id="color_text" value="{{ settings.color_text }}" /><span>Texte</span></div>
-        <div class="color-field"><input type="color" name="color_muted" id="color_muted" value="{{ settings.color_muted }}" /><span>Texte discret</span></div>
+        <div class="color-field"><input type="color" name="color_button" id="color_button" value="{{ settings.color_button }}" /><span>Button</span></div>
+        <div class="color-field"><input type="color" name="color_text" id="color_text" value="{{ settings.color_text }}" /><span>Text</span></div>
+        <div class="color-field"><input type="color" name="color_muted" id="color_muted" value="{{ settings.color_muted }}" /><span>Muted text</span></div>
       </div>
-      <small class="hint">L'aperçu à droite se met à jour instantanément. Clique sur "Enregistrer" pour sauvegarder ces réglages.</small>
+      <small class="hint">The preview on the right updates instantly. Click "Save" to persist these settings.</small>
 
       <div class="actions">
-        <button type="submit">Enregistrer les textes &amp; couleurs</button>
+        <button type="submit">Save texts &amp; colors</button>
       </div>
     </form>
 
     <form method="post" class="card" id="raw-form">
       <input type="hidden" name="form_type" value="raw" />
-      <h2>Template HTML brut (Jinja2)</h2>
+      <h2>Raw HTML template (Jinja2)</h2>
       <div id="syntax-status" class="alert ok" style="display:none;"></div>
       <textarea name="raw_source" id="raw_source" rows="22" spellcheck="false">{{ raw_source }}</textarea>
       <small class="hint">
-        Variables disponibles : items (liste), count, date, logo_src, intro_text, footer_text, color_*.
-        Chaque item a : name, year, overview, type_label, genres, rating, duration, image_cid, image_url, deep_link.
-        Une sauvegarde horodatée de la version précédente est conservée dans templates/backups/.
+        Available variables: items (list), count, date, logo_src, intro_text, footer_text, color_*.
+        Each item has: name, year, overview, type_label, genres, rating, duration, image_cid, image_url, deep_link.
+        A timestamped backup of the previous version is kept in templates/backups/.
       </small>
       <div class="actions">
-        <button type="submit" id="save-btn">Enregistrer le template</button>
+        <button type="submit" id="save-btn">Save template</button>
       </div>
     </form>
 
@@ -64,10 +64,10 @@
 
   <div class="preview-col">
     <div class="card">
-      <h2>Aperçu en direct</h2>
-      <p class="muted" style="font-size:12px;margin-top:-8px;">Basé sur un exemple ("Terminator") — reflète tes modifications avant même d'enregistrer.</p>
+      <h2>Live preview</h2>
+      <p class="muted" style="font-size:12px;margin-top:-8px;">Based on an example ("Terminator") — reflects your changes before you even save.</p>
       <div class="preview-frame-wrap">
-        <iframe id="preview-frame" title="Aperçu du mail"></iframe>
+        <iframe id="preview-frame" title="Mail preview"></iframe>
       </div>
     </div>
   </div>
@@ -95,7 +95,7 @@ function checkSyntax() {
     status.style.display = 'block';
     if (data.valid) {
       status.className = 'alert ok';
-      status.textContent = '✓ Syntaxe valide';
+      status.textContent = '✓ Valid syntax';
       saveBtn.disabled = false;
     } else {
       status.className = 'alert err';
@@ -126,8 +126,7 @@ textarea.addEventListener('input', () => {
 
 watchedIds.forEach(id => {
   const el = document.getElementById(id);
-  const evt = el.type === 'color' ? 'input' : 'input';
-  el.addEventListener(evt, () => {
+  el.addEventListener('input', () => {
     clearTimeout(previewTimer);
     previewTimer = setTimeout(refreshPreview, 200);
   });

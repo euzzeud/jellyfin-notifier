@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign in - Jellyfin Notifier</title>
+<style>
+  :root {
+    --bg:#0b0b0d; --bg-glow: radial-gradient(1100px 520px at 12% -10%, rgba(0,164,220,.14), transparent 60%),
+                              radial-gradient(900px 480px at 100% 0%, rgba(170,92,195,.12), transparent 55%);
+    --panel: rgba(255,255,255,.045); --border: rgba(255,255,255,.09); --border-soft: rgba(255,255,255,.06);
+    --purple:#b476d1; --blue:#12b3f0; --blue2:#0092c7; --text:#f4f4f6; --muted:#93939c; --red:#f0555c;
+    --radius-lg:16px; --radius-sm:8px; --ease: cubic-bezier(.16,.84,.44,1);
+  }
+  * { box-sizing: border-box; }
+  html, body { height:100%; }
+  body {
+    margin:0; display:flex; align-items:center; justify-content:center;
+    background: var(--bg-glow), var(--bg); color:var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .login-card {
+    width:100%; max-width:360px; margin:16px; background: var(--panel); border:1px solid var(--border);
+    border-radius: var(--radius-lg); padding:32px 30px; box-shadow: 0 20px 50px -20px rgba(0,0,0,.6);
+    backdrop-filter: blur(8px); animation: cardin .4s var(--ease) backwards;
+  }
+  @keyframes cardin { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform:none; } }
+  .login-brand { display:flex; align-items:center; gap:10px; justify-content:center; margin-bottom:6px; }
+  .login-brand img { height:30px; display:block; }
+  .login-sub { text-align:center; color:var(--muted); font-size:12.5px; margin-bottom:26px; font-weight:500; letter-spacing:.2px; }
+  label { display:block; font-size:12px; color:var(--muted); margin: 14px 0 6px; font-weight:500; }
+  input[type=text], input[type=password] {
+    width:100%; background: rgba(0,0,0,.22); border:1px solid var(--border); color:var(--text);
+    padding:11px 12px; border-radius: var(--radius-sm); font-size:13.5px; font-family: inherit;
+    transition: border-color .18s var(--ease), box-shadow .18s var(--ease);
+  }
+  input:focus {
+    outline:none; border-color: var(--blue); background: rgba(18,179,240,.06);
+    box-shadow: 0 0 0 3px rgba(18,179,240,.16);
+  }
+  button {
+    width:100%; margin-top:22px; background: linear-gradient(135deg, var(--blue), var(--blue2)); color:#fff;
+    border:none; padding:11px 18px; border-radius:999px; font-size:13.5px; font-weight:600; cursor:pointer;
+    box-shadow: 0 6px 16px -6px rgba(18,179,240,.55);
+    transition: transform .16s var(--ease), filter .16s var(--ease);
+  }
+  button:hover { transform: translateY(-1px); filter: brightness(1.08); }
+  button:active { transform: translateY(0) scale(.98); }
+  .error {
+    background: rgba(240,85,92,.1); color:var(--red); border:1px solid rgba(240,85,92,.28);
+    padding:10px 14px; border-radius: var(--radius-sm); font-size:13px; margin-bottom:4px; font-weight:500;
+  }
+</style>
+</head>
+<body>
+<div class="login-card">
+  <div class="login-brand">
+    <img src="{{ url_for('admin.assets', filename='jellyfin-logo.svg') }}" alt="Jellyfin" />
+  </div>
+  <div class="login-sub">Notifier Admin</div>
+
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+  <form method="post">
+    <input type="hidden" name="next" value="{{ next }}" />
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" autocomplete="username" autofocus required />
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" autocomplete="current-password" required />
+    <button type="submit">Sign in</button>
+  </form>
+</div>
+</body>
+</html>

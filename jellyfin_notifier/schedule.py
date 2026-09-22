@@ -6,7 +6,7 @@ from datetime import datetime, time, timedelta
 
 from .settings import Settings
 
-WEEKDAY_NAMES_FR = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
+WEEKDAY_NAMES_EN = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
 def _parse_hhmm(value: str) -> time:

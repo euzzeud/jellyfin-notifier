@@ -15,7 +15,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from flask import Blueprint, Response, current_app, jsonify, redirect, render_template, request, send_from_directory, url_for
+from flask import Blueprint, Response, current_app, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from jinja2 import Environment as JinjaEnv
 from jinja2 import TemplateSyntaxError
 
@@ -24,7 +24,7 @@ from .api_console import run_request
 from .email_sender import TEMPLATES_DIR, render_preview_html, send_email
 from .jellyfin_client import JellyfinClient
 from .pending import load_pending
-from .schedule import WEEKDAY_NAMES_FR, is_within_window, next_allowed_datetime
+from .schedule import WEEKDAY_NAMES_EN, is_within_window, next_allowed_datetime
 from .settings import Settings, load_settings, save_settings
 from .upcoming import add_upcoming, delete_upcoming, get_many, item_from_upcoming, list_upcoming
 
@@ -50,6 +50,24 @@ FAKE_PREVIEW_ITEMS = [
         "community_rating": 7.5,
         "run_time_ticks": 63_000_000_000,
         "type_label": "Film",
+        "_fake_deep_link": "#preview",
+    },
+]
+
+# Item d'exemple distinct pour l'aperçu de l'onglet "À venir" (tant qu'aucun
+# titre n'est encore ajouté à la liste) - volontairement différent de
+# FAKE_PREVIEW_ITEMS pour que les deux aperçus ne se ressemblent pas.
+FAKE_UPCOMING_PREVIEW_ITEMS = [
+    {
+        "item_id": None,
+        "item_type": "Movie",
+        "name": "Dune: Part Three",
+        "year": None,
+        "overview": "Bientôt disponible sur Jellyfin.",
+        "genres": None,
+        "community_rating": None,
+        "run_time_ticks": None,
+        "type_label": "Bientôt • Film",
     },
 ]
 
@@ -115,7 +133,7 @@ def _check_html_structure(source: str) -> str | None:
             if tag in _VOID_ELEMENTS:
                 return
             if not stack:
-                errors.append(f"ligne {self.getpos()[0]} : balise fermante </{tag}> sans balise ouvrante correspondante")
+                errors.append(f"line {self.getpos()[0]}: closing tag </{tag}> has no matching opening tag")
                 return
             # Cherche la balise ouvrante correspondante dans la pile (gère les
             # balises mal imbriquées comme <a><b></a></b>)
@@ -124,10 +142,10 @@ def _check_html_structure(source: str) -> str | None:
                     unclosed = stack[i + 1:]
                     if unclosed:
                         names = ", ".join(f"<{n}>" for n, _ in unclosed)
-                        errors.append(f"ligne {self.getpos()[0]} : {names} non fermée avant </{tag}>")
+                        errors.append(f"line {self.getpos()[0]}: {names} not closed before </{tag}>")
                     del stack[i:]
                     return
-            errors.append(f"ligne {self.getpos()[0]} : </{tag}> ne correspond à aucune balise ouverte")
+            errors.append(f"line {self.getpos()[0]}: </{tag}> does not match any open tag")
 
         def error(self, message):  # requis par certaines versions de html.parser
             errors.append(message)
@@ -137,11 +155,11 @@ def _check_html_structure(source: str) -> str | None:
         parser.feed(cleaned)
         parser.close()
     except Exception as exc:  # pragma: no cover - garde-fou
-        return f"Erreur de parsing HTML : {exc}"
+        return f"HTML parsing error: {exc}"
 
     if stack:
-        names = ", ".join(f"<{n}> (ligne {ln})" for n, ln in stack)
-        errors.append(f"balise(s) jamais fermée(s) : {names}")
+        names = ", ".join(f"<{n}> (line {ln})" for n, ln in stack)
+        errors.append(f"unclosed tag(s): {names}")
 
     # Vérifie les attributs mal formés dans chaque balise ouvrante (ex: <html =d1d1>)
     for m in re.finditer(r"<([a-zA-Z][a-zA-Z0-9\-:_]*)((?:\s+[^<>]*?)?)\s*/?>", cleaned):
@@ -152,24 +170,48 @@ def _check_html_structure(source: str) -> str | None:
         leftover = consumed.strip()
         if leftover:
             line = cleaned[: m.start()].count("\n") + 1
-            errors.append(f"ligne {line} : attribut mal formé dans <{tag}> près de « {leftover[:30]} »")
+            errors.append(f"line {line}: malformed attribute in <{tag}> near « {leftover[:30]} »")
 
     return errors[0] if errors else None
 
 
+_PUBLIC_ENDPOINTS = {"admin.login", "admin.assets"}
+
+
 @admin_bp.before_request
 def _require_auth():
+    if request.endpoint in _PUBLIC_ENDPOINTS:
+        return None
+    if not session.get("authenticated"):
+        return redirect(url_for("admin.login", next=request.path))
+    return None
+
+
+@admin_bp.route("/login", methods=["GET", "POST"])
+def login():
     cfg = _config()
-    auth = request.authorization
-    if not auth or not (
-        hmac.compare_digest(auth.username or "", cfg.admin_username)
-        and hmac.compare_digest(auth.password or "", cfg.admin_password)
-    ):
-        return Response(
-            "Authentification requise.",
-            401,
-            {"WWW-Authenticate": 'Basic realm="Jellyfin Notifier Admin"'},
-        )
+    error = None
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+        if hmac.compare_digest(username, cfg.admin_username) and hmac.compare_digest(password, cfg.admin_password):
+            session.clear()
+            session["authenticated"] = True
+            session.permanent = True
+            next_url = request.form.get("next") or url_for("admin.dashboard")
+            # Sécurité minimale : n'autorise que les redirections internes (évite un open redirect).
+            if not next_url.startswith("/"):
+                next_url = url_for("admin.dashboard")
+            return redirect(next_url)
+        error = "Invalid username or password."
+
+    return render_template("admin/login.html", error=error, next=request.args.get("next", ""))
+
+
+@admin_bp.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect(url_for("admin.login"))
 
 
 # ---------------------------------------------------------------------------
@@ -247,7 +289,7 @@ def schedule_view():
         "admin/schedule.html",
         active="schedule",
         settings=settings,
-        weekday_names=list(enumerate(WEEKDAY_NAMES_FR)),
+        weekday_names=list(enumerate(WEEKDAY_NAMES_EN)),
         saved=saved,
         within_window=is_within_window(settings),
         next_slot=next_allowed_datetime(settings),
@@ -285,13 +327,13 @@ def _validate_template_source(source: str) -> tuple[bool, str]:
             color_muted=settings.color_muted,
         )
     except TemplateSyntaxError as exc:
-        return False, f"Erreur de syntaxe ligne {exc.lineno} : {exc.message}"
+        return False, f"Syntax error on line {exc.lineno}: {exc.message}"
     except Exception as exc:
-        return False, f"Erreur au rendu : {exc}"
+        return False, f"Render error: {exc}"
 
     html_error = _check_html_structure(source)
     if html_error:
-        return False, f"HTML invalide : {html_error}"
+        return False, f"Invalid HTML: {html_error}"
 
     return True, ""
 
@@ -377,7 +419,7 @@ def template_live_preview():
     try:
         html_out = render_preview_html(FAKE_PREVIEW_ITEMS, client, settings, raw_source=raw_source, logo_url=logo_url)
     except Exception as exc:
-        return jsonify({"ok": False, "error": f"Erreur au rendu : {exc}"})
+        return jsonify({"ok": False, "error": f"Render error: {exc}"})
     return jsonify({"ok": True, "html": html_out})
 
 
@@ -464,7 +506,7 @@ def upcoming_preview():
     settings = load_settings(cfg.settings_path)
     ids = request.args.getlist("ids")
     entries = get_many(cfg.upcoming_path, ids) if ids else []
-    items = [item_from_upcoming(e) for e in entries] if entries else FAKE_PREVIEW_ITEMS
+    items = [item_from_upcoming(e) for e in entries] if entries else FAKE_UPCOMING_PREVIEW_ITEMS
 
     client = JellyfinClient(cfg.jellyfin_url, cfg.jellyfin_api_key, cfg.jellyfin_public_url)
     logo_url = url_for("admin.assets", filename="jellyfin-logo.png")
@@ -493,7 +535,7 @@ def api_console_view():
             settings.jellyfin_url_override = request.form.get("jellyfin_url_override", "").strip()
             settings.jellyfin_api_key_override = request.form.get("jellyfin_api_key_override", "").strip()
             save_settings(cfg.settings_path, settings)
-            save_msg = "Connexion enregistrée."
+            save_msg = "Connection saved."
             effective_url = settings.jellyfin_url_override or cfg.jellyfin_url
             effective_key = settings.jellyfin_api_key_override or cfg.jellyfin_api_key
 

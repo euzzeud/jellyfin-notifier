@@ -43,12 +43,12 @@ def get_status() -> dict:
 
 def service_action(action: str) -> tuple[bool, str]:
     if action not in ("start", "stop", "restart"):
-        return False, "Action inconnue."
+        return False, "Unknown action."
     ok, output = _run(["sudo", "-n", "systemctl", action, SERVICE_NAME])
     if not ok and ("password" in output.lower() or "sudo" in output.lower() or not output):
         output += (
-            "\n\nAstuce : le compte de service n'a peut-être pas le droit sudo "
-            f"nécessaire. Ajoute cette ligne avec `visudo` :\n{ADMIN_SUDOERS_HINT}"
+            "\n\nHint: the service account may be missing the required sudo "
+            f"rights. Add this line with `visudo`:\n{ADMIN_SUDOERS_HINT}"
         )
     return ok, output
 
@@ -62,4 +62,4 @@ def get_logs(lines: int = 200) -> str:
     )
     if ok2 and output2:
         return output2
-    return output or output2 or "Impossible de lire les logs (droits insuffisants ?)."
+    return output or output2 or "Unable to read logs (insufficient permissions?)."

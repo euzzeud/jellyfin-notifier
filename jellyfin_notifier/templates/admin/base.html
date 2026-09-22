@@ -35,13 +35,14 @@
     display:flex; align-items:center; justify-content:space-between;
     position: sticky; top:0; z-index:20;
   }
-  header .brand { font-weight:700; font-size:16px; letter-spacing:.4px; display:flex; align-items:center; gap:9px; }
-  header .brand::before {
-    content:""; width:9px; height:9px; border-radius:50%;
-    background: linear-gradient(135deg, var(--blue), var(--purple));
-    box-shadow: 0 0 0 4px rgba(18,179,240,.14);
+  header .brand { font-weight:700; font-size:16px; letter-spacing:.4px; display:flex; align-items:center; gap:10px; }
+  header .brand span { color:var(--muted); font-weight:500; font-size:12.5px; }
+  header .right { display:flex; align-items:center; gap:16px; }
+  .logout-form button {
+    background:none; box-shadow:none; border:1px solid var(--border); color:var(--muted);
+    padding:6px 14px; font-size:12px; font-weight:600;
   }
-  header .brand span { background: linear-gradient(135deg, var(--blue), var(--purple)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .logout-form button:hover { color:var(--text); background: rgba(255,255,255,.06); transform:none; filter:none; }
 
   nav {
     display:flex; gap:2px; padding:8px 24px; background: rgba(255,255,255,.02);
@@ -172,15 +173,20 @@
 </head>
 <body>
 <header>
-  <div class="brand"><img src="{{ url_for('admin.assets', filename='jellyfin-logo.svg') }}" alt="Jellyfin" height="22" style="display:block;" /><span style="color:var(--muted);font-weight:500;font-size:12.5px;margin-left:2px;">Admin</span></div>
-  <div class="muted" style="font-size:12px;">{{ config.jellyfin_url if config is defined else "" }}</div>
+  <div class="brand"><img src="{{ url_for('admin.assets', filename='jellyfin-logo.svg') }}" alt="Jellyfin" height="22" style="display:block;" /><span>Notifier</span></div>
+  <div class="right">
+    <div class="muted" style="font-size:12px;">{{ config.jellyfin_url if config is defined else "" }}</div>
+    <form class="logout-form" method="post" action="{{ url_for('admin.logout') }}">
+      <button type="submit">Sign out</button>
+    </form>
+  </div>
 </header>
 <nav>
   <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if active=='dashboard' else '' }}">Dashboard</a>
-  <a href="{{ url_for('admin.template_view') }}" class="{{ 'active' if active=='template' else '' }}">Notifications ajout d'items</a>
-  <a href="{{ url_for('admin.upcoming_view') }}" class="{{ 'active' if active=='upcoming' else '' }}">À venir</a>
-  <a href="{{ url_for('admin.schedule_view') }}" class="{{ 'active' if active=='schedule' else '' }}">Planning</a>
-  <a href="{{ url_for('admin.api_console_view') }}" class="{{ 'active' if active=='api_console' else '' }}">Connexion Jellyfin</a>
+  <a href="{{ url_for('admin.template_view') }}" class="{{ 'active' if active=='template' else '' }}">New Content Notifications</a>
+  <a href="{{ url_for('admin.upcoming_view') }}" class="{{ 'active' if active=='upcoming' else '' }}">Upcoming Content Notifications</a>
+  <a href="{{ url_for('admin.schedule_view') }}" class="{{ 'active' if active=='schedule' else '' }}">Schedule</a>
+  <a href="{{ url_for('admin.api_console_view') }}" class="{{ 'active' if active=='api_console' else '' }}">Jellyfin Connection</a>
   <a href="{{ url_for('admin.logs') }}" class="{{ 'active' if active=='logs' else '' }}">Logs</a>
 </nav>
 <main class="{{ 'wide' if wide_layout else '' }}">

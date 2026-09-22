@@ -1,44 +1,44 @@
 {% extends "admin/base.html" %}
-{% block title %}À venir - Admin{% endblock %}
+{% block title %}Upcoming Content Notifications - Admin{% endblock %}
 {% block content %}
 
-{% if sent %}<div class="alert ok">Annonce envoyée par mail.</div>{% endif %}
+{% if sent %}<div class="alert ok">Announcement sent by mail.</div>{% endif %}
 
 <div class="split">
   <div class="edit-col">
 
     <form method="post" class="card">
       <input type="hidden" name="action" value="add" />
-      <h2>Annoncer un titre à venir</h2>
+      <h2>Announce upcoming content</h2>
       <div class="row">
         <div>
-          <label>Nom</label>
+          <label>Name</label>
           <input type="text" name="name" required />
         </div>
         <div>
-          <label>Année (optionnel)</label>
+          <label>Year (optional)</label>
           <input type="text" name="year" />
         </div>
         <div>
           <label>Type</label>
           <select name="type_label">
-            <option value="Film">Film</option>
-            <option value="Série">Série</option>
+            <option value="Film">Movie</option>
+            <option value="Série">Series</option>
           </select>
         </div>
       </div>
-      <label>Note (optionnel — sert de synopsis dans le mail)</label>
-      <input type="text" name="note" placeholder="Ex: prévu pour la semaine prochaine" />
+      <label>Note (optional — used as the overview in the mail)</label>
+      <input type="text" name="note" placeholder="e.g. coming next week" />
       <div class="actions">
-        <button type="submit">Ajouter à la liste</button>
+        <button type="submit">Add to list</button>
       </div>
     </form>
 
     <form method="post" class="card">
-      <h2>Titres en attente d'annonce</h2>
+      <h2>Titles awaiting announcement</h2>
       {% if items %}
       <table>
-        <tr><th></th><th>Titre</th><th>Année</th><th>Type</th><th>Note</th><th></th></tr>
+        <tr><th></th><th>Title</th><th>Year</th><th>Type</th><th>Note</th><th></th></tr>
         {% for item in items %}
         <tr>
           <td><input type="checkbox" class="upcoming-check" name="ids" value="{{ item.id }}" form="announce-form" /></td>
@@ -47,24 +47,24 @@
           <td>{{ item.type_label }}</td>
           <td class="muted">{{ item.note or "—" }}</td>
           <td>
-            <button type="submit" name="action" value="delete" onclick="this.form.id.value='{{ item.id }}'" class="secondary" formnovalidate>Suppr.</button>
+            <button type="submit" name="action" value="delete" onclick="this.form.id.value='{{ item.id }}'" class="secondary" formnovalidate>Delete</button>
           </td>
         </tr>
         {% endfor %}
       </table>
       <input type="hidden" name="id" value="" />
       {% else %}
-      <p class="muted">Aucun titre à venir pour le moment.</p>
+      <p class="muted">No upcoming titles yet.</p>
       {% endif %}
     </form>
 
     {% if items %}
     <form method="post" id="announce-form" class="card">
       <input type="hidden" name="action" value="announce" />
-      <h2>Envoyer une annonce</h2>
-      <p class="muted">Coche les titres ci-dessus (l'aperçu à droite se met à jour) puis envoie un mail "Bientôt disponible" pour ceux sélectionnés.</p>
+      <h2>Send an announcement</h2>
+      <p class="muted">Check the titles above (the preview on the right updates live) then send a "Coming soon" mail for the selected ones.</p>
       <div class="actions">
-        <button type="submit">📣 Envoyer l'annonce</button>
+        <button type="submit">📣 Send announcement</button>
       </div>
     </form>
     {% endif %}
@@ -73,12 +73,12 @@
 
   <div class="preview-col">
     <div class="card">
-      <h2>Aperçu en direct</h2>
+      <h2>Live preview</h2>
       <p class="muted" style="font-size:12px;margin-top:-8px;">
-        {% if items %}Coche un ou plusieurs titres à gauche pour les voir ici — sinon, exemple générique.{% else %}Ajoute un titre pour voir l'aperçu.{% endif %}
+        {% if items %}Check one or more titles on the left to see them here — otherwise, a generic example.{% else %}Add a title to see the preview.{% endif %}
       </p>
       <div class="preview-frame-wrap">
-        <iframe id="preview-frame" title="Aperçu de l'annonce" src="{{ url_for('admin.upcoming_preview') }}"></iframe>
+        <iframe id="preview-frame" title="Announcement preview" src="{{ url_for('admin.upcoming_preview') }}"></iframe>
       </div>
     </div>
   </div>
