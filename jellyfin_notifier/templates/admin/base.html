@@ -910,8 +910,13 @@ function initUnsavedGuard() {
   trackedForms.forEach(form => {
     form.addEventListener('input', () => checkForm(form));
     form.addEventListener('change', () => checkForm(form));
-    // Après un vrai envoi, on quitte la page (rechargement serveur) - rien à
-    // faire ici, le nouvel état sera resynchronisé au prochain chargement.
+    // Un vrai envoi (clic sur LE bouton "Save changes" du formulaire lui-même,
+    // pas celui de la barre "unsaved") est justement en train d'enregistrer -
+    // il faut éteindre la garde AVANT que la page ne navigue, sinon
+    // "beforeunload" se déclenche quand même et affiche la boîte de dialogue
+    // native "Quitter le site Web ?" malgré l'enregistrement en cours (même
+    // classe de bug que le clic sur un lien de nav, corrigée juste en dessous).
+    form.addEventListener('submit', () => clearDirty());
   });
 
   resetBtn.addEventListener('click', () => {
