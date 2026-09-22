@@ -2,6 +2,8 @@
 {% block title %}Dashboard - Admin{% endblock %}
 {% block content %}
 
+{% if settings_reset %}<div class="alert ok flash-toast">Settings reset to their default values.</div>{% endif %}
+
 <div class="card">
   <h2>Service</h2>
   <div class="grid">
@@ -120,6 +122,19 @@
 <div class="card">
   <h2>Recent logs</h2>
   <pre class="logbox">{{ logs_tail }}</pre>
+</div>
+
+<div class="card danger-zone">
+  <h2>Danger zone</h2>
+  <p class="muted" style="font-size:12.5px;">
+    Resets all notifier settings (mail texts &amp; colors, schedule, poller options, Jellyfin connection overrides, SMTP server configuration) back to their default values.
+    This does <strong>not</strong> touch the queue, the "upcoming" titles list and their posters, the poller's "already seen" state, or your raw HTML template edits.
+  </p>
+  <form method="post" action="{{ url_for('admin.settings_reset') }}" onsubmit="return confirm('Reset ALL notifier settings to their defaults? Custom texts, colors, schedule, poller and connection overrides will be lost. This cannot be undone.');">
+    <div class="actions">
+      <button type="submit" class="danger">⟲ Reset settings to defaults</button>
+    </div>
+  </form>
 </div>
 
 <script>

@@ -245,6 +245,7 @@ def dashboard():
     service_status = service_control.get_status()
     pending = load_pending(cfg.pending_items_path)
     logs_tail = service_control.get_logs(40)
+    settings_reset = request.args.get("settings_reset") == "1"
 
     return render_template(
         "admin/dashboard.html",
@@ -257,9 +258,25 @@ def dashboard():
         within_window=is_within_window(settings),
         next_slot=next_allowed_datetime(settings),
         poller_saved=poller_saved,
+        settings_reset=settings_reset,
         default_item_types=",".join(sorted(cfg.notify_item_types)),
         default_interval=cfg.poll_interval_seconds,
     )
+
+
+# ---------------------------------------------------------------------------
+# Réinitialisation des paramètres (settings.json) aux valeurs par défaut du
+# code - texte/couleurs des mails, planning, surcharges poller/Jellyfin/SMTP.
+# Ne touche PAS aux données (file d'attente, titres "à venir" + affiches,
+# état "déjà vu" du poller) ni aux templates HTML bruts édités (email.html /
+# email_upcoming.html, qui ont leurs propres sauvegardes dans templates/backups/).
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/settings/reset", methods=["POST"])
+def settings_reset():
+    cfg = _config()
+    save_settings(cfg.settings_path, Settings())
+    return redirect(url_for("admin.dashboard", settings_reset=1))
 
 
 # ---------------------------------------------------------------------------
