@@ -3,9 +3,13 @@
 # Production deployment of jellyfin-notifier on this LXC.
 # Run as root: sudo ./deploy.sh
 #
-# Idempotent: safe to re-run. Pulls the latest code, verifies .env is filled
-# in (never overwrites it), runs install.sh, starts the service, and checks
-# that it is actually healthy before declaring success.
+# Idempotent: safe to re-run. Pulls the latest code, creates .env from
+# .env.example if it doesn't exist yet (never overwrites an existing one),
+# runs install.sh, starts the service, and checks that it is actually
+# reachable before declaring success. .env does NOT need to be filled in
+# beforehand: if it's missing required values, the app boots in "setup
+# mode" and the first visit to the interface lands on the /setup wizard,
+# which fills in and saves .env for you - no nano/manual editing required.
 
 set -euo pipefail
 
@@ -48,19 +52,21 @@ fi
 ENV_TO_CHECK="$TARGET_DIR/.env"
 [ -f "$ENV_TO_CHECK" ] || ENV_TO_CHECK="$SRC_DIR/.env"
 
-log "Checking that .env is filled in (no leftover placeholders)"
-MISSING=0
+# Purely informational: leftover placeholders no longer block the deploy -
+# everything below is configurable from the /setup wizard once the service
+# is up, so an incomplete .env here just means the service starts in setup
+# mode instead of fully configured. NEEDS_SETUP is only used for the final
+# summary message.
+log "Checking .env for leftover placeholders (informational only)"
+NEEDS_SETUP=0
 for key in GMAIL_APP_PASSWORD NOTIFY_RECIPIENTS JELLYFIN_API_KEY JELLYFIN_URL ADMIN_USERNAME ADMIN_PASSWORD; do
   value=$(grep -E "^${key}=" "$ENV_TO_CHECK" 2>/dev/null | cut -d= -f2- || true)
   if [ -z "$value" ] || [[ "$value" == *"changeme"* ]] || [[ "$value" == *"your-"* ]]; then
-    echo "   - $key: missing or not filled in"
-    MISSING=1
+    echo "   - $key: not filled in yet - will be set from the /setup wizard"
+    NEEDS_SETUP=1
   fi
 done
-if [ "$MISSING" -eq 1 ]; then
-  fail "Fill in $ENV_TO_CHECK first (nano $ENV_TO_CHECK), then re-run this script."
-fi
-log "Secrets OK"
+[ "$NEEDS_SETUP" -eq 0 ] && log "Secrets already filled in" || log "Some secrets are still missing - the service will start in setup mode"
 
 # ---- 3. Install -----------------------------------------------------------------
 log "Running install.sh (copies to $TARGET_DIR, venv, systemd service, sudoers rule)"
@@ -101,9 +107,11 @@ cat /tmp/health_response.json
 
 # ---- 6. Interface check ----------------------------------------------------------
 # The admin blueprint is mounted at the site root (no /admin prefix) - the
-# login page is at /login, not /admin/login.
+# login page is at /login, not /admin/login. -L follows the redirect to
+# /setup that happens when .env is still incomplete, so this check passes
+# in both cases (fully configured -> /login, setup mode -> /setup).
 log "Checking that the interface responds"
-ADMIN_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}/login" || echo "000")
+ADMIN_CODE=$(curl -sL -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}/login" || echo "000")
 [ "$ADMIN_CODE" = "200" ] || fail "The interface did not respond ($ADMIN_CODE) on /login."
 log "Interface reachable: http://${LXC_IP}:${PORT}/"
 
@@ -117,3 +125,9 @@ echo "  - Logs      : journalctl -u $SERVICE_NAME -f"
 echo "  - Interface : http://${LXC_IP}:${PORT}/"
 echo "  - Health    : http://${LXC_IP}:${PORT}/health"
 echo "  - Metrics   : http://${LXC_IP}:${PORT}/metrics"
+if [ "$NEEDS_SETUP" -eq 1 ]; then
+  echo
+  echo "  .env is not fully filled in yet - open the interface above, you'll"
+  echo "  land on the setup wizard (http://${LXC_IP}:${PORT}/setup) to finish"
+  echo "  the configuration (or import an existing settings file there)."
+fi

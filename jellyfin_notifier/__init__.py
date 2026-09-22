@@ -15,8 +15,11 @@ from .webhook import webhook_bp
 
 # Endpoints reachable even while no valid configuration exists yet (first
 # run, or a botched .env edit) - everything else redirects to the setup
-# wizard until it's resolved. See setup_wizard.py.
-_SETUP_EXEMPT_ENDPOINTS = {"setup.setup_view", "setup.setup_save", "setup.setup_import", "admin.assets"}
+# wizard until it's resolved. See setup_wizard.py. /health is exempted too
+# (rather than redirecting to /setup) so deploy.sh's health check and any
+# external monitoring keep getting a real answer during setup mode instead
+# of a 302 they'd mistake for the service being down.
+_SETUP_EXEMPT_ENDPOINTS = {"setup.setup_view", "setup.setup_save", "setup.setup_import", "admin.assets", "webhook.health"}
 
 # Logger dedicated to the admin interface's HTTP requests (Logs page ->
 # "Interface" filter) - waitress (the production server, see run.py) does

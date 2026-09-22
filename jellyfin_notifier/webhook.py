@@ -80,20 +80,25 @@ def jellyfin_webhook():
 
 @webhook_bp.route("/health", methods=["GET"])
 def health():
-    """Statut du service, pensé pour être interrogé par un système de
-    supervision (Grafana, etc). "healthy" reflète l'état réel du poller
-    (dernier poll récent + réussi + dernier mail envoyé sans erreur), pas
-    juste "le process Flask répond"."""
+    """Service status, meant to be polled by a monitoring system (Grafana,
+    etc). "healthy" reflects the poller's actual state (recent + successful
+    last poll, last mail sent without error), not just "the Flask process
+    responds". Deliberately exempt from the setup-mode redirect (see
+    _SETUP_EXEMPT_ENDPOINTS in __init__.py) so it always returns a real
+    answer - including a fresh install whose .env isn't filled in yet -
+    instead of a 302 to /setup that a monitoring tool would read as down."""
+    configured = current_app.config.get("JF_CONFIG") is not None
     poller = current_app.config.get("JF_POLLER")
 
     if not poller:
-        # Poller désactivé volontairement (POLLER_ENABLED=false) : le
-        # process tourne, on ne peut rien dire de plus.
-        return jsonify({"status": "ok", "poller_enabled": False, "healthy": 1}), 200
+        # Either the poller is deliberately disabled (POLLER_ENABLED=false),
+        # or there's no configuration yet (setup mode) - either way the
+        # process is up and there's nothing more to report about the poller.
+        return jsonify({"status": "ok", "configured": configured, "poller_enabled": False, "healthy": 1}), 200
 
     status = poller.status()
     http_code = 200 if status["healthy"] else 503
-    return jsonify({"status": "ok", **status}), http_code
+    return jsonify({"status": "ok", "configured": configured, **status}), http_code
 
 
 @webhook_bp.route("/metrics", methods=["GET"])
