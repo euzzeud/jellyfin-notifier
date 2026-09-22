@@ -1,7 +1,7 @@
-"""CRUD JSON pour les titres "à venir" annoncés manuellement depuis l'admin
-(films/séries pas encore présents dans la bibliothèque Jellyfin), avec
-support d'une affiche uploadée manuellement (pas d'item_id Jellyfin -> pas
-de poster récupérable via l'API)."""
+"""JSON CRUD for "upcoming" titles announced manually from the admin
+(movies/shows not yet present in the Jellyfin library), with support for
+a manually uploaded poster (no Jellyfin item_id -> no poster retrievable
+via the API)."""
 
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def add_upcoming(path: str, name: str, year: str | None, note: str | None, type_
         "name": name,
         "year": year or None,
         "note": note or "",
-        "type_label": type_label or "Film",
+        "type_label": type_label or "Movie",
         "poster_filename": None,
         "added_at": datetime.now().astimezone().isoformat(timespec="seconds"),
     }
@@ -69,9 +69,9 @@ def get_many(path: str, item_ids: list[str]) -> list[dict]:
 
 
 def save_poster(path: str, item_id: str, filename: str, content: bytes) -> str | None:
-    """Sauvegarde une affiche uploadée pour une entrée existante, remplace
-    l'ancienne si présente. Retourne le nom de fichier stocké, ou None si
-    l'extension n'est pas autorisée ou l'entrée introuvable."""
+    """Saves an uploaded poster for an existing entry, replacing the old
+    one if present. Returns the stored filename, or None if the extension
+    isn't allowed or the entry can't be found."""
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if ext not in ALLOWED_POSTER_EXTENSIONS:
         return None
@@ -94,22 +94,22 @@ def save_poster(path: str, item_id: str, filename: str, content: bytes) -> str |
 
 
 def item_from_upcoming(entry: dict) -> dict:
-    """Convertit une entrée 'à venir' au même format interne que
-    item_from_api/item_from_payload, pour réutiliser l'envoi de mail
-    existant. Pas d'item_id -> pas de poster Jellyfin ni de deep_link ; une
-    affiche uploadée (poster_filename) est injectée séparément par
-    admin.py (elle a besoin de connaître l'URL/le chemin disque, propres à
-    la requête HTTP en cours)."""
+    """Converts an 'upcoming' entry to the same internal format as
+    item_from_api/item_from_payload, to reuse the existing mail-sending
+    code. No item_id -> no Jellyfin poster or deep_link; an uploaded
+    poster (poster_filename) is injected separately by admin.py (it needs
+    to know the URL/disk path, which are specific to the current HTTP
+    request)."""
     note = entry.get("note") or ""
     year = entry.get("year")
     return {
         "item_id": None,
         "item_type": entry.get("type_label"),
-        "name": entry.get("name", "Sans titre"),
+        "name": entry.get("name", "Untitled"),
         "year": int(year) if year else None,
-        "overview": note or "Bientôt disponible sur Jellyfin.",
+        "overview": note or "Coming soon to Jellyfin.",
         "genres": None,
         "community_rating": None,
         "run_time_ticks": None,
-        "type_label": f"Bientôt • {entry.get('type_label') or 'Film'}",
+        "type_label": f"Coming soon • {entry.get('type_label') or 'Movie'}",
     }

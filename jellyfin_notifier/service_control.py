@@ -1,9 +1,9 @@
-"""Gestion du service systemd (status/start/stop/restart) et lecture des
-logs journalctl, exposées par l'interface admin.
+"""Management of the systemd service (status/start/stop/restart) and
+reading journalctl logs, exposed by the admin interface.
 
-Le service tourne sous l'utilisateur "jellyshare" (cf. jellyfin-notifier.service),
-donc start/stop/restart nécessitent sudo -> une règle sudoers NOPASSWD dédiée
-est ajoutée par install.sh/update.sh (voir ADMIN_SUDOERS_HINT ci-dessous)."""
+The service runs as the "jellyshare" user (see jellyfin-notifier.service),
+so start/stop/restart need sudo -> a dedicated NOPASSWD sudoers rule is
+added by install.sh/update.sh (see ADMIN_SUDOERS_HINT below)."""
 
 from __future__ import annotations
 
@@ -12,17 +12,17 @@ import subprocess
 
 SERVICE_NAME = "jellyfin-notifier"
 
-# journalctl capture le stdout/stderr du process tel quel : chaque ligne
-# émise par logging.basicConfig() (cf. run.py) a la forme
-# "LEVEL:logger.name:message", à laquelle journalctl ajoute son propre
-# préfixe devant (date, host, nom du process, pid) - qu'on garde tel quel
-# dans "raw" pour l'affichage, on l'extrait juste pour catégoriser.
+# journalctl captures the process's stdout/stderr as-is: each line
+# emitted by logging.basicConfig() (see run.py) has the form
+# "LEVEL:logger.name:message", to which journalctl prepends its own
+# prefix (date, host, process name, pid) - kept as-is in "raw" for
+# display, we just extract it to categorize.
 _LEVEL_RE = re.compile(r"(?P<level>DEBUG|INFO|WARNING|ERROR|CRITICAL):(?P<logger>[\w.]+):(?P<msg>.*)$")
 
-# Catégorise chaque ligne par "domaine" plutôt que par nom de module exact :
-# "interface" = actions/requêtes de l'admin web, "service" = boucle de fond
-# (poller/webhook), "mail" = envois SMTP - permet à la page Logs de séparer
-# clairement ce qui vient d'un clic dans l'admin de ce qui tourne tout seul.
+# Categorizes each line by "domain" rather than exact module name:
+# "interface" = web admin actions/requests, "service" = background loop
+# (poller/webhook), "mail" = SMTP sends - lets the Logs page clearly
+# separate what comes from a click in the admin from what runs on its own.
 _CATEGORY_BY_LOGGER_PREFIX = (
     ("jellyfin_notifier.email_sender", "mail"),
     ("jellyfin_notifier.interface", "interface"),
@@ -38,11 +38,11 @@ CATEGORIES = ("interface", "service", "mail", "other")
 
 
 def parse_log_line(line: str) -> dict:
-    """Extrait le niveau de sévérité et la catégorie d'une ligne de log
-    journalctl brute. Les lignes sans préfixe LEVEL:logger: reconnu (suite
-    d'une traceback multi-lignes, message "système" - démarrage de waitress,
-    unité systemd, etc) tombent dans la catégorie "other", en ERROR si elles
-    ressemblent à une trace d'exception."""
+    """Extracts the severity level and category from a raw journalctl log
+    line. Lines without a recognized LEVEL:logger: prefix (continuation of
+    a multi-line traceback, a "system" message - waitress startup, systemd
+    unit, etc) fall into the "other" category, as ERROR if they look like
+    an exception trace."""
     match = _LEVEL_RE.search(line)
     if not match:
         level = "ERROR" if ("Traceback" in line or "Exception" in line or " raise " in line) else "OTHER"
@@ -125,7 +125,7 @@ def get_logs(lines: int = 200) -> str:
 
 
 def get_logs_structured(lines: int = 300) -> list[dict]:
-    """Mêmes logs que get_logs(), mais parsés ligne par ligne pour la page
-    Logs de l'admin (filtres par catégorie, coloration par sévérité)."""
+    """Same logs as get_logs(), but parsed line by line for the admin's
+    Logs page (filters by category, coloring by severity)."""
     raw_text = get_logs(lines)
     return [parse_log_line(line) for line in raw_text.splitlines() if line.strip()]

@@ -1,4 +1,4 @@
-"""Bufferise les items ajoutés pour envoyer un seul digest par rafale d'ajouts."""
+"""Buffers added items so a single digest is sent per burst of additions."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 class DebounceBuffer:
-    """Accumule des items ; déclenche `on_flush(items)` après `delay_seconds`
-    d'inactivité (chaque nouvel ajout relance le minuteur)."""
+    """Accumulates items; triggers `on_flush(items)` after `delay_seconds`
+    of inactivity (each new addition restarts the timer)."""
 
     def __init__(self, delay_seconds: int, on_flush: Callable[[list[dict]], None]):
         self._delay = delay_seconds

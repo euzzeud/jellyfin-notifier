@@ -1,14 +1,14 @@
-"""Éditeur visuel "blocs empilables" pour les mails (poster/CMS-like, à la
-Mailchimp) : compile une liste de blocs (JSON) en un template HTML/Jinja2
-email-safe (tables, styles inline uniquement - pas de flexbox/grid, aucun
-positionnement libre, pour rester compatible avec les clients mail).
+"""Visual "stackable blocks" editor for mails (poster/CMS-like, Mailchimp
+style): compiles a list of blocks (JSON) into an email-safe HTML/Jinja2
+template (tables, inline styles only - no flexbox/grid, no free
+positioning, to stay compatible with mail clients).
 
-Le résultat de la compilation est ENREGISTRÉ TEL QUEL comme template brut
-(email.html / email_upcoming.html, via la même fonction `_save_raw_template`
-que l'éditeur HTML avancé) - email_sender.py n'a donc rien à connaître des
-blocs, et l'aperçu live / l'envoi réel fonctionnent sans aucune modification.
-Le JSON des blocs est conservé séparément dans Settings pour pouvoir rouvrir
-l'éditeur visuel et continuer à modifier."""
+The compiled result is SAVED AS-IS as the raw template (email.html /
+email_upcoming.html, via the same `_save_raw_template` function used by
+the advanced HTML editor) - so email_sender.py doesn't need to know
+anything about blocks, and the live preview / actual sending work with no
+changes. The blocks' JSON is kept separately in Settings so the visual
+editor can be reopened and edited further."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import json
 import uuid
 
 # ---------------------------------------------------------------------------
-# Types de blocs disponibles
+# Available block types
 # ---------------------------------------------------------------------------
 
 BLOCK_TYPES: dict[str, str] = {
@@ -78,10 +78,10 @@ def _align(props: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Rendu de chaque type de bloc -> fragment de table HTML/Jinja2 (une ou
-# plusieurs <tr>) - les valeurs saisies par l'admin sont échappées (texte
-# littéral, pas du Jinja exécutable) ; les variables dynamiques (item.*,
-# color_*, date) restent, elles, de vraies expressions Jinja.
+# Rendering of each block type -> HTML/Jinja2 table fragment (one or more
+# <tr>) - values entered by the admin are escaped (literal text, not
+# executable Jinja); dynamic variables (item.*, color_*, date) remain real
+# Jinja expressions.
 # ---------------------------------------------------------------------------
 
 def _render_content_card(props: dict) -> str:
@@ -254,12 +254,12 @@ _RENDERERS = {
 
 
 def compile_blocks_to_html(blocks: list[dict]) -> str:
-    """Assemble les blocs dans le même squelette (header logo+date,
-    introduction, corps, footer) que les templates email.html/
-    email_upcoming.html écrits à la main, pour un rendu cohérent quel que
-    soit le mode d'édition utilisé. Le texte d'intro (comme le header/footer)
-    reste défini dans l'onglet "Texts & colors", partagé par les 3 modes
-    d'édition - ce n'est pas un bloc en soi."""
+    """Assembles the blocks into the same skeleton (logo+date header,
+    introduction, body, footer) as the hand-written email.html/
+    email_upcoming.html templates, for a consistent render regardless of
+    which editing mode is used. The intro text (like the header/footer)
+    stays defined on the "Texts & colors" tab, shared by all 3 editing
+    modes - it isn't a block in itself."""
     body_rows = []
     for block in blocks:
         renderer = _RENDERERS.get(block.get("type"))
@@ -270,8 +270,8 @@ def compile_blocks_to_html(blocks: list[dict]) -> str:
             body_rows.append(fragment)
 
     if not body_rows:
-        # Aucun bloc : au moins un rappel visuel pour ne pas envoyer un mail
-        # avec une carte quasi vide (garde-fou, pas un vrai cas d'usage).
+        # No blocks: at least a visual reminder so a mail isn't sent with
+        # an almost-empty card (a safety net, not a real use case).
         body_rows.append(
             '<tr><td style="padding:24px;color:{{ color_muted }};font-size:13px;text-align:center;">'
             "(No blocks configured yet)</td></tr>"
@@ -313,9 +313,9 @@ def compile_blocks_to_html(blocks: list[dict]) -> str:
           </td>
         </tr>
 
-        <!-- Introduction (texte défini dans l'onglet "Texts & colors" - fixe,
-             comme le header/footer, pour rester visible et éditable quel que
-             soit le mode d'édition utilisé) -->
+        <!-- Introduction (text defined on the "Texts & colors" tab - fixed,
+             like the header/footer, so it stays visible and editable
+             regardless of which editing mode is used) -->
         <tr>
           <td style="padding:20px 24px 4px 24px;">
             <div style="color:{{{{ color_text }}}};font-size:16px;font-weight:bold;">

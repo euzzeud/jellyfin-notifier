@@ -1,6 +1,6 @@
-"""File d'attente persistée des items détectés hors créneau horaire autorisé
-(cf. schedule.py) - envoyés en un seul mail digest dès que le créneau
-s'ouvre à nouveau, plutôt que perdus ou envoyés au mauvais moment."""
+"""Persisted queue of items detected outside the allowed send window (see
+schedule.py) - sent as a single digest mail as soon as the window opens
+again, instead of being lost or sent at the wrong time."""
 
 from __future__ import annotations
 

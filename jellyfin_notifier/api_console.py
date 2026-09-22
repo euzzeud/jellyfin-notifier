@@ -1,6 +1,6 @@
-"""Exécution de requêtes API Jellyfin ad-hoc depuis la "console API" de
-l'admin - réutilise le même schéma d'auth que jellyfin_client.py, renvoie le
-JSON brut pour affichage direct dans le dashboard."""
+"""Runs ad-hoc Jellyfin API requests from the admin's "API console" - reuses
+the same auth scheme as jellyfin_client.py, returns the raw JSON for direct
+display in the dashboard."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def _auth_headers(api_key: str) -> dict:
 
 
 def _parse_params(query_string: str) -> dict:
-    """query_string : texte multi-lignes 'clé=valeur' (une paire par ligne)."""
+    """query_string: multi-line 'key=value' text (one pair per line)."""
     params = {}
     for line in (query_string or "").splitlines():
         line = line.strip()

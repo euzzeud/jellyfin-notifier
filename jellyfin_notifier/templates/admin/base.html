@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="view-transition" content="same-origin" />
 <title>{% block title %}Jellyfin Notifier{% endblock %}</title>
 <style>
-  /* Transition native du navigateur entre deux pages (changement d'onglet,
-     retour, etc) : un fondu-enchaîné au lieu du "saut" d'une navigation
-     classique. Fonctionne dans Chrome/Edge récents ; ignoré sans erreur
-     ailleurs (Firefox/Safari retombent simplement sur le comportement
-     habituel, rien à gérer côté JS). */
+  /* Native browser transition between two pages (tab switch, back
+     navigation, etc): a cross-fade instead of the "jump" of a classic
+     navigation. Works in recent Chrome/Edge; ignored without error
+     elsewhere (Firefox/Safari simply fall back to the usual behavior,
+     nothing to handle on the JS side). */
   @view-transition { navigation: auto; }
   ::view-transition-old(root), ::view-transition-new(root) {
     animation-duration: .22s;
@@ -38,16 +38,16 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
-  /* Pas d'animation "pagein" sur body : elle ferait double emploi avec le
-     fondu-enchaîné de @view-transition ci-dessus (les cartes gardent leur
-     propre petite entrée via .card/cardin plus bas). */
+  /* No "pagein" animation on body: it would duplicate the cross-fade from
+     @view-transition above (cards keep their own small entrance via
+     .card/cardin further down). */
 
-  /* header + nav sont regroupés dans .topbar, seul élément "sticky" (top:0) -
-     avant, chacun était sticky séparément avec un top codé en dur pour nav
-     (top:56px) qui ne correspondait pas exactement à la hauteur réelle du
-     header (qui varie avec la taille du logo/texte) : ça provoquait un
-     petit chevauchement/saut visible pendant le défilement. Un seul wrapper
-     sticky élimine ce calcul manuel et le rend impossible à désynchroniser. */
+  /* header + nav are grouped inside .topbar, the only "sticky" element
+     (top:0) - previously each was sticky separately with a hardcoded top
+     for nav (top:56px) that didn't exactly match the header's real height
+     (which varies with logo/text size): that caused a small visible
+     overlap/jump while scrolling. A single sticky wrapper eliminates that
+     manual calculation and makes it impossible to desync. */
   .topbar { position: sticky; top:0; z-index:20; }
   header {
     background: rgba(12,12,14,.72); backdrop-filter: blur(14px) saturate(140%);
@@ -56,10 +56,10 @@
     display:flex; align-items:center; justify-content:space-between;
   }
   header .brand { font-weight:700; font-size:19px; letter-spacing:.3px; display:flex; align-items:center; gap:12px; }
-  /* Le texte "Notifier" doit avoir la même échelle que le logo Jellyfin à
-     côté (comme sur la page de login) - une ancienne règle laissée par un
-     header précédent (logo + sous-titre "Admin" en petit) le réduisait
-     encore à 12.5px malgré tout, ce qui le rendait minuscule et grisé. */
+  /* The "Notifier" text should be at the same scale as the Jellyfin logo
+     next to it (like on the login page) - an old rule left over from a
+     previous header (logo + small "Admin" subtitle) was still shrinking
+     it down to 12.5px regardless, making it tiny and grayed out. */
   header .brand span { color:var(--text); font-weight:700; font-size:22px; letter-spacing:.2px; }
   header .right { display:flex; align-items:center; gap:16px; }
   .logout-form button {
@@ -85,11 +85,11 @@
     box-shadow: 0 4px 14px -4px rgba(18,179,240,.5);
   }
 
-  /* Pleine largeur de la fenêtre plutôt qu'une colonne étroite centrée (qui
-     laissait une énorme marge morte des deux côtés sur un écran large) -
-     max-width sert seulement de garde-fou sur un moniteur ultra-large, pas
-     de contrainte réelle sur un écran normal/laptop. padding horizontal en
-     clamp() : resserré sur mobile, confortable au-delà. */
+  /* Full window width rather than a narrow centered column (which left a
+     huge dead margin on both sides on a wide screen) - max-width only acts
+     as a safety net on an ultra-wide monitor, not a real constraint on a
+     normal screen/laptop. Horizontal padding via clamp(): tight on
+     mobile, comfortable beyond that. */
   main { width:100%; max-width:1800px; margin:0 auto; padding:28px clamp(16px, 4vw, 48px) 60px; box-sizing:border-box; }
   main.wide { max-width:2000px; }
   @media (max-width: 640px) {
@@ -128,7 +128,7 @@
   .card.danger-zone:hover { border-color: rgba(240,85,92,.45); }
   .card.danger-zone h2 { color: var(--red); }
 
-  /* Carte "interrupteur" (activer/désactiver un module de notification) */
+  /* "Switch" card (enable/disable a notification module) */
   .card.toggle-card { display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap; }
   .card.toggle-card .toggle-copy h2 { margin-bottom:4px; }
   .card.toggle-card .toggle-copy p { margin:0; }
@@ -153,18 +153,18 @@
   .stat {
     background: var(--panel2); border:1px solid var(--border-soft); border-radius: var(--radius-md);
     padding:14px 16px; transition: background-color .2s var(--ease), transform .2s var(--ease);
-    /* min-width:0 laisse la piste de la grille rétrécir sous la largeur de
-       son contenu - sans ça, un texte long sans espace (email, URL, clé API)
-       force la case (et donc toute la ligne de la grille) à s'élargir au
-       lieu de renvoyer à la ligne, et déborde de la carte. */
+    /* min-width:0 lets the grid track shrink below its content's width -
+       without it, a long token with no space (email, URL, API key) forces
+       the cell (and so the whole grid row) to widen instead of wrapping,
+       and overflows the card. */
     min-width:0;
   }
   .stat:hover { background: rgba(255,255,255,.05); transform: translateY(-1px); }
   .stat .label { color:var(--muted-dim); font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; font-weight:600; }
   .stat .value {
     font-size:19px; font-weight:700; margin-top:6px; letter-spacing:-.2px;
-    /* Autorise la coupure n'importe où dans un token trop long (adresse
-       mail, URL, clé API...) plutôt que de déborder de la case. */
+    /* Allows breaking anywhere inside a too-long token (mail address,
+       URL, API key...) rather than overflowing the cell. */
     overflow-wrap:anywhere; word-break:break-word;
   }
 
@@ -263,9 +263,9 @@
   .alert {
     padding:11px 15px; border-radius: var(--radius-sm); font-size:13px; margin-bottom:16px;
     animation: alertin .25s var(--ease); font-weight:500;
-    /* Un long token sans espace (ex: une URL encodée dans un message
-       d'erreur Jellyfin/requests) dépasse sinon de la boîte au lieu de
-       passer à la ligne - même correctif que .stat .value. */
+    /* A long token with no space (e.g. a URL encoded in a Jellyfin/
+       requests error message) would otherwise overflow the box instead of
+       wrapping - same fix as .stat .value. */
     overflow-wrap:anywhere; word-break:break-word;
   }
   @keyframes alertin { from { opacity:0; transform: translateY(-4px); } to { opacity:1; transform:none; } }
@@ -281,9 +281,9 @@
   pre.logbox::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius:99px; }
   pre.logbox::-webkit-scrollbar-track { background: transparent; }
 
-  /* Page Logs : la boîte se comporte comme .logbox (même fond/bordure) mais
-     est un <div> (pas un <pre>) pour pouvoir styler chaque ligne
-     individuellement (badge de catégorie + couleur de sévérité). */
+  /* Logs page: the box behaves like .logbox (same background/border) but
+     is a <div> (not a <pre>) so each line can be styled individually
+     (category badge + severity color). */
   .logbox.log-lines {
     background: rgba(0,0,0,.3); border:1px solid var(--border-soft); border-radius: var(--radius-md);
     padding:8px; font-size:12px; line-height:1.6; overflow:auto; max-height:600px;
@@ -333,9 +333,9 @@
   .muted { color:var(--muted); }
   small.hint { color:var(--muted-dim); display:block; margin-top:6px; font-size:11.5px; }
 
-  /* Éditeur visuel "blocs empilables" (glisser-déposer) - liste de blocs
-     réordonnables (Drag and Drop API native, pas de librairie externe), avec
-     un mini-formulaire de réglages par bloc. */
+  /* Visual "stackable blocks" editor (drag-and-drop) - a reorderable
+     block list (native Drag and Drop API, no external library), with a
+     mini settings form per block. */
   .block-list { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
   .block-item {
     background: var(--panel2); border:1px solid var(--border-soft); border-radius: var(--radius-md);
@@ -363,9 +363,9 @@
   .block-empty { color:var(--muted-dim); font-size:12.5px; text-align:center; padding:18px 22px; border:1px dashed var(--border-soft); border-radius: var(--radius-md); }
   .block-empty-hint { margin-top:6px; font-size:11.5px; }
 
-  /* Alerte "modifications non enregistrées" - barre fixée en bas de l'écran
-     + léger tremblement de la page (façon "wizz" MSN Messenger) si on
-     essaie de changer de page sans avoir sauvegardé. */
+  /* "Unsaved changes" alert - a bar fixed at the bottom of the screen +
+     a slight page shake (MSN Messenger "wizz" style) if you try to
+     navigate away without saving. */
   @keyframes pageshake {
     10%, 90% { transform: translateX(-1px); }
     20%, 80% { transform: translateX(2px); }
@@ -394,17 +394,17 @@
   .unsaved-bar button.save { padding:9px 20px; }
   @media (max-width: 620px) { .unsaved-bar { padding:12px 16px; } .unsaved-bar .msg { font-size:13px; } }
 
-  /* La barre "unsaved changes" est en position fixe en bas de l'écran : sans
-     ça, elle passe PAR-DESSUS le bas du formulaire (ex: le champ
-     Destinataires de la page Mail Server) à la position de défilement où
-     elle apparaît, le cachant complètement plutôt que de simplement se
-     poser sous lui. */
+  /* The "unsaved changes" bar is fixed at the bottom of the screen:
+     without this, it would sit ON TOP OF the bottom of the form (e.g. the
+     Recipients field on the Mail Server page) at the scroll position
+     where it appears, hiding it completely rather than simply resting
+     below it. */
   body.unsaved-bar-open main { padding-bottom:130px; transition: padding-bottom .2s var(--ease); }
 
-  /* Boîte de confirmation personnalisée (remplace window.confirm(), qui
-     affiche une boîte du navigateur au look générique et pas centrée sur
-     la page - ici centrée, dans le thème de l'admin, fermable par Échap
-     ou clic en dehors. */
+  /* Custom confirmation box (replaces window.confirm(), which shows a
+     generic-looking browser box that isn't centered on the page - this
+     one is centered, themed like the admin, closable with Escape or a
+     click outside. */
   .modal-overlay {
     position: fixed; inset:0; background: rgba(4,4,6,.62); backdrop-filter: blur(5px);
     display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px;
@@ -556,9 +556,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// Boîte de confirmation personnalisée (remplace window.confirm()) - promesse
-// résolue à true/false. Fermable par Échap, clic en dehors, ou Cancel.
-// Usage : showConfirm({ title, message, confirmText, danger }).then(ok => ...)
+// Custom confirmation box (replaces window.confirm()) - a promise
+// resolved to true/false. Closable with Escape, a click outside, or Cancel.
+// Usage: showConfirm({ title, message, confirmText, danger }).then(ok => ...)
 function showConfirm({ title, message, confirmText = 'Confirm', danger = false }) {
   return new Promise((resolve) => {
     const overlay = document.getElementById('modal-overlay');
@@ -851,11 +851,11 @@ function checkJsonSettingsFile(file) {
   });
 }
 
-// Champ "tags" réutilisable : espace/entrée/virgule/point-virgule
-// transforment le texte tapé en tag (avec une croix pour le retirer), et
-// une liste de suggestions s'affiche (toutes si le champ est vide, filtrées
-// sinon). `hiddenInput.value` reste une liste séparée par des virgules,
-// donc le formulaire qui le contient n'a rien à changer côté serveur.
+// Reusable "tags" field: space/enter/comma/semicolon turn the typed text
+// into a tag (with an X to remove it), and a suggestions list is shown
+// (all of them if the field is empty, filtered otherwise).
+// `hiddenInput.value` stays a comma-separated list, so the form
+// containing it needs no server-side changes.
 function createTagInput({ root, hiddenInput, suggestions = [], placeholder = 'Type to add...', validate = null, invalidMessage = 'Invalid value' }) {
   const chipsEl = document.createElement('div');
   chipsEl.className = 'tag-input-chips';
@@ -921,8 +921,8 @@ function createTagInput({ root, hiddenInput, suggestions = [], placeholder = 'Ty
     const value = raw.trim();
     if (!value) { textEl.value = ''; renderSuggestions(); return; }
     if (validate && !validate(value)) {
-      // Garde le texte tapé dans le champ pour que l'utilisateur puisse le
-      // corriger, au lieu de le faire disparaître silencieusement.
+      // Keeps the typed text in the field so the user can correct it,
+      // instead of silently making it disappear.
       showError();
       return;
     }
@@ -945,7 +945,7 @@ function createTagInput({ root, hiddenInput, suggestions = [], placeholder = 'Ty
       const item = document.createElement('div');
       item.className = 'tag-input-suggestion';
       item.textContent = s;
-      // mousedown (pas click) : se déclenche avant le blur du champ texte.
+      // mousedown (not click): fires before the text field's blur.
       item.addEventListener('mousedown', (e) => { e.preventDefault(); addTag(s); textEl.focus(); });
       suggEl.appendChild(item);
     });
@@ -974,11 +974,11 @@ function createTagInput({ root, hiddenInput, suggestions = [], placeholder = 'Ty
   return { getTags: () => tags.slice() };
 }
 
-// Éditeur visuel "blocs empilables" (glisser-déposer) : liste de blocs
-// réordonnables au clic-glisser (Drag and Drop API native du navigateur,
-// pas de librairie externe, dans le même esprit que createTagInput
-// ci-dessus). Le JSON des blocs est synchronisé dans hiddenInput à chaque
-// changement, prêt à être posté avec le formulaire.
+// Visual "stackable blocks" editor (drag-and-drop): a block list
+// reorderable by drag (the browser's native Drag and Drop API, no
+// external library, in the same spirit as createTagInput above). The
+// blocks' JSON is synced into hiddenInput on every change, ready to be
+// posted with the form.
 const BLOCK_TYPE_DEFS = {
   content_card: {
     label: 'Content card',
@@ -1057,9 +1057,9 @@ function createBlockBuilder({ root, hiddenInput, initialBlocks = [], onChange = 
   root.appendChild(addRow);
 
   function sync() {
-    // Ré-affiche toute la liste - nécessaire quand la structure change
-    // (ajout/suppression/réordonnancement d'un bloc, ou une case à cocher
-    // qui affiche/masque un autre champ, ex: la date personnalisée).
+    // Re-renders the whole list - needed when the structure changes
+    // (adding/removing/reordering a block, or a checkbox that shows/hides
+    // another field, e.g. the custom date).
     hiddenInput.value = JSON.stringify(blocks);
     hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
     render();
@@ -1067,9 +1067,10 @@ function createBlockBuilder({ root, hiddenInput, initialBlocks = [], onChange = 
   }
 
   function syncData() {
-    // Met juste à jour le JSON + l'aperçu, SANS reconstruire le DOM - sinon
-    // un champ texte/textarea perdrait le focus (et le curseur repartirait
-    // au début) à chaque lettre tapée, ce qui rendait la saisie saccadée.
+    // Just updates the JSON + preview, WITHOUT rebuilding the DOM -
+    // otherwise a text/textarea field would lose focus (and the cursor
+    // would jump back to the start) on every letter typed, making typing
+    // choppy.
     hiddenInput.value = JSON.stringify(blocks);
     hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
     if (onChange) onChange();
@@ -1121,11 +1122,11 @@ function createBlockBuilder({ root, hiddenInput, initialBlocks = [], onChange = 
       line1.textContent = 'No blocks yet — add one below.';
       const line2 = document.createElement('div');
       line2.className = 'block-empty-hint';
-      // Le preview à droite continue de refléter le template actuellement
-      // enregistré (édité en HTML brut, ou jamais encore construit ici) tant
-      // qu'aucun bloc n'a été ajouté - sans cette précision, un contenu
-      // visible dans l'aperçu alors que la liste ci-dessus est vide donne
-      // l'impression d'un bug plutôt que de deux modes d'édition distincts.
+      // The preview on the right keeps reflecting the currently saved
+      // template (edited in raw HTML, or never built here yet) as long as
+      // no block has been added - without this clarification, content
+      // visible in the preview while the list above is empty would look
+      // like a bug rather than two distinct editing modes.
       line2.textContent = "The preview still shows your current saved template — it won't change until you add a block here and save.";
       empty.appendChild(line1);
       empty.appendChild(line2);
@@ -1218,15 +1219,15 @@ function createBlockBuilder({ root, hiddenInput, initialBlocks = [], onChange = 
   return { getBlocks: () => blocks.map(b => ({ ...b, props: { ...b.props } })) };
 }
 
-// Garde-fou "modifications non enregistrées" - surveille tous les
-// <form data-track-dirty="true"> de la page (les formulaires qui
-// s'auto-soumettent au changement, comme les interrupteurs, n'ont pas cet
-// attribut et ne sont donc jamais concernés). Dès qu'un champ change :
-// - la barre "Careful — you have unsaved changes!" apparaît en bas,
-// - tenter de quitter la page (clic sur un lien du header/nav, fermeture de
-//   l'onglet, rechargement) secoue légèrement la page (façon "wizz" MSN) et
-//   bloque le premier clic - un second clic sur le même lien dans les
-//   quelques secondes qui suivent laisse passer la navigation.
+// "Unsaved changes" safety net - watches every <form data-track-dirty="true">
+// on the page (forms that auto-submit on change, like the switches, don't
+// have this attribute and so are never concerned). As soon as a field
+// changes:
+// - the "Careful — you have unsaved changes!" bar appears at the bottom,
+// - trying to leave the page (clicking a header/nav link, closing the
+//   tab, reloading) slightly shakes the page (MSN "wizz" style) and
+//   blocks the first click - a second click on the same link within the
+//   next few seconds lets the navigation through.
 function initUnsavedGuard() {
   const trackedForms = Array.from(document.querySelectorAll('form[data-track-dirty="true"]'));
   if (!trackedForms.length) return;
@@ -1253,17 +1254,17 @@ function initUnsavedGuard() {
   function setDirty(form) {
     dirtyForm = form;
     bar.classList.add('show');
-    // La barre est en position fixe en bas de l'écran, sans espace réservé
-    // pour elle : sans cette classe, elle recouvre purement et simplement
-    // le bas du formulaire (ex: le champ Destinataires de la page Mail
-    // Server) dès qu'elle apparaît à cette position de défilement.
+    // The bar is fixed at the bottom of the screen, with no space
+    // reserved for it: without this class, it would simply cover the
+    // bottom of the form (e.g. the Recipients field on the Mail Server
+    // page) as soon as it appears at that scroll position.
     document.body.classList.add('unsaved-bar-open');
-    // Ça ne suffit pas si le champ qu'on est justement en train de modifier
-    // se trouve DÉJÀ tout en bas de l'écran à l'instant où la barre glisse
-    // vers le haut : elle passe alors PAR-DESSUS, le cachant complètement
-    // sous les yeux de l'utilisateur en train de taper dedans. On vérifie
-    // donc si le champ actif serait recouvert, et si oui on scrolle juste
-    // assez pour le faire réapparaître au-dessus de la barre.
+    // That's not enough if the field currently being edited is ALREADY
+    // right at the bottom of the screen the instant the bar slides up: it
+    // then sits ON TOP OF it, hiding it completely right under the eyes
+    // of the user typing into it. So we check whether the active field
+    // would be covered, and if so scroll just enough to bring it back
+    // above the bar.
     const active = document.activeElement;
     if (active && form.contains(active)) {
       const rect = active.getBoundingClientRect();
@@ -1285,8 +1286,8 @@ function initUnsavedGuard() {
     if (serialize(form) !== baselines.get(form)) {
       setDirty(form);
     } else if (dirtyForm === form) {
-      // Revenu à l'état initial (ex: undo manuel) -> plus besoin d'avertir,
-      // mais seulement si aucun AUTRE formulaire suivi n'est, lui, modifié.
+      // Back to the initial state (e.g. a manual undo) -> no need to warn
+      // anymore, but only if no OTHER tracked form is itself modified.
       const stillDirty = trackedForms.find(f => f !== form && serialize(f) !== baselines.get(f));
       if (stillDirty) { setDirty(stillDirty); } else { clearDirty(); }
     }
@@ -1295,25 +1296,25 @@ function initUnsavedGuard() {
   trackedForms.forEach(form => {
     form.addEventListener('input', () => checkForm(form));
     form.addEventListener('change', () => checkForm(form));
-    // Un vrai envoi (clic sur LE bouton "Save changes" du formulaire lui-même,
-    // pas celui de la barre "unsaved") est justement en train d'enregistrer -
-    // il faut éteindre la garde AVANT que la page ne navigue, sinon
-    // "beforeunload" se déclenche quand même et affiche la boîte de dialogue
-    // native "Quitter le site Web ?" malgré l'enregistrement en cours (même
-    // classe de bug que le clic sur un lien de nav, corrigée juste en dessous).
+    // A real submit (clicking the form's OWN "Save changes" button, not
+    // the "unsaved" bar's) is precisely in the middle of saving - the
+    // guard must be turned off BEFORE the page navigates, otherwise
+    // "beforeunload" still fires and shows the browser's native "Leave
+    // site?" dialog despite the save in progress (the same class of bug
+    // as clicking a nav link, fixed right below).
     form.addEventListener('submit', () => clearDirty());
   });
 
   resetBtn.addEventListener('click', () => {
     if (!dirtyForm) return;
     dirtyForm.reset();
-    // form.reset() ne déclenche pas toujours 'input'/'change' pour tous les
-    // champs (ex: certains navigateurs pour les <select>) - on revérifie
-    // explicitement pour être sûr que la barre se referme.
+    // form.reset() doesn't always fire 'input'/'change' for every field
+    // (e.g. some browsers for <select>) - explicitly re-checking to make
+    // sure the bar closes.
     checkForm(dirtyForm);
-    // Les champs pilotés par du JS (tag-input, block builder) ont leur
-    // propre état interne qui ne connaît pas form.reset() : plus simple et
-    // fiable de recharger la page plutôt que de resynchroniser chaque widget.
+    // JS-driven fields (tag-input, block builder) have their own internal
+    // state that form.reset() doesn't know about: simpler and more
+    // reliable to reload the page than to resync each widget.
     if (dirtyForm.querySelector('.tag-input, #block-builder-root')) {
       window.location.reload();
     }
@@ -1323,13 +1324,13 @@ function initUnsavedGuard() {
     if (dirtyForm) { dirtyForm.requestSubmit(); }
   });
 
-  // Le bouton "Sign out" est un <form> distinct, pas un lien de nav - il
-  // n'était donc pas couvert par l'interception "header a, nav a" ci-dessous
-  // et ne déclenchait que le dialogue natif du navigateur (beforeunload) en
-  // filet de sécurité, pas le même avertissement cohérent que le reste de
-  // l'admin. On lui donne le même traitement que les actions destructives
-  // (popup personnalisée) plutôt que le "wizz" + double-clic des liens de
-  // nav, puisque c'est un bouton d'action et non un lien à cliquer deux fois.
+  // The "Sign out" button is a separate <form>, not a nav link - so it
+  // wasn't covered by the "header a, nav a" interception below and only
+  // triggered the browser's native dialog (beforeunload) as a safety net,
+  // not the same consistent warning as the rest of the admin. It gets the
+  // same treatment as destructive actions (custom popup) rather than the
+  // "wizz" + double-click of nav links, since it's an action button, not
+  // a link meant to be clicked twice.
   const logoutForm = document.querySelector('form.logout-form');
   if (logoutForm) {
     logoutForm.addEventListener('submit', (e) => {
@@ -1361,19 +1362,18 @@ function initUnsavedGuard() {
       const href = link.href;
       const now = Date.now();
       if (leaveOverride && leaveOverride.href === href && now < leaveOverride.expiresAt) {
-        // Deuxième clic sur le même lien : on laisse partir - et on éteint
-        // la garde AVANT que la navigation ne parte, sinon "beforeunload"
-        // se déclenche quand même juste après et affiche EN PLUS la boîte
-        // de dialogue native du navigateur ("Quitter le site Web ?"), ce
-        // qui donnait l'impression que l'avertissement du nav "revenait"
-        // malgré le clic de confirmation.
+        // Second click on the same link: let it through - and turn off
+        // the guard BEFORE the navigation fires, otherwise "beforeunload"
+        // still triggers right after and shows the browser's native
+        // dialog ("Leave site?") ON TOP OF it, which made it look like
+        // the nav warning was "coming back" despite the confirmation click.
         clearDirty();
         return;
       }
       e.preventDefault();
       leaveOverride = { href, expiresAt: now + 4000 };
       document.body.classList.remove('shake-warn');
-      // Force le reflow pour pouvoir rejouer l'animation si elle est déjà en cours.
+      // Forces a reflow so the animation can be replayed if it's already running.
       void document.body.offsetWidth;
       document.body.classList.add('shake-warn');
       bar.classList.add('pulse');

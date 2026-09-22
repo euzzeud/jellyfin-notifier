@@ -1,4 +1,4 @@
-"""Route Flask qui reçoit les webhooks Jellyfin."""
+"""Flask route that receives Jellyfin webhooks."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ _buffers_by_config_id: dict[int, DebounceBuffer] = {}
 
 
 def _get_buffer() -> DebounceBuffer:
-    """Un seul buffer par process (clé = id de l'objet Config)."""
+    """A single buffer per process (key = the Config object's id)."""
     config = current_app.config["JF_CONFIG"]
     jf_client = JellyfinClient(config.jellyfin_url, config.jellyfin_api_key, config.jellyfin_public_url)
 
@@ -31,19 +31,19 @@ def _get_buffer() -> DebounceBuffer:
         def flush(items: list[dict]):
             settings = load_settings(config.settings_path)
             if not settings.new_notifications_enabled:
-                # Module "New Content Notifications" désactivé depuis l'admin -
-                # le webhook peut rester actif (ex: si le poller est aussi
-                # utilisé en parallèle) sans jamais envoyer de mail.
+                # "New Content Notifications" module disabled from the admin -
+                # the webhook can stay active (e.g. if the poller is also
+                # used in parallel) without ever sending mail.
                 logger.info(
                     "%d item(s) received via webhook but 'New Content' notifications are disabled, no mail sent",
                     len(items),
                 )
                 return
             if not settings.smtp_enabled:
-                # Envoi de mail désactivé (page "Mail Server", en attente de
-                # validation ou coupé volontairement) - le webhook n'a pas de
-                # file d'attente comme le poller, donc ces items sont perdus
-                # (comme n'importe quel item détecté pendant une coupure).
+                # Mail sending disabled (the "Mail Server" page, pending
+                # validation or turned off on purpose) - the webhook has no
+                # queue like the poller does, so these items are lost (like
+                # any item detected during an outage).
                 logger.info(
                     "%d item(s) received via webhook but mail sending is disabled (Mail Server page), no mail sent",
                     len(items),
@@ -70,7 +70,7 @@ def jellyfin_webhook():
 
     item_type = payload.get("ItemType")
     if item_type not in config.notify_item_types:
-        return jsonify({"ignored": True, "reason": f"type {item_type} filtré"}), 200
+        return jsonify({"ignored": True, "reason": f"type {item_type} filtered out"}), 200
 
     item = item_from_payload(payload)
     _get_buffer().add(item)
@@ -103,18 +103,18 @@ def health():
 
 @webhook_bp.route("/metrics", methods=["GET"])
 def metrics_endpoint():
-    """Métriques détaillées pour un système de supervision externe (pensé
-    pour Grafana + InfluxDB + Telegraf, cf. `inputs.http` avec
-    `data_format = "json"` pour scraper directement ce endpoint - pas besoin
-    d'`inputs.exec` + curl). Contrairement à /health (juste de quoi savoir
-    si le service est up et "healthy", pour une alerte simple), celui-ci
-    expose aussi des compteurs cumulés depuis le démarrage du process
-    (mails envoyés/échoués par type, requêtes HTTP par classe de statut,
-    tentatives de connexion admin, durée des cycles de poll) en plus de
-    l'état instantané du poller et des files d'attente. Toujours à PLAT (un
-    seul niveau, jamais d'objet imbriqué) pour rester compatible avec le
-    parseur JSON "classique" de Telegraf. Public comme /health, pour les
-    mêmes raisons (scrape LAN, pas de credentials à gérer côté Telegraf)."""
+    """Detailed metrics for an external monitoring system (meant for
+    Grafana + InfluxDB + Telegraf, see `inputs.http` with
+    `data_format = "json"` to scrape this endpoint directly - no need for
+    `inputs.exec` + curl). Unlike /health (just enough to know the service
+    is up and "healthy", for a simple alert), this one also exposes
+    counters cumulative since process startup (mails sent/failed by type,
+    HTTP requests by status class, admin login attempts, poll cycle
+    duration) on top of the poller's and queues' instantaneous state.
+    Always FLAT (a single level, never a nested object) to stay compatible
+    with Telegraf's "classic" JSON parser. Public like /health, for the
+    same reasons (LAN scrape, no credentials to manage on the Telegraf
+    side)."""
     config = current_app.config["JF_CONFIG"]
     poller = current_app.config.get("JF_POLLER")
 
@@ -129,11 +129,11 @@ def metrics_endpoint():
 
 @webhook_bp.route("/poll-now", methods=["POST", "GET"])
 def poll_now():
-    """Déclenche un cycle de polling immédiatement (pour tester sans attendre
-    POLL_INTERVAL_SECONDS)."""
+    """Triggers a polling cycle immediately (for testing without waiting
+    for POLL_INTERVAL_SECONDS)."""
     poller = current_app.config.get("JF_POLLER")
     if not poller:
-        return jsonify({"error": "poller désactivé (POLLER_ENABLED=false)"}), 400
+        return jsonify({"error": "poller disabled (POLLER_ENABLED=false)"}), 400
 
     new_items = poller.poll_once()
     return jsonify({"new_items_found": len(new_items), "names": [i["name"] for i in new_items]}), 200

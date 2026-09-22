@@ -1,6 +1,6 @@
-"""Construction et envoi du mail (thème Jellyfin) via SMTP - Gmail par
-défaut, mais n'importe quel serveur SMTP standard (STARTTLS, SSL implicite,
-ou sans chiffrement) fonctionne, cf. Settings.resolve_smtp()."""
+"""Building and sending the mail (Jellyfin theme) via SMTP - Gmail by
+default, but any standard SMTP server (STARTTLS, implicit SSL, or no
+encryption) works, see Settings.resolve_smtp()."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 LOGO_PATH = Path(__file__).parent / "assets" / "jellyfin-logo.png"
 LOGO_CID = "jellyfin_logo"
 DEFAULT_TEMPLATE_NAME = "email.html"
-OVERVIEW_MAX_LENGTH = 200  # fallback si aucun Settings n'est fourni
+OVERVIEW_MAX_LENGTH = 200  # fallback if no Settings is provided
 
 EmailSettings = Settings | ScopedEmailSettings
 
@@ -36,8 +36,9 @@ _env = Environment(
 
 
 def _truncate_overview(overview: str | None, max_length: int = OVERVIEW_MAX_LENGTH) -> str | None:
-    """Coupe le synopsis pour éviter les mails à rallonge qui spoilent tout le
-    film - coupe sur le dernier espace avant la limite plutôt qu'en plein mot."""
+    """Truncates the synopsis to avoid overly long mails that spoil the
+    whole movie - cuts at the last space before the limit rather than
+    mid-word."""
     if not overview or len(overview) <= max_length:
         return overview
     truncated = overview[:max_length].rsplit(" ", 1)[0]
@@ -57,8 +58,8 @@ def _format_genres(genres: list[str] | None, max_genres: int = 3) -> str | None:
 
 
 def _format_duration(run_time_ticks: int | None) -> str | None:
-    """Convertit les RunTimeTicks Jellyfin (unités de 100ns) en durée lisible
-    (ex: "1h47" ou "45 min")."""
+    """Converts Jellyfin's RunTimeTicks (100ns units) into a readable
+    duration (e.g. "1h47" or "45 min")."""
     if not run_time_ticks:
         return None
     total_minutes = round(run_time_ticks / 10_000_000 / 60)
@@ -72,25 +73,25 @@ def _format_duration(run_time_ticks: int | None) -> str | None:
 
 def _type_label(item_type: str, payload: dict) -> str:
     if item_type == "Movie":
-        return "Film"
+        return "Movie"
     if item_type == "Series":
-        return "Série"
+        return "Series"
     if item_type == "Season":
         series = payload.get("SeriesName", "")
         season_num = payload.get("SeasonNumber00") or payload.get("SeasonNumber")
-        return f"Saison {season_num} — {series}".strip(" —")
+        return f"Season {season_num} — {series}".strip(" —")
     if item_type == "Episode":
         series = payload.get("SeriesName", "")
-        return f"Épisode — {series}".strip(" —")
-    return item_type or "Contenu"
+        return f"Episode — {series}".strip(" —")
+    return item_type or "Content"
 
 
 def item_from_payload(payload: dict) -> dict:
-    """Normalise le payload brut du webhook Jellyfin en dict interne."""
+    """Normalizes the raw Jellyfin webhook payload into an internal dict."""
     return {
         "item_id": payload.get("ItemId"),
         "item_type": payload.get("ItemType"),
-        "name": payload.get("Name", "Sans titre"),
+        "name": payload.get("Name", "Untitled"),
         "year": payload.get("Year"),
         "overview": payload.get("Overview"),
         "type_label": _type_label(payload.get("ItemType"), payload),
@@ -98,13 +99,13 @@ def item_from_payload(payload: dict) -> dict:
 
 
 def item_from_api(item: dict) -> dict:
-    """Normalise un item renvoyé par l'API Jellyfin (/Items) en dict interne.
-    Utilisé par le poller, en remplacement du webhook."""
+    """Normalizes an item returned by the Jellyfin API (/Items) into an
+    internal dict. Used by the poller, as a replacement for the webhook."""
     item_type = item.get("Type")
     return {
         "item_id": item.get("Id"),
         "item_type": item_type,
-        "name": item.get("Name", "Sans titre"),
+        "name": item.get("Name", "Untitled"),
         "year": item.get("ProductionYear"),
         "overview": item.get("Overview"),
         "genres": item.get("Genres"),
@@ -150,18 +151,18 @@ def _build_render_items(
     settings: EmailSettings,
     for_preview: bool,
 ) -> tuple[list[dict], list[MIMEImage]]:
-    """Normalise les items pour le rendu. En mode aperçu navigateur
-    (for_preview=True), utilise des URLs directes vers Jellyfin (ou une image
-    uploadée manuellement, cf. `_poster_url`/`_local_poster_path`) au lieu de
-    pièces jointes `cid:`, qui ne s'affichent que dans un client mail, jamais
-    dans un <img> de navigateur."""
+    """Normalizes items for rendering. In browser-preview mode
+    (for_preview=True), uses direct URLs to Jellyfin (or a manually
+    uploaded image, see `_poster_url`/`_local_poster_path`) instead of
+    `cid:` attachments, which only display in a mail client, never in a
+    browser <img>."""
     render_items = []
     inline_images = []
 
     for idx, item in enumerate(items):
         cid = None
-        # `_poster_url` : image déjà connue par l'appelant (ex: affiche
-        # uploadée pour un titre "à venir") - prioritaire sur Jellyfin.
+        # `_poster_url`: image already known by the caller (e.g. an
+        # uploaded poster for an "upcoming" title) - takes priority over Jellyfin.
         image_url = item.get("_poster_url")
 
         if for_preview:
@@ -183,9 +184,9 @@ def _build_render_items(
 
         deep_link = jf_client.deep_link(item["item_id"]) if item.get("item_id") else None
         if deep_link is None and for_preview and item.get("_fake_deep_link"):
-            # Aperçu navigateur d'un item d'exemple sans item_id réel : on
-            # affiche quand même le bouton "Regarder" (lien factice) pour que
-            # l'admin voie à quoi ressemblera le mail final.
+            # Browser preview of a sample item with no real item_id: still
+            # show the "Watch" button (fake link) so the admin can see what
+            # the final mail will look like.
             deep_link = item["_fake_deep_link"]
 
         render_items.append(
@@ -211,12 +212,12 @@ def _prepare_content(
     settings: EmailSettings | None = None,
     template_name: str = DEFAULT_TEMPLATE_NAME,
 ) -> tuple[str, list[MIMEImage]]:
-    """Prépare le HTML rendu et les images inline (logo + posters), une seule
-    fois, pour être réutilisés pour chaque destinataire (évite de refaire les
-    appels API Jellyfin/posters une fois par destinataire). Utilisé pour le
-    VRAI envoi de mail (cid: pour les images). `template_name` sélectionne le
-    template dans templates/ (email.html pour les nouveaux contenus,
-    email_upcoming.html pour les annonces "à venir")."""
+    """Prepares the rendered HTML and inline images (logo + posters) once,
+    to be reused for each recipient (avoids repeating the Jellyfin
+    API/poster calls once per recipient). Used for the REAL mail send
+    (cid: for images). `template_name` selects the template in templates/
+    (email.html for new content, email_upcoming.html for "upcoming"
+    announcements)."""
     settings = settings or Settings()
     inline_images = []
 
@@ -250,9 +251,9 @@ def render_preview_html(
     logo_url: str | None = None,
     template_name: str = DEFAULT_TEMPLATE_NAME,
 ) -> str:
-    """Rendu HTML pour affichage dans le navigateur (admin), donc SANS pièces
-    jointes `cid:`. `raw_source`, si fourni, permet de prévisualiser un
-    template en cours d'édition, PAS ENCORE sauvegardé sur disque."""
+    """HTML render for display in the browser (admin), so WITHOUT `cid:`
+    attachments. `raw_source`, if provided, previews a template currently
+    being edited, NOT YET saved to disk."""
     settings = settings or Settings()
     render_items, _ = _build_render_items(items, jf_client, settings, for_preview=True)
 
@@ -269,9 +270,9 @@ def render_preview_html(
 
 
 def _default_smtp(config: Config) -> SmtpSettings:
-    """SmtpSettings basé uniquement sur Config (.env) - utilisé quand
-    l'appelant ne fournit pas explicitement les surcharges de Settings
-    (ex: webhook.py, ou tout appel sans admin en cours)."""
+    """SmtpSettings based solely on Config (.env) - used when the caller
+    doesn't explicitly provide the Settings overrides (e.g. webhook.py, or
+    any call with no admin request in flight)."""
     return SmtpSettings(
         host=config.smtp_host,
         port=config.smtp_port,
@@ -292,9 +293,9 @@ def build_email(
     inline_images: list[MIMEImage],
     settings: EmailSettings | None = None,
 ) -> MIMEMultipart:
-    """Construit un message pour UN SEUL destinataire (chacun ne voit que sa
-    propre adresse dans le header To - avant, tous les destinataires étaient
-    listés ensemble)."""
+    """Builds a message for A SINGLE recipient (each one sees only their
+    own address in the To header - previously, all recipients were listed
+    together)."""
     settings = settings or Settings()
     msg = MIMEMultipart("related")
     msg["Subject"] = _build_subject(items, settings)
@@ -306,8 +307,8 @@ def build_email(
     alt.attach(MIMEText(html, "html", "utf-8"))
 
     for img in inline_images:
-        # Chaque image ne peut être attachée qu'à un seul message MIME à la
-        # fois : on en refait une copie légère pour chaque destinataire.
+        # Each image can only be attached to a single MIME message at a
+        # time: a lightweight copy is made for each recipient.
         img_copy = MIMEImage(img.get_payload(decode=True))
         img_copy.add_header("Content-ID", img["Content-ID"])
         img_copy.add_header("Content-Disposition", img["Content-Disposition"])
@@ -325,18 +326,18 @@ def send_email(
     recipients: list[str] | None = None,
     template_name: str = DEFAULT_TEMPLATE_NAME,
 ) -> None:
-    """Envoie le mail via SMTP. `smtp`, si fourni, prévaut sur Config
-    (permet aux appelants qui ont accès aux Settings courants de fusionner
-    les surcharges éditées depuis l'admin - cf. Settings.resolve_smtp()).
-    Sans `smtp`, retombe sur les valeurs figées de Config (.env)."""
+    """Sends the mail via SMTP. `smtp`, if provided, takes priority over
+    Config (lets callers that have access to the current Settings merge in
+    the overrides edited from the admin - see Settings.resolve_smtp()).
+    Without `smtp`, falls back to Config's fixed values (.env)."""
     settings = settings or Settings()
     smtp = smtp or _default_smtp(config)
     recipients = recipients if recipients is not None else smtp.recipients
     html, inline_images = _prepare_content(items, jf_client, settings, template_name=template_name)
     subject = _build_subject(items, settings)
-    # "upcoming" est le seul autre template utilisé en pratique (cf. les
-    # appels avec template_name="email_upcoming.html") - inféré ici plutôt
-    # que de faire remonter un paramètre "scope" jusqu'à tous les appelants.
+    # "upcoming" is the only other template used in practice (see the
+    # calls with template_name="email_upcoming.html") - inferred here
+    # rather than threading a "scope" parameter up through every caller.
     scope = "upcoming" if template_name != DEFAULT_TEMPLATE_NAME else "new"
 
     try:
@@ -363,9 +364,9 @@ def send_email(
 
 
 def send_test_email(smtp: SmtpSettings, to: str, history_path: str | None = None) -> None:
-    """Envoie un mail de test minimal (texte brut, sans Jellyfin ni
-    template) - utilisé par la page "Mail server" de l'admin pour vérifier
-    une config SMTP avant de compter dessus pour les vraies notifs."""
+    """Sends a minimal test mail (plain text, no Jellyfin or template) -
+    used by the admin's "Mail server" page to verify an SMTP config before
+    relying on it for real notifications."""
     subject = "Test - Jellyfin Notifier"
     msg = MIMEMultipart()
     msg["Subject"] = subject

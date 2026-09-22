@@ -1,7 +1,7 @@
-"""Génère le HTML du mail avec des données factices, pour prévisualiser le
-rendu dans un navigateur SANS envoyer de vrai mail ni contacter Jellyfin/Gmail.
+"""Generates the mail's HTML with fake data, to preview the render in a
+browser WITHOUT sending a real mail or contacting Jellyfin/Gmail.
 
-Usage : python preview_email.py  -> écrit preview.html à côté de ce fichier
+Usage: python preview_email.py  -> writes preview.html next to this file
 """
 
 import base64
@@ -11,8 +11,8 @@ from pathlib import Path
 from jellyfin_notifier.email_sender import LOGO_PATH, _build_intro, _env
 from jellyfin_notifier.settings import Settings
 
-# Pour la preview navigateur uniquement : un vrai mail utilise cid:, ici on
-# encode le logo en data URI pour que ça s'affiche aussi hors client mail.
+# For the browser preview only: a real mail uses cid:, here the logo is
+# encoded as a data URI so it also displays outside a mail client.
 _LOGO_DATA_URI = (
     "data:image/png;base64," + base64.b64encode(LOGO_PATH.read_bytes()).decode()
     if LOGO_PATH.exists()
@@ -24,19 +24,19 @@ FAKE_ITEMS = [
         "name": "Terminator",
         "year": 1984,
         "overview": (
-            "À Los Angeles en 1984, un Terminator, cyborg surgi du futur, a pour "
-            "mission d'exécuter Sarah Connor, une jeune femme dont l'enfant à "
-            "naître doit sauver l'humanité."
+            "In Los Angeles in 1984, a Terminator, a cyborg from the future, is "
+            "on a mission to kill Sarah Connor, a young woman whose unborn "
+            "child will one day save humanity."
         ),
-        "type_label": "Film",
-        "image_cid": None,  # pas d'image en preview (sinon cid: ne s'affiche pas hors mail)
+        "type_label": "Movie",
+        "image_cid": None,  # no image in preview (otherwise cid: doesn't display outside a mail client)
         "deep_link": "#",
     },
     {
         "name": "Fright Night",
         "year": 2011,
-        "overview": "Un ado découvre que son nouveau voisin est un vampire.",
-        "type_label": "Film",
+        "overview": "A teenager discovers that his new neighbor is a vampire.",
+        "type_label": "Movie",
         "image_cid": None,
         "deep_link": "#",
     },
@@ -55,4 +55,4 @@ if __name__ == "__main__":
     )
     out = Path(__file__).parent / "preview.html"
     out.write_text(html, encoding="utf-8")
-    print(f"Aperçu généré : {out}")
+    print(f"Preview generated: {out}")

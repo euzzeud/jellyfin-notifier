@@ -1,7 +1,7 @@
-"""Paramètres modifiables à chaud depuis l'interface d'admin, persistés dans
-un fichier JSON (contrairement à Config qui vient de .env et est figé au
-démarrage du process). Rechargés à chaque lecture -> les changements faits
-dans l'admin s'appliquent sans redémarrer le service."""
+"""Settings that can be changed on the fly from the admin interface,
+persisted in a JSON file (unlike Config, which comes from .env and is
+fixed at process startup). Reloaded on every read -> changes made in the
+admin apply without restarting the service."""
 
 from __future__ import annotations
 
@@ -17,18 +17,18 @@ if TYPE_CHECKING:
     # with config.py.
     from .config import SmtpSettings
 
-DEFAULT_TEMPLATE_SUBJECT_SINGLE = "Nouveauté sur Jellyfin : {name}"
-DEFAULT_TEMPLATE_SUBJECT_MULTI = "Nouveautés sur Jellyfin : {count} ajouts"
-DEFAULT_INTRO_SINGLE = "Un nouveau contenu est disponible !"
-DEFAULT_INTRO_MULTI = "{count} nouveaux contenus sont disponibles !"
-DEFAULT_FOOTER = "Envoyé automatiquement par Jellyfin - Enzo GIOIELLI"
+DEFAULT_TEMPLATE_SUBJECT_SINGLE = "New on Jellyfin: {name}"
+DEFAULT_TEMPLATE_SUBJECT_MULTI = "New on Jellyfin: {count} additions"
+DEFAULT_INTRO_SINGLE = "New content is available!"
+DEFAULT_INTRO_MULTI = "{count} new items are available!"
+DEFAULT_FOOTER = "Automatically sent by Jellyfin - Enzo GIOIELLI"
 
 _lock = threading.Lock()
 
 
 @dataclass
 class Settings:
-    # Jours autorisés pour l'envoi (0=Lundi ... 6=Dimanche, cf. datetime.weekday())
+    # Allowed days for sending (0=Monday ... 6=Sunday, see datetime.weekday())
     notify_days: list[int] = field(default_factory=lambda: [0, 1, 2, 3, 4, 5, 6])
     notify_hour_start: str = "08:00"
     notify_hour_end: str = "22:00"
@@ -41,10 +41,10 @@ class Settings:
     template_intro_multi: str = DEFAULT_INTRO_MULTI
     template_footer: str = DEFAULT_FOOTER
 
-    # Couleurs du mail (éditables depuis l'onglet "New Content Notifications"
-    # avec des color pickers) - injectées dans email.html, qui garde des
-    # styles inline (obligatoire pour la compat clients mail type Outlook,
-    # pas de variables CSS possibles).
+    # Mail colors (editable from the "New Content Notifications" tab with
+    # color pickers) - injected into email.html, which keeps inline styles
+    # (required for compatibility with mail clients like Outlook, no CSS
+    # variables possible).
     color_bg: str = "#101010"
     color_card: str = "#18181b"
     color_header: str = "#101014"
@@ -53,14 +53,14 @@ class Settings:
     color_text: str = "#ffffff"
     color_muted: str = "#8a8a8e"
 
-    # Même chose, mais pour le mail "Upcoming Content Notifications" (titres
-    # annoncés manuellement, pas encore dans la bibliothèque) - textes et
-    # couleurs entièrement séparés du mail "nouveau contenu", personnalisables
-    # indépendamment depuis l'onglet Upcoming.
-    upcoming_subject_single: str = "Bientôt disponible : {name}"
-    upcoming_subject_multi: str = "Bientôt disponibles : {count} titres"
-    upcoming_intro_single: str = "Un nouveau titre arrive bientôt !"
-    upcoming_intro_multi: str = "{count} nouveaux titres arrivent bientôt !"
+    # Same thing, but for the "Upcoming Content Notifications" mail (titles
+    # announced manually, not yet in the library) - text and colors
+    # entirely separate from the "new content" mail, customizable
+    # independently from the Upcoming tab.
+    upcoming_subject_single: str = "Coming soon: {name}"
+    upcoming_subject_multi: str = "Coming soon: {count} titles"
+    upcoming_intro_single: str = "A new title is coming soon!"
+    upcoming_intro_multi: str = "{count} new titles are coming soon!"
     upcoming_footer: str = DEFAULT_FOOTER
     upcoming_color_bg: str = "#101010"
     upcoming_color_card: str = "#18181b"
@@ -70,22 +70,21 @@ class Settings:
     upcoming_color_text: str = "#ffffff"
     upcoming_color_muted: str = "#8a8a8e"
 
-    # Surcharges optionnelles, éditables depuis la console API de l'admin,
-    # sans avoir à modifier le .env ni redémarrer le service.
+    # Optional overrides, editable from the admin's API console, without
+    # having to modify .env or restart the service.
     jellyfin_api_key_override: str = ""
     jellyfin_url_override: str = ""
 
-    # Poller : éditable depuis le dashboard de l'admin, sans redémarrer le
-    # service. Vide/0 = valeur de .env (Config) utilisée telle quelle.
-    poller_item_types_override: str = ""  # ex: "Movie,Series" - vide = Config.notify_item_types
+    # Poller: editable from the admin dashboard, without restarting the
+    # service. Empty/0 = the .env (Config) value used as-is.
+    poller_item_types_override: str = ""  # e.g. "Movie,Series" - empty = Config.notify_item_types
     poller_interval_seconds_override: int = 0  # 0 = Config.poll_interval_seconds
-    poller_limit_override: int = 0  # 0 = valeur par défaut (200)
-    poller_paused: bool = False  # true = le thread tourne mais ne fait rien à chaque cycle
+    poller_limit_override: int = 0  # 0 = default value (200)
+    poller_paused: bool = False  # true = the thread keeps running but does nothing each cycle
 
-    # Serveur SMTP / expéditeur / destinataires - éditables depuis l'admin,
-    # sans redémarrer le service. Vide/0 = valeur de .env (Config) utilisée
-    # telle quelle. N'importe quel fournisseur SMTP standard est supporté,
-    # pas seulement Gmail.
+    # SMTP server / sender / recipients - editable from the admin, without
+    # restarting the service. Empty/0 = the .env (Config) value used
+    # as-is. Any standard SMTP provider is supported, not just Gmail.
     smtp_host_override: str = ""
     smtp_port_override: int = 0
     smtp_encryption_override: str = ""  # "" = Config, sinon "starttls"/"ssl"/"none"
@@ -93,35 +92,34 @@ class Settings:
     smtp_password_override: str = ""
     sender_name_override: str = ""
     sender_email_override: str = ""
-    recipients_override: str = ""  # séparés par des virgules
+    recipients_override: str = ""  # comma-separated
 
-    # Interrupteur général d'envoi de mail - désactivé par défaut tant que
-    # personne n'a validé la configuration SMTP avec un vrai test de
-    # connexion (page "Mail Server"). smtp_validated_fingerprint est
-    # l'empreinte de la config testée avec succès en dernier ; si elle ne
-    # correspond plus à la config effective actuelle (un champ a été modifié
-    # depuis), l'admin repasse automatiquement l'interrupteur à false à la
-    # sauvegarde, pour ne jamais laisser des identifiants non vérifiés
-    # activés silencieusement.
+    # General mail-sending switch - disabled by default until someone has
+    # validated the SMTP configuration with a real connection test (the
+    # "Mail Server" page). smtp_validated_fingerprint is the fingerprint
+    # of the config last tested successfully; if it no longer matches the
+    # current effective config (a field has been changed since), the admin
+    # automatically flips the switch back to false on save, so unverified
+    # credentials are never left silently enabled.
     smtp_enabled: bool = False
     smtp_validated_fingerprint: str = ""
 
-    # Éditeur visuel "blocs empilables" (glisser-déposer) : liste de blocs
-    # sérialisée en JSON, séparée pour chaque mail (new / upcoming) comme le
-    # reste de la personnalisation des textes. Compilée à la sauvegarde en
-    # HTML/Jinja2 via email_blocks.compile_blocks_to_html(), qui écrase
-    # ensuite le template brut (email.html / email_upcoming.html) - ce champ
-    # ne sert qu'à pouvoir rouvrir l'éditeur visuel avec les mêmes blocs.
+    # Visual "stackable blocks" (drag-and-drop) editor: block list
+    # serialized as JSON, kept separate for each mail (new / upcoming) like
+    # the rest of the text customization. Compiled on save into HTML/Jinja2
+    # via email_blocks.compile_blocks_to_html(), which then overwrites the
+    # raw template (email.html / email_upcoming.html) - this field only
+    # exists so the visual editor can be reopened with the same blocks.
     email_blocks: str = "[]"
     upcoming_email_blocks: str = "[]"
 
-    # Interrupteurs indépendants pour chaque module de notification - permet
-    # de couper l'un sans toucher à l'autre (ex: désactiver "Upcoming" sans
-    # arrêter le poller "New Content"). Quand "new" est désactivé, le poller
-    # continue de tourner et marque les items comme vus SANS envoyer de mail
-    # (pour ne pas déclencher une avalanche de notifications de rattrapage à
-    # la réactivation) ; quand "upcoming" est désactivé, le bouton d'envoi
-    # d'annonce est bloqué côté serveur.
+    # Independent switches for each notification module - lets one be
+    # turned off without touching the other (e.g. disabling "Upcoming"
+    # without stopping the "New Content" poller). When "new" is disabled,
+    # the poller keeps running and marks items as seen WITHOUT sending mail
+    # (to avoid triggering a flood of catch-up notifications when it's
+    # re-enabled); when "upcoming" is disabled, the announcement-send
+    # button is blocked server-side.
     new_notifications_enabled: bool = True
     upcoming_notifications_enabled: bool = True
 
@@ -134,11 +132,11 @@ class Settings:
         return cls(**valid)
 
     def scoped(self, scope: str) -> "ScopedEmailSettings":
-        """Vue avec les noms d'attributs génériques attendus par
-        email_sender.py (template_subject_single, color_bg, ...), pointant
-        soit sur les champs "nouveau contenu", soit sur les champs
-        "upcoming" - permet de réutiliser tout email_sender.py tel quel pour
-        les deux contextes de mail, chacun personnalisable séparément."""
+        """A view with the generic attribute names expected by
+        email_sender.py (template_subject_single, color_bg, ...), pointing
+        either at the "new content" fields or the "upcoming" fields - lets
+        all of email_sender.py be reused as-is for both mail contexts,
+        each customizable separately."""
         if scope == "upcoming":
             return ScopedEmailSettings(
                 template_subject_single=self.upcoming_subject_single,
@@ -197,8 +195,8 @@ class Settings:
 
 @dataclass
 class ScopedEmailSettings:
-    """Mêmes attributs que Settings pour la partie "texte/couleurs du mail" -
-    ce que email_sender.py consomme, indépendamment du scope (new/upcoming)."""
+    """Same attributes as Settings for the "mail text/colors" part - what
+    email_sender.py consumes, regardless of scope (new/upcoming)."""
     template_subject_single: str
     template_subject_multi: str
     template_intro_single: str

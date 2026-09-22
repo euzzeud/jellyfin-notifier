@@ -1,7 +1,7 @@
-"""Historique des mails envoyés (notifications 'New Content', annonces
-'Upcoming', mails de test), persisté en JSON avec le même principe que
-pending.json/upcoming.json : donne à l'admin un vrai journal consultable
-(page 'Mail history') plutôt que juste le statut du dernier envoi."""
+"""History of sent mails ('New Content' notifications, 'Upcoming'
+announcements, test mails), persisted as JSON on the same principle as
+pending.json/upcoming.json: gives the admin a real, browsable log (the
+'Mail History' page) instead of just the last send's status."""
 
 from __future__ import annotations
 
@@ -14,8 +14,8 @@ from . import metrics
 
 _lock = threading.Lock()
 
-# Assez pour couvrir plusieurs semaines d'activité typique sans laisser le
-# fichier grossir indéfiniment sur une install qui tourne des mois.
+# Enough to cover several weeks of typical activity without letting the
+# file grow indefinitely on an install that runs for months.
 MAX_ENTRIES = 300
 
 
@@ -46,9 +46,9 @@ def record(
             history = history[-MAX_ENTRIES:]
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(history, indent=2, ensure_ascii=False))
-    # Compteurs cumulés pour /metrics (jamais bornés à MAX_ENTRIES,
-    # contrairement à ce journal JSON) - un seul point d'appel puisque
-    # send_email()/send_test_email() passent tous les deux par record().
+    # Cumulative counters for /metrics (never trimmed to MAX_ENTRIES,
+    # unlike this JSON log) - a single call site since send_email()/
+    # send_test_email() both go through record().
     metrics.inc_mail(scope, success)
 
 
@@ -63,6 +63,6 @@ def _load(p: Path) -> list[dict]:
 
 
 def list_history(path: str, limit: int = 200) -> list[dict]:
-    """Les plus récents d'abord."""
+    """Most recent first."""
     history = _load(Path(path))
     return list(reversed(history))[:limit]

@@ -18,13 +18,12 @@ if __name__ == "__main__":
     # all. Falls back to the raw PORT env var (or .env.example's own
     # default, 5005) rather than crashing here.
     port = config.port if config is not None else int(os.environ.get("PORT", "5005"))
-    # Serveur WSGI de production (waitress) au lieu du serveur de
-    # développement Flask (app.run()) - celui-ci n'est pas fait pour tourner
-    # en continu comme service (mono-thread par défaut, pas de vraie gestion
-    # de charge, avertissement affiché à chaque démarrage). waitress reste
-    # volontairement UN SEUL PROCESS avec un pool de threads (pas plusieurs
-    # workers façon gunicorn) : le poller et le verrou settings.json ne
-    # supportent qu'un seul process à la fois - plusieurs workers
-    # dupliqueraient le thread du poller et enverraient chaque mail
-    # plusieurs fois.
+    # Production WSGI server (waitress) instead of Flask's development
+    # server (app.run()) - the latter isn't meant to run continuously as
+    # a service (single-threaded by default, no real load handling, a
+    # warning shown on every startup). waitress deliberately stays a
+    # SINGLE PROCESS with a thread pool (not multiple gunicorn-style
+    # workers): the poller and the settings.json lock only support a
+    # single process at a time - multiple workers would duplicate the
+    # poller's thread and send each mail multiple times.
     serve(app, host="0.0.0.0", port=port, threads=6)

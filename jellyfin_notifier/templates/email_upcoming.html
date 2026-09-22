@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Nouveautés Jellyfin</title>
+<title>Jellyfin - New Content</title>
 </head>
 <body style="margin:0;padding:0;background-color:{{ color_bg }};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:{{ color_bg }};padding:32px 12px;">
@@ -58,7 +58,7 @@
                   <div style="width:100px;height:150px;background:#2a2a2e;border-radius:8px;
                               display:flex;align-items:center;justify-content:center;
                               color:#666;font-size:11px;text-align:center;">
-                    Pas d'affiche
+                    No poster
                   </div>
                   {% endif %}
                 </td>
@@ -84,14 +84,14 @@
                   </div>
                   {% endif %}
                   <div style="color:#b5b5ba;font-size:13px;line-height:1.5;margin-bottom:12px;">
-                    {{ item.overview or "Pas de synopsis disponible." }}
+                    {{ item.overview or "No synopsis available." }}
                   </div>
                   {% if item.deep_link %}
                   <a href="{{ item.deep_link }}"
                      style="background-color:{{ color_button }};color:#ffffff;text-decoration:none;
                             padding:8px 18px;border-radius:6px;font-size:13px;font-weight:bold;
                             display:inline-block;">
-                    ▶ Regarder
+                    ▶ Watch
                   </a>
                   {% endif %}
                 </td>

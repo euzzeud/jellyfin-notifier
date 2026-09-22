@@ -1,65 +1,65 @@
 # jellyfin-notifier
 
-Service Python/Flask auto-hébergé qui envoie un mail (Gmail) quand un nouveau film ou série est ajouté à un serveur Jellyfin. Chaque destinataire reçoit son propre mail individuel (`To:` avec une seule adresse, pas de fuite d'adresse entre destinataires).
+Self-hosted Python/Flask service that sends a mail (Gmail) whenever a new movie or series is added to a Jellyfin server. Each recipient gets their own individual mail (`To:` with a single address, no address leaking between recipients).
 
-## Fonctionnement
+## How it works
 
-Pas de webhook Jellyfin (jugé peu fiable en pratique) : un **poller** interroge l'API Jellyfin toutes les `POLL_INTERVAL_SECONDS` (300s par défaut), compare aux IDs déjà vus (`seen_items.json`), et détecte les nouveaux items (`Movie`/`Series` par défaut). Une fenêtre de récupération élargie (`Limit=200`, tri `DateCreated,SortName`) évite qu'un gros import en masse "flotte" entre deux polls, et les `BoxSet` (collections auto-générées) sont exclus.
+No Jellyfin webhook (found unreliable in practice): a **poller** queries the Jellyfin API every `POLL_INTERVAL_SECONDS` (300s by default), compares against already-seen IDs (`seen_items.json`), and detects new items (`Movie`/`Series` by default). A widened fetch window (`Limit=200`, sorted by `DateCreated,SortName`) prevents a large bulk import from "floating" between two polls, and `BoxSet`s (auto-generated collections) are excluded.
 
-Au premier lancement, tout le catalogue existant est enregistré comme "déjà vu" sans envoyer de mail (bootstrap).
+On first run, the entire existing catalog is recorded as "already seen" without sending any mail (bootstrap).
 
-## Fonctionnalités
+## Features
 
-- **Mail par destinataire**, enrichi (synopsis tronqué anti-spoiler, note, genres, durée formatée).
-- **Anti faux-positifs** sur les imports en masse.
-- **Interface d'admin** (racine du site `/`, protégée par une page de login dédiée) :
-  - Dashboard : état du service systemd + du poller, créneau d'envoi, file d'attente, logs, start/stop/restart.
-  - Planning : jours/plage horaire autorisés pour l'envoi (gère le passage de minuit), longueur max du synopsis.
-  - File d'attente hors créneau : items détectés hors créneau, envoyés en un digest à l'ouverture du prochain créneau.
-  - Éditeur de template Jinja2 (formulaire simple + HTML brut avec validation de syntaxe en temps réel), historique de sauvegardes.
-  - Aperçu du prochain mail.
-  - Titres à venir : annonce manuelle de contenus pas encore dans la bibliothèque.
-  - Console API Jellyfin ad-hoc.
-  - Serveur mail (SMTP) : hôte/port/chiffrement, identifiants, expéditeur, destinataires — n'importe quel fournisseur SMTP standard (pas seulement Gmail), + envoi d'un mail de test.
-  - Gestion du service systemd + logs `journalctl` depuis l'admin.
-- Endpoint `/health` pour le monitoring (Telegraf/Grafana ou autre).
+- **Per-recipient mail**, enriched (spoiler-safe truncated synopsis, rating, genres, formatted duration).
+- **False-positive protection** on bulk imports.
+- **Admin interface** (site root `/`, protected by a dedicated login page):
+  - Dashboard: systemd service + poller status, send window, pending queue, logs, start/stop/restart.
+  - Schedule: allowed days/hours for sending (handles crossing midnight), max synopsis length.
+  - Outside-window queue: items detected outside the allowed window, sent as a single digest once the next window opens.
+  - Jinja2 template editor (simple form + raw HTML with real-time syntax validation), save history.
+  - Preview of the next mail.
+  - Upcoming titles: manual announcement of content not yet in the library.
+  - Ad-hoc Jellyfin API console.
+  - Mail server (SMTP): host/port/encryption, credentials, sender, recipients — any standard SMTP provider (not just Gmail), plus sending a test mail.
+  - systemd service management + `journalctl` logs from the admin.
+- `/health` endpoint for monitoring (Telegraf/Grafana or other).
 
 ## Structure
 
 ```
 jellyfin_notifier/
-  config.py           # config figée depuis .env
-  settings.py         # paramètres modifiables à chaud (settings.json)
-  schedule.py         # fenêtre horaire/jours autorisés
-  pending.py          # file d'attente des items hors créneau
-  upcoming.py         # titres "à venir" annoncés manuellement
-  service_control.py  # start/stop/restart systemd + logs
-  api_console.py       # requêtes API Jellyfin ad-hoc (admin)
-  jellyfin_client.py   # client HTTP Jellyfin
-  email_sender.py      # construction/envoi du mail (Jinja2 + SMTP Gmail)
-  poller.py            # thread de polling
-  admin.py             # blueprint Flask, monté à la racine du site
-  webhook.py            # /health, /poll-now, ancien endpoint webhook
+  config.py           # fixed config from .env
+  settings.py         # settings that can be changed on the fly (settings.json)
+  schedule.py         # allowed time window/days
+  pending.py          # queue of items outside the allowed window
+  upcoming.py         # manually announced "upcoming" titles
+  service_control.py  # systemd start/stop/restart + logs
+  api_console.py       # ad-hoc Jellyfin API requests (admin)
+  jellyfin_client.py   # Jellyfin HTTP client
+  email_sender.py      # building/sending the mail (Jinja2 + SMTP Gmail)
+  poller.py            # polling thread
+  admin.py             # Flask blueprint, mounted at the site root
+  webhook.py            # /health, /poll-now, the old webhook endpoint
   templates/email.html
   templates/admin/*.html
-run.py            # entrée Flask
-install.sh         # première installation (+ règle sudoers)
-update.sh          # mise à jour d'une installation existante
+run.py            # Flask entry point
+install.sh         # first-time install (+ sudoers rule)
+update.sh          # updating an existing install
 .env.example
 jellyfin-notifier.service
-preview_email.py   # aperçu HTML local sans réseau
+preview_email.py   # local HTML preview, no network needed
 ```
 
 ## Installation
 
 ```bash
-cp .env.example .env   # puis éditer .env
+cp .env.example .env   # then edit .env
 ./install.sh
 ```
 
-`install.sh` installe le service sous systemd (`jellyfin-notifier.service`) et met en place la règle `sudoers` NOPASSWD nécessaire pour que l'admin puisse start/stop/restart le service.
+`install.sh` installs the service under systemd (`jellyfin-notifier.service`) and sets up the NOPASSWD `sudoers` rule needed so the admin can start/stop/restart the service.
 
-Pour mettre à jour une installation existante sans toucher `.env` ni les données (`update.sh` ajoute les clés manquantes) :
+To update an existing install without touching `.env` or the data (`update.sh` adds any missing keys):
 
 ```bash
 ./update.sh
@@ -67,14 +67,14 @@ Pour mettre à jour une installation existante sans toucher `.env` ni les donné
 
 ## Configuration
 
-Voir `.env.example` pour la liste complète des variables (identifiants Gmail, destinataires, connexion Jellyfin, planning, identifiants admin, chemins des fichiers de données).
+See `.env.example` for the full list of variables (Gmail credentials, recipients, Jellyfin connection, schedule, admin credentials, data file paths).
 
-## Infrastructure de référence
+## Reference infrastructure
 
-- Jellyfin : conteneur Docker sur un LXC Proxmox.
-- Service : tourne hors du conteneur Jellyfin, sur le LXC, piloté par systemd, port `5005`.
-- Monitoring : endpoint `/health` scrapé (ex. Telegraf `inputs.exec` pour garantir un point de données même si le service est down).
+- Jellyfin: a Docker container on a Proxmox LXC.
+- Service: runs outside the Jellyfin container, on the LXC, managed by systemd, port `5005`.
+- Monitoring: the `/health` endpoint is scraped (e.g. Telegraf `inputs.exec`, to guarantee a data point even when the service is down).
 
-## Licence
+## License
 
-Projet personnel, non destiné à la distribution publique.
+Personal project, not intended for public distribution.

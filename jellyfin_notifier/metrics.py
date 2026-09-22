@@ -1,15 +1,14 @@
-"""Compteurs en mémoire pour la supervision détaillée (endpoint /metrics),
-pensés pour être scrapés par Telegraf (`inputs.http`, `data_format = "json"`)
-et graphés/alertés dans Grafana + InfluxDB - en complément de /health, qui
-reste volontairement minimal (juste de quoi savoir si le service est up et
-"healthy", pour une alerte simple type Uptime Kuma).
+"""In-memory counters for detailed monitoring (the /metrics endpoint),
+meant to be scraped by Telegraf (`inputs.http`, `data_format = "json"`)
+and graphed/alerted on in Grafana + InfluxDB - complementing /health, which
+stays deliberately minimal (just enough to know the service is up and
+"healthy", for a simple Uptime Kuma-style alert).
 
-Comme tout compteur en mémoire d'un process, ces valeurs repartent de zéro à
-chaque redémarrage du service : c'est le comportement standard attendu par
-InfluxDB/Grafana pour ce genre de compteur cumulatif (cf. la fonction
-`non_negative_derivative()` côté Grafana, faite précisément pour calculer un
-débit/seconde malgré les redémarrages), pas un défaut à corriger en
-persistant les compteurs sur disque."""
+Like any in-process counter, these values reset to zero on every service
+restart: that's the standard behavior InfluxDB/Grafana expect for this kind
+of cumulative counter (see Grafana's `non_negative_derivative()` function,
+built precisely to compute a per-second rate despite restarts), not a bug
+to fix by persisting the counters to disk."""
 
 from __future__ import annotations
 
@@ -21,7 +20,7 @@ _lock = threading.Lock()
 _START_TIME = datetime.now().astimezone()
 
 _http_by_class: Counter = Counter()  # "2xx" / "3xx" / "4xx" / "5xx"
-_mail_sent: Counter = Counter()  # par scope : new / upcoming / test
+_mail_sent: Counter = Counter()  # by scope: new / upcoming / test
 _mail_failed: Counter = Counter()
 _login: Counter = Counter()  # success / failure
 
@@ -59,11 +58,10 @@ def record_poll(duration_seconds: float, success: bool) -> None:
 
 
 def snapshot() -> dict:
-    """Instantané de tous les compteurs, à PLAT (un seul niveau) exprès - le
-    parseur JSON "classique" de Telegraf (v1) ne descend pas forcément dans
-    des objets imbriqués, contrairement au json.JSONDecodeError de Python.
-    Mêmes clés d'un appel à l'autre (même à 0), pour que Telegraf/InfluxDB
-    voie toujours le même schéma de champs."""
+    """Snapshot of all counters, deliberately FLAT (a single level) - the
+    "classic" Telegraf (v1) JSON parser doesn't necessarily descend into
+    nested objects. Same keys from one call to the next (even at 0), so
+    Telegraf/InfluxDB always sees the same field schema."""
     with _lock:
         now = datetime.now().astimezone()
         uptime = (now - _START_TIME).total_seconds()

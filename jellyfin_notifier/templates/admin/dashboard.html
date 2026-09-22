@@ -218,10 +218,10 @@ function pollerAction(action) {
     .catch(err => { showToast('Network error: ' + err, false); });
 }
 
-// Vérifie le fichier settings.json choisi (syntaxe JSON + forme attendue)
-// avant de l'envoyer au serveur - popup façon IDE avec la ligne fautive en
-// rouge en cas d'erreur, plutôt qu'un aller-retour serveur pour l'apprendre.
-// Voir checkJsonSettingsFile() dans base.html.
+// Checks the chosen settings.json file (JSON syntax + expected shape)
+// before sending it to the server - an IDE-style popup with the
+// offending line in red on error, rather than a server round-trip to
+// find out. See checkJsonSettingsFile() in base.html.
 function handleSettingsImportFile(input) {
   const file = input.files[0];
   if (!file) return;
@@ -229,8 +229,8 @@ function handleSettingsImportFile(input) {
     if (ok) {
       document.getElementById('import-settings-form').submit();
     } else {
-      // Réinitialise le champ pour que choisir à nouveau LE MÊME fichier
-      // (après correction) redéclenche bien "onchange".
+      // Resets the field so choosing the SAME file again (after fixing
+      // it) properly re-triggers "onchange".
       input.value = '';
     }
   });
@@ -292,11 +292,10 @@ function confirmSeenAction(action) {
 
 document.addEventListener('DOMContentLoaded', refreshSeenCount);
 
-// createTagInput est défini dans le script de base.html, qui apparaît
-// APRES le contenu de cette page dans le HTML final (base.html entoure le
-// contenu de chaque page) - donc pas encore défini au moment où ce script
-// s'exécute. On attend DOMContentLoaded (tout le document chargé) avant
-// de l'appeler.
+// createTagInput is defined in base.html's script, which appears AFTER
+// this page's content in the final HTML (base.html wraps each page's
+// content) - so it isn't defined yet when this script runs. We wait for
+// DOMContentLoaded (the whole document loaded) before calling it.
 document.addEventListener('DOMContentLoaded', () => {
   createTagInput({
     root: document.getElementById('item-types-input'),

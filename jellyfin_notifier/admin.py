@@ -55,14 +55,14 @@ FAKE_PREVIEW_ITEMS = [
         "name": "Terminator",
         "year": 1984,
         "overview": (
-            "À Los Angeles en 1984, un Terminator, cyborg surgi du futur, a pour "
-            "mission d'exécuter Sarah Connor, une jeune femme dont l'enfant à "
-            "naître doit sauver l'humanité."
+            "In Los Angeles in 1984, a Terminator, a cyborg from the future, is "
+            "on a mission to kill Sarah Connor, a young woman whose unborn "
+            "child will one day save humanity."
         ),
-        "genres": ["Action", "Science-Fiction"],
+        "genres": ["Action", "Science Fiction"],
         "community_rating": 7.5,
         "run_time_ticks": 63_000_000_000,
-        "type_label": "Film",
+        "type_label": "Movie",
         "_fake_deep_link": "#preview",
     },
 ]
@@ -76,11 +76,11 @@ FAKE_UPCOMING_PREVIEW_ITEMS = [
         "item_type": "Movie",
         "name": "Dune: Part Three",
         "year": None,
-        "overview": "Bientôt disponible sur Jellyfin.",
+        "overview": "Coming soon to Jellyfin.",
         "genres": None,
         "community_rating": None,
         "run_time_ticks": None,
-        "type_label": "Bientôt • Film",
+        "type_label": "Coming soon • Movie",
     },
 ]
 
@@ -316,7 +316,7 @@ def settings_reset():
 
 
 # ---------------------------------------------------------------------------
-# Contrôle du poller (start/stop/pause/resume) depuis l'admin
+# Poller control (start/stop/pause/resume) from the admin
 # ---------------------------------------------------------------------------
 
 @admin_bp.route("/poller/<action>", methods=["POST"])
@@ -439,7 +439,7 @@ def logs_data():
 
 
 # ---------------------------------------------------------------------------
-# Planning (jours ouvrés / heures autorisées)
+# Schedule (allowed days / hours)
 # ---------------------------------------------------------------------------
 
 @admin_bp.route("/schedule", methods=["GET", "POST"])
@@ -473,7 +473,7 @@ def schedule_view():
 
 
 # ---------------------------------------------------------------------------
-# Éditeur de template (champs simples + éditeur HTML brut avec validation)
+# Template editor (simple fields + raw HTML editor with validation)
 # ---------------------------------------------------------------------------
 
 def _validate_template_source(source: str) -> tuple[bool, str]:
@@ -484,16 +484,16 @@ def _validate_template_source(source: str) -> tuple[bool, str]:
         template.render(
             items=[
                 {
-                    "name": "Exemple", "year": 2024, "overview": "Synopsis d'exemple.",
-                    "type_label": "Film", "genres": "Action", "rating": "7.5",
+                    "name": "Example", "year": 2024, "overview": "Example synopsis.",
+                    "type_label": "Movie", "genres": "Action", "rating": "7.5",
                     "duration": "1h47", "image_cid": None, "image_url": None, "deep_link": "#",
                 }
             ],
             count=1,
             date="01/01/2026 12:00",
             logo_src=None,
-            intro_text="Un nouveau contenu est disponible !",
-            footer_text="Envoyé automatiquement par ton serveur Jellyfin",
+            intro_text="New content is available!",
+            footer_text="Automatically sent by your Jellyfin server",
             color_bg=settings.color_bg,
             color_card=settings.color_card,
             color_header=settings.color_header,
@@ -531,8 +531,8 @@ def _save_simple_texts(scope: str, settings: Settings, cfg) -> None:
 
 
 def _save_raw_template(template_path: Path, raw_source: str) -> tuple[bool, str]:
-    """Valide puis sauvegarde un template HTML brut (avec backup horodaté).
-    Retourne (ok, error)."""
+    """Validates then saves a raw HTML template (with a timestamped
+    backup). Returns (ok, error)."""
     valid, error = _validate_template_source(raw_source)
     if not valid:
         return False, error
@@ -545,9 +545,9 @@ def _save_raw_template(template_path: Path, raw_source: str) -> tuple[bool, str]
 
 
 def _save_blocks(scope: str, settings: Settings, cfg, template_path: Path, blocks_json: str) -> tuple[bool, str]:
-    """Compile les blocs de l'éditeur visuel en HTML/Jinja2 puis réutilise
-    exactement le même chemin de sauvegarde (validation + backup horodaté)
-    que l'éditeur HTML brut - email_sender.py n'a besoin d'aucun changement."""
+    """Compiles the visual editor's blocks into HTML/Jinja2 then reuses
+    exactly the same save path (validation + timestamped backup) as the
+    raw HTML editor - email_sender.py needs no changes at all."""
     try:
         blocks = json.loads(blocks_json or "[]")
         if not isinstance(blocks, list):
@@ -567,9 +567,9 @@ def _save_blocks(scope: str, settings: Settings, cfg, template_path: Path, block
 
 
 def _template_editor_view(scope: str, template_path: Path, active: str):
-    """Vue générique de l'éditeur (textes + couleurs + HTML brut) pour "New
-    Content Notifications" (scope="new") - chacun a ses propres
-    textes/couleurs (Settings.scoped) et son propre fichier de template."""
+    """Generic editor view (text + colors + raw HTML) for "New Content
+    Notifications" (scope="new") - each has its own text/colors
+    (Settings.scoped) and its own template file."""
     cfg = _config()
     settings = load_settings(cfg.settings_path)
     saved = None
@@ -626,9 +626,9 @@ def _template_editor_view(scope: str, template_path: Path, active: str):
 
 
 def _template_live_preview(scope: str, template_name: str, fake_items: list[dict]):
-    """Aperçu instantané (rien n'est sauvegardé) : reflète le HTML brut ET
-    les champs simples tels qu'ils sont actuellement tapés dans le
-    formulaire, pas la version sur disque."""
+    """Instant preview (nothing is saved): reflects the raw HTML AND the
+    simple fields as currently typed in the form, not the version on
+    disk."""
     cfg = _config()
     payload = request.get_json(silent=True) or {}
     settings = load_settings(cfg.settings_path).scoped(scope)
@@ -673,7 +673,7 @@ def template_live_preview():
 
 
 # ---------------------------------------------------------------------------
-# Aperçu du prochain mail
+# Preview of the next mail
 # ---------------------------------------------------------------------------
 
 @admin_bp.route("/preview")
@@ -687,9 +687,9 @@ def preview():
 
 
 # ---------------------------------------------------------------------------
-# Titres "à venir" (annonces manuelles) - même éditeur (textes/couleurs/HTML
-# brut + aperçu live) que "New Content Notifications", mais scope="upcoming"
-# et avec en plus la gestion des affiches uploadées manuellement.
+# "Upcoming" titles (manual announcements) - same editor (text/colors/raw
+# HTML + live preview) as "New Content Notifications", but scope="upcoming"
+# and with the added management of manually uploaded posters.
 # ---------------------------------------------------------------------------
 
 def _poster_url(entry: dict) -> str | None:
@@ -705,8 +705,8 @@ def _poster_disk_path(entry: dict) -> str | None:
 
 
 def _upcoming_items_for_send(entries: list[dict]) -> list[dict]:
-    """item_from_upcoming + injecte le chemin disque de l'affiche uploadée
-    (utilisée par email_sender pour l'attacher en cid: dans le vrai mail)."""
+    """item_from_upcoming + injects the disk path of the uploaded poster
+    (used by email_sender to attach it as cid: in the real mail)."""
     items = []
     for e in entries:
         item = item_from_upcoming(e)
@@ -716,8 +716,8 @@ def _upcoming_items_for_send(entries: list[dict]) -> list[dict]:
 
 
 def _upcoming_items_for_preview(entries: list[dict]) -> list[dict]:
-    """item_from_upcoming + injecte l'URL servie de l'affiche uploadée
-    (utilisée pour l'aperçu navigateur)."""
+    """item_from_upcoming + injects the served URL of the uploaded poster
+    (used for the browser preview)."""
     items = []
     for e in entries:
         item = item_from_upcoming(e)
@@ -753,16 +753,16 @@ def upcoming_view():
                 name=name,
                 year=request.form.get("year", "").strip(),
                 note=request.form.get("note", "").strip(),
-                type_label=request.form.get("type_label", "Film"),
+                type_label=request.form.get("type_label", "Movie"),
             )
             poster = request.files.get("poster")
             if poster and poster.filename:
                 stored = save_poster(cfg.upcoming_path, entry["id"], poster.filename, poster.read())
                 if stored is None:
-                    # save_poster() échoue silencieusement (extension non
-                    # autorisée) - avant, rien ne le signalait à l'utilisateur,
-                    # qui voyait juste son titre ajouté SANS l'affiche qu'il
-                    # venait d'uploader, sans savoir pourquoi.
+                    # save_poster() fails silently (disallowed extension) -
+                    # previously, nothing reported this to the user, who
+                    # just saw their title added WITHOUT the poster they
+                    # had just uploaded, with no idea why.
                     allowed = ", ".join(sorted(ALLOWED_POSTER_EXTENSIONS))
                     return redirect(url_for(
                         "admin.upcoming_view",
@@ -802,8 +802,8 @@ def upcoming_view():
                     logger.info("Upcoming announcement sent for %d title(s).", len(items))
                 except Exception as exc:
                     logger.exception("Failed to send the upcoming titles announcement")
-                    # Message court dans l'URL de redirection (pas de session
-                    # nécessaire) - suffisant pour une erreur SMTP typique.
+                    # Short message in the redirect URL (no session needed)
+                    # - sufficient for a typical SMTP error.
                     announce_error = f"Failed to send: {exc}"[:300]
 
             redirect_args = {"sent": int(sent)}
@@ -872,11 +872,10 @@ def upcoming_view():
 
 @admin_bp.route("/upcoming/live-preview", methods=["POST"])
 def upcoming_live_preview():
-    """Aperçu instantané unique pour l'onglet Upcoming : si des ids sont
-    cochés dans la liste, prévisualise CES titres réels (avec leur affiche
-    uploadée s'il y en a une) ; sinon, un exemple générique. Dans tous les
-    cas reflète les textes/couleurs/HTML tels que tapés dans le formulaire,
-    sans rien sauvegarder."""
+    """The single instant preview for the Upcoming tab: if ids are checked
+    in the list, previews THOSE real titles (with their uploaded poster, if
+    any); otherwise, a generic example. Either way it reflects the
+    text/colors/HTML as typed in the form, without saving anything."""
     cfg = _config()
     payload = request.get_json(silent=True) or {}
     settings = load_settings(cfg.settings_path).scoped("upcoming")
@@ -915,7 +914,7 @@ def upcoming_live_preview():
 
 
 # ---------------------------------------------------------------------------
-# Console API Jellyfin
+# Jellyfin API console
 # ---------------------------------------------------------------------------
 
 @admin_bp.route("/api", methods=["GET", "POST"])
@@ -939,11 +938,11 @@ def api_console_view():
                 settings.jellyfin_api_key_override = new_key
             elif request.form.get("clear_api_key_override"):
                 settings.jellyfin_api_key_override = ""
-            # Sinon (champ laissé vide, comme toujours puisqu'il n'est jamais
-            # pré-rempli, et case "effacer" pas cochée) : on garde la clé déjà
-            # enregistrée telle quelle - avant, sauvegarder juste l'URL
-            # effaçait silencieusement la clé API en surcharge (même bug de
-            # classe que celui déjà corrigé pour le mot de passe SMTP).
+            # Otherwise (field left empty, as always since it's never
+            # pre-filled, and the "clear" box unchecked): keep the already
+            # saved key as-is - previously, saving just the URL would
+            # silently clear the API key override (the same class of bug
+            # already fixed for the SMTP password).
 
             save_settings(cfg.settings_path, settings)
             save_msg = "Connection saved."
@@ -975,11 +974,11 @@ def api_console_view():
 
 @admin_bp.route("/api/test", methods=["POST"])
 def api_console_test():
-    """Teste la connexion (GET /System/Info) SANS rien sauvegarder - reflète
-    ce qui est actuellement tapé dans le formulaire (même si pas encore
-    enregistré), retombe sur la surcharge déjà sauvegardée puis sur .env si
-    les champs sont laissés vides. Réponse JSON affichée directement dans la
-    page, sans rechargement."""
+    """Tests the connection (GET /System/Info) WITHOUT saving anything -
+    reflects what's currently typed in the form (even if not saved yet),
+    falls back to the already-saved override then to .env if the fields
+    are left empty. JSON response displayed directly on the page, without
+    a reload."""
     cfg = _config()
     settings = load_settings(cfg.settings_path)
     payload = request.get_json(silent=True) or {}
@@ -994,18 +993,18 @@ def api_console_test():
 
 
 # ---------------------------------------------------------------------------
-# Serveur mail (SMTP) - hôte/port/chiffrement, identifiants, expéditeur,
-# destinataires. Configurable depuis l'admin, sans redémarrer le service.
-# N'importe quel fournisseur SMTP standard est supporté (pas seulement
-# Gmail, qui reste juste la valeur par défaut historique).
+# Mail server (SMTP) - host/port/encryption, credentials, sender,
+# recipients. Configurable from the admin, without restarting the service.
+# Any standard SMTP provider is supported (not just Gmail, which just
+# remains the historical default value).
 # ---------------------------------------------------------------------------
 
 def _smtp_fingerprint(smtp) -> str:
-    """Empreinte de la config SMTP effective (hôte/port/identifiants/
-    expéditeur/destinataires) - sert à savoir si la config actuelle est
-    exactement celle qui a été validée par un test de connexion réussi, sans
-    stocker le mot de passe en clair nulle part d'autre que settings.json
-    (où il l'est déjà)."""
+    """Fingerprint of the effective SMTP config (host/port/credentials/
+    sender/recipients) - used to know whether the current config is
+    exactly the one that was validated by a successful connection test,
+    without storing the password in plaintext anywhere else than
+    settings.json (where it already is)."""
     raw = "|".join([
         smtp.host, str(smtp.port), smtp.encryption, smtp.username, smtp.password,
         smtp.sender_name, smtp.sender_email, ",".join(smtp.recipients),
@@ -1036,19 +1035,19 @@ def mail_server_view():
                 settings.smtp_password_override = new_password
             elif request.form.get("clear_password_override"):
                 settings.smtp_password_override = ""
-            # Sinon (champ laissé vide, pas de case "effacer" cochée) : on
-            # garde le mot de passe déjà enregistré tel quel - on ne veut pas
-            # qu'une sauvegarde d'un autre champ efface le mot de passe juste
-            # parce que le formulaire ne le réaffiche jamais en clair.
+            # Otherwise (field left empty, "clear" box unchecked): keep the
+            # already saved password as-is - we don't want saving some
+            # other field to wipe the password just because the form never
+            # displays it back in plaintext.
 
             settings.sender_name_override = request.form.get("sender_name_override", "").strip()
             settings.sender_email_override = request.form.get("sender_email_override", "").strip()
             settings.recipients_override = request.form.get("recipients_override", "").strip()
 
-            # Si les champs sauvegardés diffèrent de la dernière config
-            # testée avec succès, on coupe l'envoi automatiquement : on ne
-            # veut jamais laisser des identifiants jamais vérifiés (ou
-            # modifiés depuis leur validation) activés en silence.
+            # If the saved fields differ from the last successfully tested
+            # config, sending is turned off automatically: we never want to
+            # leave never-verified credentials (or ones modified since
+            # their validation) silently enabled.
             new_fingerprint = _smtp_fingerprint(settings.resolve_smtp(cfg))
             if new_fingerprint != settings.smtp_validated_fingerprint:
                 settings.smtp_enabled = False
@@ -1065,9 +1064,9 @@ def mail_server_view():
                 try:
                     send_test_email(smtp, test_recipient, history_path=cfg.mail_history_path)
                     test_result = {"ok": True, "recipient": test_recipient}
-                    # La config actuellement SAUVEGARDÉE vient de prouver
-                    # qu'elle fonctionne -> elle devient éligible à
-                    # l'activation de l'interrupteur d'envoi.
+                    # The currently SAVED config has just proven that it
+                    # works -> it becomes eligible for enabling the
+                    # send switch.
                     settings.smtp_validated_fingerprint = _smtp_fingerprint(smtp)
                     save_settings(cfg.settings_path, settings)
                     logger.info("Mail server: test mail sent successfully to %s, configuration validated.", test_recipient)
@@ -1111,8 +1110,8 @@ def mail_server_view():
 
 
 # ---------------------------------------------------------------------------
-# Historique des mails envoyés (notifications, annonces, tests) - un vrai
-# journal consultable plutôt que juste le statut du dernier envoi.
+# History of sent mails (notifications, announcements, tests) - a real
+# browsable log rather than just the last send's status.
 # ---------------------------------------------------------------------------
 
 @admin_bp.route("/mail-history")
@@ -1128,9 +1127,9 @@ def mail_history_view():
 
 
 # ---------------------------------------------------------------------------
-# Page "Health" - reflète l'endpoint public /health (sans authentification,
-# pensé pour un système de supervision externe type Uptime Kuma), avec le
-# lien direct à copier dedans.
+# "Health" page - reflects the public /health endpoint (no authentication,
+# meant for an external monitoring system like Uptime Kuma), with the
+# direct link to copy included.
 # ---------------------------------------------------------------------------
 
 @admin_bp.route("/monitoring")
@@ -1149,9 +1148,9 @@ def health_view():
 
 
 # ---------------------------------------------------------------------------
-# Export / import de settings.json (sauvegarde/restauration en un clic) -
-# ne touche PAS aux données (file d'attente, titres "à venir" + affiches,
-# historique des mails, état "déjà vu" du poller) ni aux templates HTML.
+# Export / import of settings.json (one-click backup/restore) - does NOT
+# touch the data (the pending queue, "upcoming" titles + posters, mail
+# history, the poller's "already seen" state) or the HTML templates.
 # ---------------------------------------------------------------------------
 
 @admin_bp.route("/settings/export")
