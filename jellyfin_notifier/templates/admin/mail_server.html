@@ -79,14 +79,14 @@
   </div>
 </form>
 
-<form method="post" class="card">
+<form method="post" class="card" onsubmit="const b=document.getElementById('test-mail-btn'); b.disabled=true; b.textContent='Sending…';">
   <input type="hidden" name="action" value="test" />
   <h2>Send a test mail</h2>
   <p class="muted" style="font-size:12px;">Sends a minimal plain-text mail using the currently saved settings, to verify the connection works. Save your changes above first if you just edited them.</p>
   <label>Recipient (optional — defaults to the first configured recipient)</label>
   <input type="text" name="test_recipient" placeholder="{{ smtp.recipients[0] if smtp.recipients else 'someone@example.com' }}" />
   <div class="actions">
-    <button type="submit" class="secondary">✉ Send test mail</button>
+    <button type="submit" id="test-mail-btn" class="secondary">✉ Send test mail</button>
   </div>
 </form>
 

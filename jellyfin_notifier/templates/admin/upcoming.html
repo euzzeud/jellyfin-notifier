@@ -3,6 +3,7 @@
 {% block content %}
 
 {% if sent %}<div class="alert ok flash-toast">Announcement sent by mail.</div>{% endif %}
+{% if announce_error %}<div class="alert err flash-toast">{{ announce_error }}</div>{% endif %}
 {% if saved == "simple" %}<div class="alert ok flash-toast">Texts and colors saved.</div>{% endif %}
 {% if saved == "raw" %}<div class="alert ok flash-toast">HTML template saved (previous version kept as backup).</div>{% endif %}
 {% if raw_error %}<div class="alert err flash-toast">Error, nothing was saved: {{ raw_error }}</div>{% endif %}
@@ -71,12 +72,12 @@
     </form>
 
     {% if items %}
-    <form method="post" id="announce-form" class="card">
+    <form method="post" id="announce-form" class="card" onsubmit="const b=document.getElementById('announce-btn'); b.disabled=true; b.textContent='Sending…';">
       <input type="hidden" name="action" value="announce" />
       <h2>Send an announcement</h2>
       <p class="muted">Check the titles above (the preview on the right updates live) then send a "Coming soon" mail for the selected ones.</p>
       <div class="actions">
-        <button type="submit">📣 Send announcement</button>
+        <button type="submit" id="announce-btn">📣 Send announcement</button>
       </div>
     </form>
     {% endif %}

@@ -613,7 +613,12 @@ def upcoming_view():
         elif action == "announce":
             ids = request.form.getlist("ids")
             entries = get_many(cfg.upcoming_path, ids)
-            if entries:
+            announce_error = None
+            sent = False
+
+            if not entries:
+                announce_error = "Select at least one title before sending."
+            else:
                 full_settings = load_settings(cfg.settings_path)
                 settings = full_settings.scoped("upcoming")
                 client = JellyfinClient(cfg.jellyfin_url, cfg.jellyfin_api_key, cfg.jellyfin_public_url)
@@ -624,9 +629,16 @@ def upcoming_view():
                         smtp=full_settings.resolve_smtp(cfg), template_name="email_upcoming.html",
                     )
                     sent = True
-                except Exception:
+                except Exception as exc:
                     logger.exception("Échec d'envoi de l'annonce des titres à venir")
-            return redirect(url_for("admin.upcoming_view", sent=int(sent)))
+                    # Message court dans l'URL de redirection (pas de session
+                    # nécessaire) - suffisant pour une erreur SMTP typique.
+                    announce_error = f"Failed to send: {exc}"[:300]
+
+            redirect_args = {"sent": int(sent)}
+            if announce_error:
+                redirect_args["announce_error"] = announce_error
+            return redirect(url_for("admin.upcoming_view", **redirect_args))
 
         elif form_type == "simple":
             settings = load_settings(cfg.settings_path)
@@ -640,6 +652,7 @@ def upcoming_view():
             raw_error = None if valid else error
 
     sent = request.args.get("sent") == "1"
+    announce_error = request.args.get("announce_error")
     settings = load_settings(cfg.settings_path)
     return render_template(
         "admin/upcoming.html",
@@ -648,6 +661,7 @@ def upcoming_view():
         items=list_upcoming(cfg.upcoming_path),
         poster_url=_poster_url,
         sent=sent,
+        announce_error=announce_error,
         settings=settings.scoped("upcoming"),
         raw_source=raw_source,
         saved=saved,
