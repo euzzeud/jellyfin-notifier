@@ -17,9 +17,11 @@ from __future__ import annotations
 import json
 import logging
 import threading
+import time
 from datetime import datetime
 from pathlib import Path
 
+from . import metrics
 from .config import Config
 from .email_sender import item_from_api, send_email
 from .jellyfin_client import JellyfinClient
@@ -89,9 +91,21 @@ class JellyfinPoller:
         self.seen_path.write_text(json.dumps(sorted(self._seen_ids)))
 
     def poll_once(self) -> list[dict]:
-        """Fait un cycle de poll. Retourne les nouveaux items EFFECTIVEMENT
-        envoyés par mail (liste vide si aucun, si c'est le bootstrap initial,
-        ou si les items détectés ont été mis en file d'attente hors créneau)."""
+        """Fait un cycle de poll (mesuré pour /metrics : poll_*_duration_ms,
+        poll_cycles_total, poll_errors_total) en délégant le travail réel à
+        _poll_once_impl(). Retourne les nouveaux items EFFECTIVEMENT envoyés
+        par mail (liste vide si aucun, si c'est le bootstrap initial, ou si
+        les items détectés ont été mis en file d'attente hors créneau)."""
+        t0 = time.perf_counter()
+        try:
+            result = self._poll_once_impl()
+        except Exception:
+            metrics.record_poll(time.perf_counter() - t0, success=False)
+            raise
+        metrics.record_poll(time.perf_counter() - t0, success=bool(self.last_fetch_success))
+        return result
+
+    def _poll_once_impl(self) -> list[dict]:
         self.last_poll_at = datetime.now().astimezone()
         settings = load_settings(self.config.settings_path)
         client = self.client

@@ -6,10 +6,13 @@ import logging
 
 from flask import Blueprint, current_app, jsonify, request
 
+from . import metrics
 from .buffer import DebounceBuffer
 from .email_sender import item_from_payload, send_email
 from .jellyfin_client import JellyfinClient
+from .pending import load_pending
 from .settings import load_settings
+from .upcoming import list_upcoming
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +94,32 @@ def health():
     status = poller.status()
     http_code = 200 if status["healthy"] else 503
     return jsonify({"status": "ok", **status}), http_code
+
+
+@webhook_bp.route("/metrics", methods=["GET"])
+def metrics_endpoint():
+    """Métriques détaillées pour un système de supervision externe (pensé
+    pour Grafana + InfluxDB + Telegraf, cf. `inputs.http` avec
+    `data_format = "json"` pour scraper directement ce endpoint - pas besoin
+    d'`inputs.exec` + curl). Contrairement à /health (juste de quoi savoir
+    si le service est up et "healthy", pour une alerte simple), celui-ci
+    expose aussi des compteurs cumulés depuis le démarrage du process
+    (mails envoyés/échoués par type, requêtes HTTP par classe de statut,
+    tentatives de connexion admin, durée des cycles de poll) en plus de
+    l'état instantané du poller et des files d'attente. Toujours à PLAT (un
+    seul niveau, jamais d'objet imbriqué) pour rester compatible avec le
+    parseur JSON "classique" de Telegraf. Public comme /health, pour les
+    mêmes raisons (scrape LAN, pas de credentials à gérer côté Telegraf)."""
+    config = current_app.config["JF_CONFIG"]
+    poller = current_app.config.get("JF_POLLER")
+
+    data = metrics.snapshot()
+    if poller:
+        data.update(poller.status())
+    else:
+        data["pending_count"] = len(load_pending(config.pending_items_path))
+    data["upcoming_count"] = len(list_upcoming(config.upcoming_path))
+    return jsonify(data), 200
 
 
 @webhook_bp.route("/poll-now", methods=["POST", "GET"])

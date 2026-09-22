@@ -3,6 +3,7 @@ import logging
 
 from flask import Flask, request
 
+from . import metrics
 from .admin import admin_bp
 from .config import Config
 from .poller import JellyfinPoller
@@ -31,6 +32,7 @@ def create_app(config: Config | None = None) -> Flask:
 
     @app.after_request
     def _log_interface_access(response):
+        metrics.inc_http(response.status_code)
         path = request.path
         if (
             path in _SKIP_ACCESS_LOG_PATHS

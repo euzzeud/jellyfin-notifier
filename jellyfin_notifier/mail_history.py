@@ -10,6 +10,8 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
+from . import metrics
+
 _lock = threading.Lock()
 
 # Assez pour couvrir plusieurs semaines d'activité typique sans laisser le
@@ -44,6 +46,10 @@ def record(
             history = history[-MAX_ENTRIES:]
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(history, indent=2, ensure_ascii=False))
+    # Compteurs cumulés pour /metrics (jamais bornés à MAX_ENTRIES,
+    # contrairement à ce journal JSON) - un seul point d'appel puisque
+    # send_email()/send_test_email() passent tous les deux par record().
+    metrics.inc_mail(scope, success)
 
 
 def _load(p: Path) -> list[dict]:

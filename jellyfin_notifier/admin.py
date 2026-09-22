@@ -21,7 +21,7 @@ from flask import Blueprint, Response, current_app, jsonify, redirect, render_te
 from jinja2 import Environment as JinjaEnv
 from jinja2 import TemplateSyntaxError
 
-from . import mail_history, service_control
+from . import mail_history, metrics, service_control
 from .api_console import run_request
 from .config import SMTP_ENCRYPTIONS
 from .email_blocks import BLOCK_TYPES, compile_blocks_to_html
@@ -235,9 +235,11 @@ def login():
             if not next_url.startswith("/"):
                 next_url = url_for("admin.dashboard")
             logger.info("Login successful (user=%s, from=%s).", username, request.remote_addr)
+            metrics.inc_login(True)
             return redirect(next_url)
         error = "Invalid username or password."
         logger.warning("Failed login attempt (user=%r, from=%s).", username, request.remote_addr)
+        metrics.inc_login(False)
 
     return render_template("admin/login.html", error=error, next=request.args.get("next", ""))
 
@@ -1085,6 +1087,7 @@ def health_view():
         poll_status=poll_status,
         healthy=healthy,
         health_url=url_for("webhook.health", _external=True),
+        metrics_url=url_for("webhook.metrics_endpoint", _external=True),
     )
 
 

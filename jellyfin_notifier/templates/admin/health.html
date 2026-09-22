@@ -31,4 +31,24 @@
   <small class="hint">Point Uptime Kuma's monitor type "HTTP(s) - Keyword" or "JSON Query" at this URL — no username/password needed.</small>
 </div>
 
+<div class="card">
+  <h2>Detailed metrics (Grafana / InfluxDB / Telegraf)</h2>
+  <p class="muted" style="font-size:12.5px;">
+    A second, richer endpoint for a full metrics pipeline: cumulative counters (mail sent/failed by type, HTTP requests by status class, admin login attempts, poll cycle duration) on top of the same live poller state as <code>/health</code>. Also unauthenticated, flat JSON, one field per line — a good fit for Telegraf's <code>inputs.http</code> plugin with <code>data_format = "json"</code> (no need for <code>inputs.exec</code> + curl).
+  </p>
+  <div class="row" style="align-items:center;">
+    <input type="text" readonly value="{{ metrics_url }}" id="metrics-url" style="flex:1;font-family:'SF Mono',Consolas,monospace;font-size:12.5px;" onclick="this.select();" />
+    <button type="button" class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('metrics-url').value).then(() => showToast('Copied.', true))">Copy</button>
+  </div>
+  <small class="hint">Counters reset when the service restarts — as expected for this kind of metric, handle it in Grafana with <code>non_negative_derivative()</code> (InfluxQL) or <code>derivative()</code> (Flux) rather than reading the raw value as a rate.</small>
+  <details style="margin-top:14px;">
+    <summary style="cursor:pointer; font-size:12.5px; color:var(--muted); user-select:none;">Example Telegraf config</summary>
+    <pre class="logbox" style="margin-top:10px; font-size:11.5px;">[[inputs.http]]
+  urls = ["{{ metrics_url }}"]
+  name_override = "jellyfin_notifier"
+  data_format = "json"
+  interval = "60s"</pre>
+  </details>
+</div>
+
 {% endblock %}
