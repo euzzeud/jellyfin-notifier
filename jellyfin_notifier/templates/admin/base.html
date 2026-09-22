@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>{% block title %}Jellyfin Notifier - Admin{% endblock %}</title>
+<style>
+  :root { --bg:#101010; --panel:#18181b; --panel2:#141416; --border:#2a2a2e; --purple:#AA5CC3; --blue:#00A4DC; --text:#ffffff; --muted:#8a8a8e; --green:#3ecf6e; --red:#e5484d; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family: Helvetica, Arial, sans-serif; }
+  header { background:#101014; border-bottom:1px solid var(--border); padding:14px 24px; display:flex; align-items:center; justify-content:space-between; }
+  header .brand { font-weight:bold; font-size:18px; letter-spacing:.5px; }
+  header .brand span { color: var(--blue); }
+  nav { display:flex; gap:4px; padding:10px 24px; background:var(--panel2); border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  nav a { color:var(--muted); text-decoration:none; font-size:13px; padding:7px 12px; border-radius:6px; }
+  nav a:hover { background:var(--border); color:var(--text); }
+  nav a.active { background:var(--purple); color:#fff; }
+  main { max-width:900px; margin:0 auto; padding:24px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:20px 22px; margin-bottom:20px; }
+  .card h2 { margin-top:0; font-size:15px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:14px; }
+  .stat { background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:14px; }
+  .stat .label { color:var(--muted); font-size:11px; text-transform:uppercase; }
+  .stat .value { font-size:20px; font-weight:bold; margin-top:4px; }
+  .pill { display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:bold; }
+  .pill.ok { background:rgba(62,207,110,.15); color:var(--green); }
+  .pill.bad { background:rgba(229,72,77,.15); color:var(--red); }
+  label { display:block; font-size:12px; color:var(--muted); margin: 14px 0 6px; }
+  input[type=text], input[type=password], input[type=number], input[type=time], select, textarea {
+    width:100%; background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    padding:9px 10px; border-radius:6px; font-size:13px; font-family: inherit;
+  }
+  textarea { font-family: "SF Mono", Consolas, monospace; font-size:12.5px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; }
+  .row > * { flex:1; min-width:140px; }
+  .checkboxes { display:flex; gap:10px; flex-wrap:wrap; }
+  .checkboxes label { display:flex; align-items:center; gap:6px; background:var(--panel2); border:1px solid var(--border); padding:8px 12px; border-radius:8px; margin:0; color:var(--text); font-size:13px; cursor:pointer; }
+  .checkboxes input { width:auto; }
+  button, .btn { background:var(--blue); color:#fff; border:none; padding:9px 18px; border-radius:6px; font-size:13px; font-weight:bold; cursor:pointer; text-decoration:none; display:inline-block; }
+  button.secondary, .btn.secondary { background:var(--border); }
+  button.danger, .btn.danger { background:var(--red); }
+  button:hover, .btn:hover { opacity:.85; }
+  .actions { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+  .alert { padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px; }
+  .alert.ok { background:rgba(62,207,110,.12); color:var(--green); border:1px solid rgba(62,207,110,.3); }
+  .alert.err { background:rgba(229,72,77,.12); color:var(--red); border:1px solid rgba(229,72,77,.3); }
+  pre.logbox { background:#0b0b0c; border:1px solid var(--border); border-radius:8px; padding:14px; font-size:12px; line-height:1.5; overflow:auto; max-height:480px; white-space:pre-wrap; word-break:break-all; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); font-size:11px; text-transform:uppercase; }
+  .muted { color:var(--muted); }
+  small.hint { color:var(--muted); display:block; margin-top:4px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">JELLYFIN <span>NOTIFIER</span> · Admin</div>
+  <div class="muted" style="font-size:12px;">{{ config.jellyfin_url if config is defined else "" }}</div>
+</header>
+<nav>
+  <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if active=='dashboard' else '' }}">Dashboard</a>
+  <a href="{{ url_for('admin.schedule_view') }}" class="{{ 'active' if active=='schedule' else '' }}">Planning</a>
+  <a href="{{ url_for('admin.template_view') }}" class="{{ 'active' if active=='template' else '' }}">Template</a>
+  <a href="{{ url_for('admin.preview') }}" class="{{ 'active' if active=='preview' else '' }}">Aperçu</a>
+  <a href="{{ url_for('admin.upcoming_view') }}" class="{{ 'active' if active=='upcoming' else '' }}">À venir</a>
+  <a href="{{ url_for('admin.api_console_view') }}" class="{{ 'active' if active=='api_console' else '' }}">Console API</a>
+  <a href="{{ url_for('admin.logs') }}" class="{{ 'active' if active=='logs' else '' }}">Logs</a>
+</nav>
+<main>
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

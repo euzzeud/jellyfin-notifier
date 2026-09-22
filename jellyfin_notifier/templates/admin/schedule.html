@@ -1,0 +1,48 @@
+{% extends "admin/base.html" %}
+{% block title %}Planning - Admin{% endblock %}
+{% block content %}
+
+{% if saved %}<div class="alert ok">Planning enregistré.</div>{% endif %}
+
+<div class="card">
+  <h2>Statut actuel</h2>
+  <p>
+    Créneau : <span class="pill {{ 'ok' if within_window else 'bad' }}">{{ 'ouvert' if within_window else 'fermé' }}</span>
+    — Prochain créneau autorisé : <strong>{{ next_slot.strftime("%A %d/%m/%Y à %H:%M") }}</strong>
+  </p>
+</div>
+
+<form method="post" class="card">
+  <h2>Jours et horaires de notification</h2>
+  <label>Jours ouvrés pour l'envoi des mails</label>
+  <div class="checkboxes">
+    {% for num, name in weekday_names %}
+    <label>
+      <input type="checkbox" name="notify_days" value="{{ num }}" {{ 'checked' if num in settings.notify_days else '' }} />
+      {{ name }}
+    </label>
+    {% endfor %}
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Heure de début</label>
+      <input type="time" name="notify_hour_start" value="{{ settings.notify_hour_start }}" />
+    </div>
+    <div>
+      <label>Heure de fin</label>
+      <input type="time" name="notify_hour_end" value="{{ settings.notify_hour_end }}" />
+    </div>
+  </div>
+  <small class="hint">Si l'heure de fin est avant l'heure de début, la plage traverse minuit (ex: 22:00 → 02:00).</small>
+
+  <label>Longueur maximale du synopsis (caractères)</label>
+  <input type="number" name="overview_max_length" min="50" step="10" value="{{ settings.overview_max_length }}" />
+  <small class="hint">Les synopsis plus longs sont coupés avec "…" pour éviter les spoilers.</small>
+
+  <div class="actions">
+    <button type="submit">Enregistrer</button>
+  </div>
+</form>
+
+{% endblock %}

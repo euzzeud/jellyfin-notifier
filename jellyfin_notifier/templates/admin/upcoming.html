@@ -1,0 +1,69 @@
+{% extends "admin/base.html" %}
+{% block title %}À venir - Admin{% endblock %}
+{% block content %}
+
+{% if sent %}<div class="alert ok">Annonce envoyée par mail.</div>{% endif %}
+
+<form method="post" class="card">
+  <input type="hidden" name="action" value="add" />
+  <h2>Annoncer un titre à venir</h2>
+  <div class="row">
+    <div>
+      <label>Nom</label>
+      <input type="text" name="name" required />
+    </div>
+    <div>
+      <label>Année (optionnel)</label>
+      <input type="text" name="year" />
+    </div>
+    <div>
+      <label>Type</label>
+      <select name="type_label">
+        <option value="Film">Film</option>
+        <option value="Série">Série</option>
+      </select>
+    </div>
+  </div>
+  <label>Note (optionnel — sert de synopsis dans le mail)</label>
+  <input type="text" name="note" placeholder="Ex: prévu pour la semaine prochaine" />
+  <div class="actions">
+    <button type="submit">Ajouter à la liste</button>
+  </div>
+</form>
+
+<form method="post" class="card">
+  <h2>Titres en attente d'annonce</h2>
+  {% if items %}
+  <table>
+    <tr><th></th><th>Titre</th><th>Année</th><th>Type</th><th>Note</th><th></th></tr>
+    {% for item in items %}
+    <tr>
+      <td><input type="checkbox" name="ids" value="{{ item.id }}" form="announce-form" /></td>
+      <td>{{ item.name }}</td>
+      <td>{{ item.year or "—" }}</td>
+      <td>{{ item.type_label }}</td>
+      <td class="muted">{{ item.note or "—" }}</td>
+      <td>
+        <button type="submit" name="action" value="delete" onclick="this.form.id.value='{{ item.id }}'" class="secondary" formnovalidate>Suppr.</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  <input type="hidden" name="id" value="" />
+  {% else %}
+  <p class="muted">Aucun titre à venir pour le moment.</p>
+  {% endif %}
+</form>
+
+{% if items %}
+<form method="post" id="announce-form" class="card">
+  <input type="hidden" name="action" value="announce" />
+  <h2>Envoyer une annonce</h2>
+  <p class="muted">Coche les titres ci-dessus puis envoie un mail "Bientôt disponible" pour ceux sélectionnés.</p>
+  <div class="actions">
+    <button type="submit">📣 Envoyer l'annonce</button>
+  </div>
+</form>
+{% endif %}
+
+{% endblock %}

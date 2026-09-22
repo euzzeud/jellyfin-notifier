@@ -1,0 +1,37 @@
+{% extends "admin/base.html" %}
+{% block title %}Logs - Admin{% endblock %}
+{% block content %}
+
+<div class="card">
+  <h2>Logs du service ({{ lines }} dernières lignes)</h2>
+  <div class="actions" style="margin-top:0;margin-bottom:14px;">
+    <button onclick="refreshLogs()" class="secondary">↻ Rafraîchir</button>
+    <label style="display:flex;align-items:center;gap:6px;margin:0;">
+      <input type="checkbox" id="auto-refresh" style="width:auto;" /> Auto (5s)
+    </label>
+  </div>
+  <pre class="logbox" id="logbox">{{ logs_text }}</pre>
+</div>
+
+<script>
+const dataUrl = "{{ url_for('admin.logs_data', lines=lines) }}";
+let interval = null;
+
+function refreshLogs() {
+  fetch(dataUrl).then(r => r.json()).then(data => {
+    const box = document.getElementById('logbox');
+    box.textContent = data.logs;
+    box.scrollTop = box.scrollHeight;
+  });
+}
+
+document.getElementById('auto-refresh').addEventListener('change', (e) => {
+  if (e.target.checked) {
+    interval = setInterval(refreshLogs, 5000);
+  } else {
+    clearInterval(interval);
+  }
+});
+</script>
+
+{% endblock %}

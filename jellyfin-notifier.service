@@ -1,0 +1,15 @@
+[Unit]
+Description=Jellyfin notifier - envoie un mail quand du contenu est ajouté
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/jellyfin-notifier
+EnvironmentFile=/opt/jellyfin-notifier/.env
+ExecStart=/opt/jellyfin-notifier/venv/bin/python /opt/jellyfin-notifier/run.py
+Restart=on-failure
+RestartSec=5
+User=jellyshare
+
+[Install]
+WantedBy=multi-user.target

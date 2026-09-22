@@ -1,0 +1,86 @@
+{% extends "admin/base.html" %}
+{% block title %}Template - Admin{% endblock %}
+{% block content %}
+
+{% if saved == "simple" %}<div class="alert ok">Textes enregistrés.</div>{% endif %}
+{% if saved == "raw" %}<div class="alert ok">Template HTML enregistré (sauvegarde de l'ancienne version conservée).</div>{% endif %}
+{% if raw_error %}<div class="alert err">Erreur, rien n'a été enregistré : {{ raw_error }}</div>{% endif %}
+
+<form method="post" class="card">
+  <input type="hidden" name="form_type" value="simple" />
+  <h2>Textes du mail (édition simple)</h2>
+
+  <label>Sujet — un seul item ({{ '{name}' }} disponible)</label>
+  <input type="text" name="template_subject_single" value="{{ settings.template_subject_single }}" />
+
+  <label>Sujet — plusieurs items ({{ '{count}' }} disponible)</label>
+  <input type="text" name="template_subject_multi" value="{{ settings.template_subject_multi }}" />
+
+  <label>Intro — un seul item</label>
+  <input type="text" name="template_intro_single" value="{{ settings.template_intro_single }}" />
+
+  <label>Intro — plusieurs items ({{ '{count}' }} disponible)</label>
+  <input type="text" name="template_intro_multi" value="{{ settings.template_intro_multi }}" />
+
+  <label>Pied de page</label>
+  <input type="text" name="template_footer" value="{{ settings.template_footer }}" />
+
+  <div class="actions">
+    <button type="submit">Enregistrer les textes</button>
+  </div>
+</form>
+
+<form method="post" class="card" id="raw-form">
+  <input type="hidden" name="form_type" value="raw" />
+  <h2>Template HTML brut (Jinja2)</h2>
+  <div id="syntax-status" class="alert ok" style="display:none;"></div>
+  <textarea name="raw_source" id="raw_source" rows="24" spellcheck="false">{{ raw_source }}</textarea>
+  <small class="hint">
+    Variables disponibles : items (liste), count, date, logo_src, intro_text, footer_text.
+    Chaque item a : name, year, overview, type_label, genres, rating, duration, image_cid, deep_link.
+    Une sauvegarde horodatée de la version précédente est conservée dans templates/backups/.
+  </small>
+  <div class="actions">
+    <button type="submit" id="save-btn">Enregistrer le template</button>
+  </div>
+</form>
+
+<script>
+const textarea = document.getElementById('raw_source');
+const status = document.getElementById('syntax-status');
+const saveBtn = document.getElementById('save-btn');
+const validateUrl = "{{ url_for('admin.template_validate') }}";
+let timer = null;
+
+function checkSyntax() {
+  fetch(validateUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source: textarea.value })
+  }).then(r => r.json()).then(data => {
+    status.style.display = 'block';
+    if (data.valid) {
+      status.className = 'alert ok';
+      status.textContent = '✓ Syntaxe valide';
+      saveBtn.disabled = false;
+    } else {
+      status.className = 'alert err';
+      status.textContent = '✗ ' + data.error;
+      saveBtn.disabled = true;
+    }
+  }).catch(() => { status.style.display = 'none'; });
+}
+
+textarea.addEventListener('input', () => {
+  clearTimeout(timer);
+  timer = setTimeout(checkSyntax, 600);
+});
+
+document.getElementById('raw-form').addEventListener('submit', (e) => {
+  if (saveBtn.disabled) { e.preventDefault(); }
+});
+
+checkSyntax();
+</script>
+
+{% endblock %}

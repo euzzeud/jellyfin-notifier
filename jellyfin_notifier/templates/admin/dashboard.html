@@ -1,0 +1,95 @@
+{% extends "admin/base.html" %}
+{% block title %}Dashboard - Admin{% endblock %}
+{% block content %}
+
+<div id="flash"></div>
+
+<div class="card">
+  <h2>Service</h2>
+  <div class="grid">
+    <div class="stat">
+      <div class="label">État systemd</div>
+      <div class="value">
+        <span class="pill {{ 'ok' if service_status.is_running else 'bad' }}">{{ service_status.active }}</span>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="label">Poller</div>
+      <div class="value">
+        {% if poll_status %}
+          <span class="pill {{ 'ok' if poll_status.healthy else 'bad' }}">{{ 'sain' if poll_status.healthy else 'en défaut' }}</span>
+        {% else %}
+          <span class="muted">désactivé</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="stat">
+      <div class="label">Créneau d'envoi</div>
+      <div class="value">
+        <span class="pill {{ 'ok' if within_window else 'bad' }}">{{ 'ouvert' if within_window else 'fermé' }}</span>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="label">En file d'attente</div>
+      <div class="value">{{ pending|length }}</div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button onclick="serviceAction('start')" class="secondary">▶ Start</button>
+    <button onclick="serviceAction('restart')">⟳ Restart</button>
+    <button onclick="serviceAction('stop')" class="danger">■ Stop</button>
+    <a href="{{ url_for('admin.logs') }}" class="btn secondary">Voir tous les logs</a>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Poller</h2>
+  {% if poll_status %}
+  <div class="grid">
+    <div class="stat"><div class="label">Dernier poll</div><div class="value" style="font-size:13px;">{{ poll_status.last_poll_at or "—" }}</div></div>
+    <div class="stat"><div class="label">Intervalle</div><div class="value">{{ poll_status.poll_interval_seconds }}s</div></div>
+    <div class="stat"><div class="label">Prochain créneau</div><div class="value" style="font-size:13px;">{{ next_slot.strftime("%a %d/%m %H:%M") }}</div></div>
+    <div class="stat"><div class="label">Dernière erreur mail</div><div class="value" style="font-size:12px;color:#e5484d;">{{ poll_status.last_email_error or "aucune" }}</div></div>
+  </div>
+  {% if poll_status.last_fetch_error %}
+  <div class="alert err" style="margin-top:14px;">Dernière erreur Jellyfin : {{ poll_status.last_fetch_error }}</div>
+  {% endif %}
+  {% else %}
+  <p class="muted">Le poller est désactivé (POLLER_ENABLED=false).</p>
+  {% endif %}
+</div>
+
+{% if pending %}
+<div class="card">
+  <h2>File d'attente ({{ pending|length }})</h2>
+  <table>
+    <tr><th>Titre</th><th>Année</th><th>Type</th></tr>
+    {% for item in pending %}
+    <tr><td>{{ item.name }}</td><td>{{ item.year or "—" }}</td><td>{{ item.type_label }}</td></tr>
+    {% endfor %}
+  </table>
+  <small class="hint">Ces items seront envoyés en un seul mail dès l'ouverture du prochain créneau.</small>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Derniers logs</h2>
+  <pre class="logbox">{{ logs_tail }}</pre>
+</div>
+
+<script>
+function serviceAction(action) {
+  const flash = document.getElementById('flash');
+  flash.innerHTML = '<div class="alert ok">En cours...</div>';
+  const base = "{{ url_for('admin.service_action_route', action='__ACTION__') }}";
+  fetch(base.replace('__ACTION__', action), { method: "POST" })
+    .then(r => r.json())
+    .then(data => {
+      flash.innerHTML = '<div class="alert ' + (data.ok ? 'ok' : 'err') + '">' + (data.ok ? 'Action "' + action + '" effectuée.' : 'Échec : ' + data.output) + '</div>';
+      setTimeout(() => location.reload(), 1200);
+    })
+    .catch(err => { flash.innerHTML = '<div class="alert err">Erreur réseau : ' + err + '</div>'; });
+}
+</script>
+{% endblock %}
