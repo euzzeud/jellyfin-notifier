@@ -1,20 +1,20 @@
-"""Chargement de la config depuis les variables d'environnement."""
+"""Loads the configuration from environment variables."""
 
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
 
-# Encryption SMTP possibles : STARTTLS (587, le plus courant), SSL/TLS
-# implicite (465), ou aucune (25, réseau interne uniquement).
+# Possible SMTP encryption modes: STARTTLS (587, the most common), implicit
+# SSL/TLS (465), or none (25, internal network only).
 SMTP_ENCRYPTIONS = ("starttls", "ssl", "none")
 
 
 @dataclass
 class Config:
-    # Serveur SMTP - Gmail par défaut (compat historique), mais n'importe
-    # quel fournisseur SMTP standard fonctionne (Outlook, OVH, un serveur
-    # maison, etc).
+    # SMTP server - Gmail by default (historical compatibility), but any
+    # standard SMTP provider works (Outlook, OVH, a self-hosted server,
+    # etc).
     smtp_host: str
     smtp_port: int
     smtp_encryption: str  # "starttls" | "ssl" | "none"
@@ -37,8 +37,8 @@ class Config:
     seen_items_path: str
     poller_enabled: bool
 
-    # Interface d'admin (racine du site) : planning, éditeur de template,
-    # console API, gestion du service, logs. Protégée par une page de login.
+    # Admin interface (site root): schedule, template editor, API console,
+    # service management, logs. Protected by a login page.
     admin_username: str
     admin_password: str
     settings_path: str
@@ -48,16 +48,16 @@ class Config:
 
     @classmethod
     def from_env(cls) -> "Config":
-        # SMTP_USERNAME/SMTP_PASSWORD sont les variables "génériques" ;
-        # GMAIL_ADDRESS/GMAIL_APP_PASSWORD restent acceptées en repli pour ne
-        # pas casser les installations existantes (Gmail était le seul
-        # fournisseur supporté au départ).
+        # SMTP_USERNAME/SMTP_PASSWORD are the "generic" variables;
+        # GMAIL_ADDRESS/GMAIL_APP_PASSWORD are still accepted as a fallback
+        # so existing installs don't break (Gmail was the only supported
+        # provider at first).
         smtp_username = os.environ.get("SMTP_USERNAME") or os.environ.get("GMAIL_ADDRESS")
         smtp_password = os.environ.get("SMTP_PASSWORD") or os.environ.get("GMAIL_APP_PASSWORD")
         if not smtp_username:
-            raise KeyError("SMTP_USERNAME (ou GMAIL_ADDRESS) manquant dans l'environnement")
+            raise KeyError("SMTP_USERNAME (or GMAIL_ADDRESS) missing from the environment")
         if not smtp_password:
-            raise KeyError("SMTP_PASSWORD (ou GMAIL_APP_PASSWORD) manquant dans l'environnement")
+            raise KeyError("SMTP_PASSWORD (or GMAIL_APP_PASSWORD) missing from the environment")
 
         encryption = os.environ.get("SMTP_ENCRYPTION", "starttls").strip().lower()
         if encryption not in SMTP_ENCRYPTIONS:
@@ -95,9 +95,9 @@ class Config:
 
 @dataclass
 class SmtpSettings:
-    """Paramètres SMTP effectifs pour un envoi donné - résultat de la fusion
-    entre Config (.env, figé au démarrage) et les surcharges de Settings
-    (éditables à chaud depuis l'admin). Voir Settings.resolve_smtp()."""
+    """Effective SMTP parameters for a given send - the result of merging
+    Config (.env, fixed at startup) with Settings' overrides (editable live
+    from the admin). See Settings.resolve_smtp()."""
     host: str
     port: int
     encryption: str

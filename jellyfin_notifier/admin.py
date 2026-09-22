@@ -678,21 +678,12 @@ def template_live_preview():
 
 @admin_bp.route("/preview")
 def preview():
-    # L'aperçu vit désormais directement dans l'onglet "New Content
-    # Notifications" (édition + aperçu côte à côte) - on redirige l'ancienne URL.
+    # The preview now lives directly in the "New Content Notifications" tab
+    # (edit + preview side by side) - redirect the old URL. Note: the old
+    # standalone /preview/frame endpoint this used to redirect to is gone
+    # (dead code, superseded by the live-preview-in-tab redesign - see
+    # template_live_preview above, which drives the same iframe today).
     return redirect(url_for("admin.template_view"))
-
-
-@admin_bp.route("/preview/frame")
-def preview_frame():
-    cfg = _config()
-    settings = load_settings(cfg.settings_path)
-    pending = load_pending(cfg.pending_items_path)
-    items = pending if pending else FAKE_PREVIEW_ITEMS
-    client = JellyfinClient(cfg.jellyfin_url, cfg.jellyfin_api_key, cfg.jellyfin_public_url)
-    logo_url = url_for("admin.assets", filename="jellyfin-logo.png")
-    html_out = render_preview_html(items, client, settings, logo_url=logo_url)
-    return Response(html_out, mimetype="text/html")
 
 
 # ---------------------------------------------------------------------------

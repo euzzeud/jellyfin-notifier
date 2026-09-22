@@ -9,6 +9,13 @@ import json
 import threading
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Only needed for the resolve_smtp() return type below - imported lazily
+    # at runtime instead (inside the function) to avoid a circular import
+    # with config.py.
+    from .config import SmtpSettings
 
 DEFAULT_TEMPLATE_SUBJECT_SINGLE = "Nouveauté sur Jellyfin : {name}"
 DEFAULT_TEMPLATE_SUBJECT_MULTI = "Nouveautés sur Jellyfin : {count} ajouts"
@@ -165,10 +172,9 @@ class Settings:
         )
 
     def resolve_smtp(self, config) -> "SmtpSettings":
-        """Fusionne les valeurs de .env (Config, figées au démarrage) avec
-        les surcharges éditables depuis l'admin (page "Mail server") -
-        n'importe quel champ vide/0 dans Settings retombe sur la valeur de
-        Config."""
+        """Merges .env values (Config, fixed at startup) with the overrides
+        editable from the admin (the "Mail Server" page) - any empty/0
+        field in Settings falls back to Config's value."""
         from .config import SmtpSettings
 
         encryption = self.smtp_encryption_override.strip() or config.smtp_encryption
