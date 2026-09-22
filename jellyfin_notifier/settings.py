@@ -88,6 +88,17 @@ class Settings:
     sender_email_override: str = ""
     recipients_override: str = ""  # séparés par des virgules
 
+    # Interrupteur général d'envoi de mail - désactivé par défaut tant que
+    # personne n'a validé la configuration SMTP avec un vrai test de
+    # connexion (page "Mail Server"). smtp_validated_fingerprint est
+    # l'empreinte de la config testée avec succès en dernier ; si elle ne
+    # correspond plus à la config effective actuelle (un champ a été modifié
+    # depuis), l'admin repasse automatiquement l'interrupteur à false à la
+    # sauvegarde, pour ne jamais laisser des identifiants non vérifiés
+    # activés silencieusement.
+    smtp_enabled: bool = False
+    smtp_validated_fingerprint: str = ""
+
     # Éditeur visuel "blocs empilables" (glisser-déposer) : liste de blocs
     # sérialisée en JSON, séparée pour chaque mail (new / upcoming) comme le
     # reste de la personnalisation des textes. Compilée à la sauvegarde en

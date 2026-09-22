@@ -95,9 +95,11 @@
       <p class="muted">Check the titles above (the preview on the right updates live) then send a "Coming soon" mail for the selected ones.</p>
       {% if not notifications_enabled %}
       <p class="muted" style="color:var(--red);font-size:12.5px;">This module is disabled above — enable it first to send an announcement.</p>
+      {% elif not mail_enabled %}
+      <p class="muted" style="color:var(--red);font-size:12.5px;">Mail sending is disabled — validate and enable it on the <a href="{{ url_for('admin.mail_server_view') }}">Mail Server</a> page first.</p>
       {% endif %}
       <div class="actions">
-        <button type="submit" id="announce-btn" {{ 'disabled' if not notifications_enabled else '' }}>📣 Send announcement</button>
+        <button type="submit" id="announce-btn" {{ 'disabled' if not notifications_enabled or not mail_enabled else '' }}>📣 Send announcement</button>
       </div>
     </form>
     {% endif %}

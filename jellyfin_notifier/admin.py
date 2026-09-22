@@ -7,6 +7,7 @@ pensée pour un accès LAN uniquement (pas exposée sur internet)."""
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 import html.parser
 import json
@@ -696,6 +697,8 @@ def upcoming_view():
             full_settings = load_settings(cfg.settings_path)
             if not full_settings.upcoming_notifications_enabled:
                 announce_error = "The \"Upcoming Content Notifications\" module is currently disabled."
+            elif not full_settings.smtp_enabled:
+                announce_error = "Mail sending is disabled - enable it on the \"Mail Server\" page (a successful connection test is required first)."
             elif not entries:
                 announce_error = "Select at least one title before sending."
             else:
@@ -708,6 +711,7 @@ def upcoming_view():
                         smtp=full_settings.resolve_smtp(cfg), template_name="email_upcoming.html",
                     )
                     sent = True
+                    logger.info("Upcoming announcement sent for %d title(s).", len(items))
                 except Exception as exc:
                     logger.exception("Échec d'envoi de l'annonce des titres à venir")
                     # Message court dans l'URL de redirection (pas de session
@@ -766,6 +770,7 @@ def upcoming_view():
         blocks_json=settings.upcoming_email_blocks or "[]",
         block_types=BLOCK_TYPES,
         notifications_enabled=settings.upcoming_notifications_enabled,
+        mail_enabled=settings.smtp_enabled,
     )
 
 
@@ -898,12 +903,26 @@ def api_console_test():
 # Gmail, qui reste juste la valeur par défaut historique).
 # ---------------------------------------------------------------------------
 
+def _smtp_fingerprint(smtp) -> str:
+    """Empreinte de la config SMTP effective (hôte/port/identifiants/
+    expéditeur/destinataires) - sert à savoir si la config actuelle est
+    exactement celle qui a été validée par un test de connexion réussi, sans
+    stocker le mot de passe en clair nulle part d'autre que settings.json
+    (où il l'est déjà)."""
+    raw = "|".join([
+        smtp.host, str(smtp.port), smtp.encryption, smtp.username, smtp.password,
+        smtp.sender_name, smtp.sender_email, ",".join(smtp.recipients),
+    ])
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
 @admin_bp.route("/mail-server", methods=["GET", "POST"])
 def mail_server_view():
     cfg = _config()
     settings = load_settings(cfg.settings_path)
     saved = False
     test_result = None
+    toggle_error = None
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -928,8 +947,17 @@ def mail_server_view():
             settings.sender_name_override = request.form.get("sender_name_override", "").strip()
             settings.sender_email_override = request.form.get("sender_email_override", "").strip()
             settings.recipients_override = request.form.get("recipients_override", "").strip()
+
+            # Si les champs sauvegardés diffèrent de la dernière config
+            # testée avec succès, on coupe l'envoi automatiquement : on ne
+            # veut jamais laisser des identifiants jamais vérifiés (ou
+            # modifiés depuis leur validation) activés en silence.
+            new_fingerprint = _smtp_fingerprint(settings.resolve_smtp(cfg))
+            if new_fingerprint != settings.smtp_validated_fingerprint:
+                settings.smtp_enabled = False
             save_settings(cfg.settings_path, settings)
             saved = True
+            logger.info("Mail server: connection settings saved (host=%s).", settings.smtp_host_override or cfg.smtp_host)
 
         elif action == "test":
             smtp = settings.resolve_smtp(cfg)
@@ -940,11 +968,29 @@ def mail_server_view():
                 try:
                     send_test_email(smtp, test_recipient)
                     test_result = {"ok": True, "recipient": test_recipient}
+                    # La config actuellement SAUVEGARDÉE vient de prouver
+                    # qu'elle fonctionne -> elle devient éligible à
+                    # l'activation de l'interrupteur d'envoi.
+                    settings.smtp_validated_fingerprint = _smtp_fingerprint(smtp)
+                    save_settings(cfg.settings_path, settings)
+                    logger.info("Mail server: test mail sent successfully to %s, configuration validated.", test_recipient)
                 except Exception as exc:
                     logger.exception("Échec de l'envoi du mail de test")
                     test_result = {"ok": False, "error": str(exc)}
 
+        elif action == "toggle":
+            current_fp = _smtp_fingerprint(settings.resolve_smtp(cfg))
+            is_validated = bool(settings.smtp_validated_fingerprint) and settings.smtp_validated_fingerprint == current_fp
+            want_enabled = request.form.get("enabled") == "1"
+            if want_enabled and not is_validated:
+                toggle_error = "Run a successful connection test with the saved settings before enabling mail sending."
+            else:
+                settings.smtp_enabled = want_enabled
+                save_settings(cfg.settings_path, settings)
+                logger.info("Mail server: mail sending %s.", "enabled" if want_enabled else "disabled")
+
     smtp = settings.resolve_smtp(cfg)
+    is_validated = bool(settings.smtp_validated_fingerprint) and settings.smtp_validated_fingerprint == _smtp_fingerprint(smtp)
     return render_template(
         "admin/mail_server.html",
         active="mail_server",
@@ -961,4 +1007,7 @@ def mail_server_view():
         encryptions=SMTP_ENCRYPTIONS,
         saved=saved,
         test_result=test_result,
+        toggle_error=toggle_error,
+        is_validated=is_validated,
+        mail_active=settings.smtp_enabled and is_validated,
     )

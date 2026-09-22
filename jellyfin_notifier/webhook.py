@@ -36,6 +36,16 @@ def _get_buffer() -> DebounceBuffer:
                     len(items),
                 )
                 return
+            if not settings.smtp_enabled:
+                # Envoi de mail désactivé (page "Mail Server", en attente de
+                # validation ou coupé volontairement) - le webhook n'a pas de
+                # file d'attente comme le poller, donc ces items sont perdus
+                # (comme n'importe quel item détecté pendant une coupure).
+                logger.info(
+                    "%d item(s) reçu(s) via webhook mais l'envoi de mail est désactivé (page Mail Server), aucun mail envoyé",
+                    len(items),
+                )
+                return
             send_email(items, config, jf_client, settings, smtp=settings.resolve_smtp(config))
 
         _buffers_by_config_id[key] = DebounceBuffer(config.debounce_seconds, flush)

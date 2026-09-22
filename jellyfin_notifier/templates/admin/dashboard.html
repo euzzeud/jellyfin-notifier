@@ -1,5 +1,5 @@
 {% extends "admin/base.html" %}
-{% block title %}Dashboard - Admin{% endblock %}
+{% block title %}Main - Admin{% endblock %}
 {% block content %}
 
 {% if settings_reset %}<div class="alert ok flash-toast">Settings reset to their default values.</div>{% endif %}
@@ -37,8 +37,8 @@
 
   <div class="actions">
     <button onclick="serviceAction('start')" class="secondary">▶ Start</button>
-    <button onclick="serviceAction('restart')">⟳ Restart</button>
-    <button onclick="serviceAction('stop')" class="danger">■ Stop</button>
+    <button onclick="confirmServiceAction('restart')">⟳ Restart</button>
+    <button onclick="confirmServiceAction('stop')" class="danger">■ Stop</button>
     <a href="{{ url_for('admin.logs') }}" class="btn secondary">View all logs</a>
   </div>
 </div>
@@ -147,6 +147,20 @@ function serviceAction(action) {
       setTimeout(() => location.reload(), 1200);
     })
     .catch(err => { showToast('Network error: ' + err, false); });
+}
+
+// Stop/Restart coupent la connexion à l'admin lui-même pendant quelques
+// secondes (et Stop la coupe carrément jusqu'au prochain démarrage manuel) -
+// une confirmation évite un clic accidentel qui rendrait l'admin
+// injoignable sans y avoir pensé.
+const SERVICE_ACTION_LABELS = {
+  restart: { title: 'Restart the service?', message: 'The admin interface and the poller will be briefly unavailable while the service restarts.', confirmText: '⟳ Restart', danger: false },
+  stop: { title: 'Stop the service?', message: 'The poller and the admin interface will stop responding until the service is started again from the server.', confirmText: '■ Stop service', danger: true },
+};
+
+function confirmServiceAction(action) {
+  const cfg = SERVICE_ACTION_LABELS[action];
+  showConfirm(cfg).then(ok => { if (ok) { serviceAction(action); } });
 }
 
 function pollerAction(action) {

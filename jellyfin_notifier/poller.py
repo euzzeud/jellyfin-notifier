@@ -148,6 +148,19 @@ class JellyfinPoller:
         if not to_consider:
             return []
 
+        if not settings.smtp_enabled:
+            # Envoi de mail désactivé (page "Mail Server", en attente de
+            # validation ou coupé volontairement) : on garde les items en
+            # file d'attente, comme hors créneau autorisé, plutôt que de les
+            # jeter - ils partiront dès que l'envoi sera réactivé.
+            save_pending(self.config.pending_items_path, to_consider)
+            logger.info(
+                "%d item(s) à notifier mais l'envoi de mail est désactivé (page Mail Server) -> mis en file d'attente (total en attente: %d)",
+                len(parsed_new),
+                len(to_consider),
+            )
+            return []
+
         if not is_within_window(settings, self.last_poll_at):
             save_pending(self.config.pending_items_path, to_consider)
             logger.info(
@@ -194,6 +207,7 @@ class JellyfinPoller:
             "running": running,
             "paused": settings.poller_paused,
             "notifications_enabled": settings.new_notifications_enabled,
+            "mail_enabled": settings.smtp_enabled,
             "last_poll_at": self.last_poll_at.isoformat() if self.last_poll_at else None,
             "seconds_since_last_poll": seconds_since_last_poll,
             "poll_interval_seconds": self.effective_interval(settings),

@@ -5,14 +5,31 @@
 {% if saved %}<div class="alert ok flash-toast">Mail server settings saved.</div>{% endif %}
 {% if test_result %}
   {% if test_result.ok %}
-  <div class="alert ok flash-toast">Test mail sent to {{ test_result.recipient }}.</div>
+  <div class="alert ok flash-toast">Test mail sent to {{ test_result.recipient }}. Configuration validated — mail sending can now be enabled below.</div>
   {% else %}
   <div class="alert err flash-toast">Test mail failed: {{ test_result.error }}</div>
   {% endif %}
 {% endif %}
+{% if toggle_error %}<div class="alert err flash-toast">{{ toggle_error }}</div>{% endif %}
+
+<form method="post" class="card toggle-card{{ '' if mail_active else ' disabled' }}">
+  <input type="hidden" name="action" value="toggle" />
+  <div class="toggle-copy">
+    <h2>Mail sending</h2>
+    <p class="muted" style="font-size:12.5px;">
+      {% if mail_active %}Enabled — the poller, the webhook and manual announcements can send mail.{% elif is_validated %}Disabled — the saved configuration was validated by a test mail, flip the switch to start sending.{% else %}Disabled — send a successful test mail below with the settings you want to keep before this can be enabled.{% endif %}
+    </p>
+  </div>
+  <label class="switch" title="{{ '' if is_validated else 'Run a successful connection test first' }}">
+    <input type="checkbox" name="enabled" value="1" {{ 'checked' if settings.smtp_enabled else '' }} {{ 'disabled' if not is_validated and not settings.smtp_enabled else '' }} onchange="this.form.submit()" />
+    <span class="switch-track"><span class="switch-thumb"></span></span>
+    <span class="switch-label">{{ 'Enabled' if mail_active else 'Disabled' }}</span>
+  </label>
+</form>
 
 <div class="card">
   <h2>Currently effective</h2>
+  {% if mail_active %}
   <p class="muted" style="font-size:12px;">
     Any field left empty below falls back to the value from the service configuration (.env). Works with any standard SMTP provider — Gmail, Outlook, a self-hosted server, etc.
   </p>
@@ -24,6 +41,11 @@
     <div class="stat"><div class="label">Sender</div><div class="value" style="font-size:13px;">{{ smtp.sender_name }} &lt;{{ smtp.sender_email }}&gt;</div></div>
     <div class="stat"><div class="label">Recipients</div><div class="value" style="font-size:13px;">{{ smtp.recipients|join(', ') }}</div></div>
   </div>
+  {% else %}
+  <p class="muted" style="font-size:13px;">
+    <span class="pill bad">Not configured</span> Mail sending is disabled, so no server is actually in use yet. Fill in the fields below (or leave them empty to use the service's defaults), send a test mail to validate them, then enable sending above.
+  </p>
+  {% endif %}
 </div>
 
 <form method="post" class="card" data-track-dirty="true">
