@@ -24,8 +24,8 @@
 <body>
 <div class="box">
   <div class="spinner"></div>
-  <h1>Saved — restarting to apply the new configuration…</h1>
-  <p>This page will reload automatically in a few seconds.</p>
+  <h1>{{ heading or "Saved — restarting to apply the new configuration…" }}</h1>
+  <p>{{ subtext or "This page will reload automatically in a few seconds." }}</p>
 </div>
 <script>
   function tryReload() {

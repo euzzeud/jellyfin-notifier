@@ -34,7 +34,7 @@ setup_bp = Blueprint("setup", __name__)
 # "advanced") rather than silently dropped, so a future .env.example
 # addition can't disappear from the wizard.
 _STEP_DEFS = [
-    {"id": "admin", "title": "Admin account", "keys": ["ADMIN_USERNAME", "ADMIN_PASSWORD"]},
+    {"id": "admin", "title": "Account", "keys": ["ADMIN_USERNAME", "ADMIN_PASSWORD"]},
     {"id": "jellyfin", "title": "Jellyfin connection", "keys": ["JELLYFIN_URL", "JELLYFIN_API_KEY", "JELLYFIN_PUBLIC_URL"]},
     {
         "id": "mail", "title": "Mail server",
@@ -213,6 +213,24 @@ def setup_save():
 
     _schedule_restart()
     return render_template("admin/setup_restarting.html")
+
+
+@setup_bp.route("/setup/reset", methods=["POST"])
+def setup_reset():
+    """"Start over" escape hatch for an already-configured install: wipes
+    the current .env entirely and restarts, which drops straight back into
+    a blank first-run wizard (create_app() only reaches setup mode when no
+    valid .env exists). Gated behind login like any other change here -
+    _setup_auth only allows the unauthenticated path while JF_CONFIG is
+    None, which isn't the case for a page that has this button at all."""
+    env_path = _env_path()
+    env_path.unlink(missing_ok=True)
+    _schedule_restart()
+    return render_template(
+        "admin/setup_restarting.html",
+        heading="Configuration reset — restarting…",
+        subtext="This page will reload automatically in a few seconds, into a blank setup.",
+    )
 
 
 @setup_bp.route("/setup/test-jellyfin", methods=["POST"])

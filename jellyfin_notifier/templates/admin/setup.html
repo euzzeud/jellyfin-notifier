@@ -30,28 +30,10 @@
   .wizard-review-row .v { color:var(--text); font-weight:500; text-align:right; word-break:break-word; }
   .wizard-draft-hint { font-size:11.5px; color:var(--muted-dim); margin-top:10px; }
   .wizard-draft-hint button { all:unset; cursor:pointer; color:var(--blue); font-weight:600; }
+  .setup-landing-import {
+    margin-top:18px; padding-top:18px; border-top:1px solid var(--border-soft);
+  }
 </style>
-
-{% if bootstrap_mode %}
-<div class="card">
-  <h2>Welcome — let's configure jellyfin-notifier</h2>
-  <p class="muted" style="font-size:13px;">
-    No valid <code>.env</code> was found (or it's missing required values), so the app can't fully start yet.
-    A few short steps below, or import an existing <code>.env</code> file — the service restarts itself
-    automatically once saved and picks up the new configuration, no SSH access needed.
-  </p>
-</div>
-{% else %}
-<div class="card">
-  <h2>Environment (.env)</h2>
-  <p class="muted" style="font-size:13px;">
-    Edits the real <code>.env</code> file on this server. Saving restarts the service automatically to apply
-    the new values — expect a brief interruption (a few seconds) while it comes back up.
-    Fields left blank keep their current saved value; secret fields (passwords, API keys) are never shown
-    back here for security, only overwritten if you type a new value.
-  </p>
-</div>
-{% endif %}
 
 {% if setup_error %}
 <div class="alert err">{{ setup_error }}</div>
@@ -60,20 +42,48 @@
 <div class="alert ok">Saved.</div>
 {% endif %}
 
-<div class="card">
-  <h2>Import an existing .env file</h2>
-  <p class="muted" style="font-size:12.5px;">
-    Already have a filled-in <code>.env</code> (from another install, or a backup)? Upload it directly instead
-    of going through the steps below — it fully replaces the current file.
+<div class="card" id="setup-landing">
+  {% if bootstrap_mode %}
+  <h2>Welcome — let's configure jellyfin-notifier</h2>
+  <p class="muted" style="font-size:13px;">
+    No valid <code>.env</code> was found (or it's missing required values), so the app can't fully start yet.
+    A few short steps, or import an existing <code>.env</code> file below — the service restarts itself
+    automatically once saved and picks up the new configuration, no SSH access needed.
   </p>
-  <form method="post" action="{{ url_for('setup.setup_import') }}" enctype="multipart/form-data" style="margin-top:12px;">
-    <div class="row" style="align-items:center;">
-      <input type="file" name="env_file" accept=".env,text/plain" required />
-      <button type="submit" class="secondary">Import &amp; restart</button>
-    </div>
-  </form>
+  {% else %}
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px;">
+    <h2>Environment (.env)</h2>
+    <button type="button" id="setup-reset-btn" class="danger" style="flex-shrink:0; font-size:12px; padding:8px 14px;">⟲ Start over</button>
+  </div>
+  <p class="muted" style="font-size:13px;">
+    Edits the real <code>.env</code> file on this server. Saving restarts the service automatically to apply
+    the new values — expect a brief interruption (a few seconds) while it comes back up.
+    Fields left blank keep their current saved value; secret fields (passwords, API keys) are never shown
+    back here for security, only overwritten if you type a new value.
+  </p>
+  <form method="post" action="{{ url_for('setup.setup_reset') }}" id="setup-reset-form" style="display:none;"></form>
+  {% endif %}
+
+  <div class="setup-landing-import">
+    <h2 style="font-size:14px; margin-bottom:6px;">Import an existing .env file</h2>
+    <p class="muted" style="font-size:12.5px;">
+      Already have a filled-in <code>.env</code> (from another install, or a backup)? Upload it directly instead
+      of going through the steps below — it fully replaces the current file.
+    </p>
+    <form method="post" action="{{ url_for('setup.setup_import') }}" enctype="multipart/form-data" style="margin-top:12px;">
+      <div class="row" style="align-items:center;">
+        <input type="file" name="env_file" accept=".env,text/plain" required />
+        <button type="submit" class="secondary">Import &amp; restart</button>
+      </div>
+    </form>
+  </div>
+
+  <div style="margin-top:22px; text-align:right;">
+    <button type="button" id="setup-landing-begin">{{ "Let's begin →" if bootstrap_mode else "Continue →" }}</button>
+  </div>
 </div>
 
+<div id="wizard-container" style="display:none;">
 <form method="post" action="{{ url_for('setup.setup_save') }}" class="card" id="wizard-form" novalidate>
   <h2 style="margin-bottom:6px;">{{ 'Configuration' if bootstrap_mode else 'Fields' }}</h2>
 
@@ -138,9 +148,40 @@
     <button type="button" id="wizard-draft-clear">Clear saved answers</button>
   </p>
 </form>
+</div>
 
 <script>
 (function () {
+  const landing = document.getElementById('setup-landing');
+  const wizardContainer = document.getElementById('wizard-container');
+  const beginBtn = document.getElementById('setup-landing-begin');
+
+  function showWizard() {
+    landing.style.display = 'none';
+    wizardContainer.style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  beginBtn.addEventListener('click', showWizard);
+
+  const resetBtn = document.getElementById('setup-reset-btn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      showConfirm({
+        title: 'Start the configuration over?',
+        message: 'This deletes the current .env file entirely and restarts into a blank first-run setup. ' +
+          'This cannot be undone - export a copy first if you might need these values again.',
+        confirmText: '⟲ Delete .env and start over',
+        danger: true,
+      }).then((ok) => { if (ok) { document.getElementById('setup-reset-form').submit(); } });
+    });
+  }
+  {% if setup_error %}
+  // A save was just attempted and rejected - the admin is already mid-flow,
+  // so skip straight past the landing screen instead of making them click
+  // "Let's begin" again to see the error they're already looking at above it.
+  showWizard();
+  {% endif %}
+
   const form = document.getElementById('wizard-form');
   const steps = Array.from(form.querySelectorAll('.wizard-step'));
   const dots = Array.from(document.querySelectorAll('#wizard-progress .step-dot'));
