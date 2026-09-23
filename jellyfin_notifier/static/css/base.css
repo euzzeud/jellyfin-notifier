@@ -427,17 +427,6 @@ small.hint { color:var(--muted-dim); display:block; margin-top:6px; font-size:11
    so it never overlaps the last field/button of a tall form. */
 body.unsaved-bar-open main { padding-bottom:110px; transition: padding-bottom .2s var(--ease); }
 
-/* Visual cue for which single nav tab a click is "armed" on - the one
-   that needs a second click within a few seconds to actually navigate
-   away and discard changes. Without this, a click on one tab followed
-   shortly after by a click on a DIFFERENT tab could look like nothing
-   registered (nothing on the two links themselves changed to tell them
-   apart), which is what made a mis-click between two adjacent tabs easy
-   to do; this marks the exact link that's currently pending confirmation. */
-nav a.nav-confirm-pending {
-  color: var(--red); background: rgba(240,85,92,.14); border-radius: var(--radius-sm);
-}
-
 /* Custom confirmation box (replaces window.confirm(), which shows a
    generic-looking browser box that isn't centered on the page - this
    one is centered, themed like the admin, closable with Escape or a
