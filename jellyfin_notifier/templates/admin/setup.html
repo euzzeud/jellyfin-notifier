@@ -62,8 +62,11 @@
     {# Wipes .env and restarts into a blank wizard - relevant whenever a
        .env file exists to wipe, whether it's a broken/incomplete one still
        being filled in (bootstrap_mode) or a previously-working one
-       (configured mode) - not just the latter. #}
-    <button type="button" id="setup-reset-btn" class="danger" style="flex-shrink:0; font-size:12px; padding:8px 14px;">⟲ Start over</button>
+       (configured mode) - not just the latter. A second copy of this same
+       button (js-setup-reset class, not id - only one id per page) sits in
+       the wizard steps' own header, so it stays reachable from any step
+       instead of only from the landing screen. #}
+    <button type="button" class="danger js-setup-reset" style="flex-shrink:0; font-size:12px; padding:8px 14px;">⟲ Start over</button>
     {% endif %}
   </div>
   {% if bootstrap_mode %}
@@ -105,7 +108,12 @@
 
 <div id="wizard-container" style="display:none;">
 <form method="post" action="{{ url_for('setup.setup_save') }}" class="card" id="wizard-form" novalidate>
-  <h2 style="margin-bottom:6px;">{{ 'Configuration' if bootstrap_mode else 'Fields' }}</h2>
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:6px;">
+    <h2 style="margin-bottom:0;">{{ 'Configuration' if bootstrap_mode else 'Fields' }}</h2>
+    {% if env_exists %}
+    <button type="button" class="danger js-setup-reset" style="flex-shrink:0; font-size:12px; padding:8px 14px;">⟲ Start over</button>
+    {% endif %}
+  </div>
 
   <div class="wizard-progress" id="wizard-progress">
     {% for step in steps %}
@@ -171,7 +179,16 @@
 </div>
 
 <script>
-(function () {
+// Wrapped in DOMContentLoaded because createTagInput (used below for the
+// NOTIFY_RECIPIENTS field) is defined in base.html's own <script>, which
+// appears AFTER this page's content in the final HTML (base.html wraps
+// each page's content, its own scripts come last) - without waiting,
+// createTagInput isn't a function yet when this runs, the "typeof
+// createTagInput !== 'function'" guard below silently skips creating the
+// widget, and the recipients field is left as an empty, un-interactive
+// div with no text input to type into at all. Same pattern already used
+// for this exact reason in dashboard.html/upcoming.html.
+document.addEventListener('DOMContentLoaded', function () {
   const landing = document.getElementById('setup-landing');
   const wizardContainer = document.getElementById('wizard-container');
   const beginBtn = document.getElementById('setup-landing-begin');
@@ -188,8 +205,11 @@
   }
   beginBtn.addEventListener('click', showWizard);
 
-  const resetBtn = document.getElementById('setup-reset-btn');
-  if (resetBtn) {
+  // Two copies of this button exist (landing screen + wizard header, see
+  // .js-setup-reset comment above) so it's reachable from wherever the
+  // admin currently is, not just the landing screen - both share the one
+  // hidden #setup-reset-form.
+  document.querySelectorAll('.js-setup-reset').forEach((resetBtn) => {
     resetBtn.addEventListener('click', () => {
       showConfirm({
         title: 'Start the configuration over?',
@@ -199,7 +219,7 @@
         danger: true,
       }).then((ok) => { if (ok) { document.getElementById('setup-reset-form').submit(); } });
     });
-  }
+  });
   {% if just_attempted %}
   // A save was just attempted and rejected (not the same as setup_error
   // being set in general - that also stays true on every plain GET while
@@ -379,7 +399,7 @@
       invalidMessage: 'Enter a valid email address',
     });
   });
-})();
+});
 
 function testJellyfinConnection() {
   const urlField = document.getElementById('field-JELLYFIN_URL');
