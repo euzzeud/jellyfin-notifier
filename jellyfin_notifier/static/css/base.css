@@ -56,11 +56,14 @@ header {
   display:flex; align-items:center; justify-content:space-between;
 }
 header .brand { font-weight:700; font-size:19px; letter-spacing:.3px; display:flex; align-items:center; gap:12px; }
-/* The "Notifier" text should be at the same scale as the Jellyfin logo
-   next to it (like on the login page) - an old rule left over from a
-   previous header (logo + small "Admin" subtitle) was still shrinking
-   it down to 12.5px regardless, making it tiny and grayed out. */
-header .brand span { color:var(--text); font-weight:700; font-size:22px; letter-spacing:.2px; }
+/* The "Notifier" text should be at the same scale as the "Jellyfin"
+   wordmark baked into the logo SVG right next to it. The SVG's own
+   viewBox is 252x72 and its lettering's cap-height is ~41 of those 72
+   units; at the logo's rendered height here (34px) that's a ~19.3px cap
+   height. A bold sans-serif's cap-height is roughly 0.72x its font-size,
+   so matching that takes ~27px here - 22px (or the old 12.5px this
+   replaced) reads visibly smaller than the logo's own text next to it. */
+header .brand span { color:var(--text); font-weight:700; font-size:27px; letter-spacing:.2px; }
 header .right { display:flex; align-items:center; gap:16px; }
 .logout-form button {
   background:none; box-shadow:none; border:1px solid rgba(229,72,77,.45); color:#e5484d;
