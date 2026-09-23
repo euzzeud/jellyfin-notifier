@@ -817,25 +817,23 @@ function createBlockBuilder({ root, hiddenInput, initialBlocks = [], onChange = 
 }
 
 // "Unsaved changes" safety net - watches every <form data-track-dirty="true">
-// on the page (forms that auto-submit on change, like the switches, don't
-// have this attribute and so are never concerned). As soon as a field
-// changes:
-// - the "Careful — you have unsaved changes!" bar appears,
+// on the page (one-shot action forms - toggles that auto-submit on
+// change, "add"/"run"/"send"/"delete" buttons with nothing persisted to
+// warn about - don't have this attribute and so are never concerned; see
+// each template for which). As soon as a tracked field changes:
+// - the "Careful — you have unsaved changes!" bar appears, with its own
+//   Reset (discard) and Save changes buttons,
 // - trying to leave the page (clicking a header/nav link, closing the
-//   tab, reloading) slightly shakes the page (MSN "wizz" style) and a
-//   popup asks to confirm before the navigation is allowed through.
+//   tab, reloading) is simply blocked, every time, with a slight page
+//   shake (MSN "wizz" style) as the only extra feedback.
 //
-// This used to be a "click again within a few seconds to confirm"
-// gesture instead of an explicit popup (like Sign Out below already
-// uses) - dropped because it was too easy to get wrong in practice: a
-// first click armed exactly one link for its own follow-up click, but
-// nothing stopped that click from landing on a DIFFERENT tab a moment
-// later, which - by design - was then treated as a fresh, unconfirmed
-// first click of its own... except the whole gesture relies on the
-// admin remembering which tab they already "used up" a click on, with
-// no room for hesitation or a change of mind. A single, explicit "leave
-// without saving?" popup removes that ambiguity entirely: every click on
-// every tab always asks, in the same unambiguous way, every time.
+// No separate "leave without saving?" popup on top of that: the bar is
+// already the warning AND already the way out (Reset or Save resolve it,
+// after which nav links work normally again) - a second, near-identical
+// popup asking the same question again would just be one more click for
+// no benefit. The one exception is Sign Out (below), which stays a
+// popup: unlike a nav link it's not a click the admin can immediately
+// retry after fixing things from the bar - it ends the session.
 function initUnsavedGuard() {
   const trackedForms = Array.from(document.querySelectorAll('form[data-track-dirty="true"]'));
   if (!trackedForms.length) return;
@@ -982,8 +980,14 @@ function initUnsavedGuard() {
   navLinks.forEach(link => {
     link.addEventListener('click', (e) => {
       if (!dirtyForm) return;
+      // Simply blocked, every time, for every tab - the bar itself
+      // (still on screen, with its own Reset/Save changes buttons) is
+      // already the warning and already the way out; a second popup on
+      // top of it asking the same question again was redundant. Once
+      // the admin resolves it there (discard with Reset, or persist
+      // with Save changes), dirtyForm goes back to null and this stops
+      // intercepting clicks entirely - nav links work normally again.
       e.preventDefault();
-      const href = link.href;
       // The shake animates #shake-target (header+nav+main), never <body>
       // - see the comment on #shake-target.shake-warn in base.css. The
       // bar itself (a fixed sibling of #shake-target, not a descendant)
@@ -994,20 +998,6 @@ function initUnsavedGuard() {
       shakeTarget.classList.add('shake-warn');
       bar.classList.add('pulse');
       setTimeout(() => bar.classList.remove('pulse'), 420);
-      showConfirm({
-        title: 'Leave without saving?',
-        message: 'Whatever you changed on this page has not been saved and will be lost.',
-        confirmText: 'Leave anyway',
-        danger: true,
-      }).then(ok => {
-        if (!ok) return;
-        // Turn the guard off BEFORE the navigation fires, otherwise
-        // "beforeunload" still triggers right after and shows the
-        // browser's own native "Leave site?" dialog ON TOP OF the
-        // confirmation the admin just gave.
-        clearDirty();
-        window.location.href = href;
-      });
     });
   });
 }
