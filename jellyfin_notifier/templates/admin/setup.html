@@ -79,12 +79,25 @@
     </form>
   </div>
 
+  {% if bootstrap_mode %}
+  {#
+    Only a genuine first-run has anything to click "Continue" past - an
+    intro/onboarding screen it makes sense to walk through once. Once
+    already configured, this same landing card is reached from the
+    admin's own "Configuration" nav link, not a fresh install - gating
+    the fields behind an extra "Continue →" click there served no
+    purpose (nothing was being onboarded), it just made every single
+    visit to Configuration take two clicks to reach anything editable
+    instead of one. Below, the fields are simply always visible already
+    in that case - see wizard-container right below.
+  #}
   <div class="u-mt-22px-ta-right">
-    <button type="button" id="setup-landing-begin">{{ "Let's begin →" if bootstrap_mode else "Continue →" }}</button>
+    <button type="button" id="setup-landing-begin">Let's begin →</button>
   </div>
+  {% endif %}
 </div>
 
-<div class="u-d-none" id="wizard-container">
+<div class="{{ 'u-d-none' if bootstrap_mode else '' }}" id="wizard-container">
 <form method="post" action="{{ url_for('setup.setup_save') }}" class="card" id="wizard-form" novalidate>
   <div class="u-d-flex-jc-space-between-ai-flex-start-gap-14px-mb-6px">
     <h2 class="u-mb-0">{{ 'Configuration' if bootstrap_mode else 'Fields' }}</h2>
@@ -225,7 +238,9 @@ document.addEventListener('DOMContentLoaded', function () {
     landing.style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-  beginBtn.addEventListener('click', showWizard);
+  // beginBtn only exists in bootstrap_mode now (see the template) - the
+  // fields are already visible without it otherwise.
+  if (beginBtn) { beginBtn.addEventListener('click', showWizard); }
 
   // Two copies of this button exist (landing screen + wizard header, see
   // .js-setup-reset comment above) so it's reachable from wherever the
@@ -330,11 +345,19 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   document.querySelectorAll('[data-wizard-prev]').forEach((btn) => {
     btn.addEventListener('click', () => {
+      if (current > 0) { showStep(current - 1); return; }
+      {% if bootstrap_mode %}
       // On the very first step there's no earlier step to go back to -
       // "Previous" instead returns to the landing screen (Welcome/import),
       // rather than being hidden with nothing to do.
-      if (current > 0) { showStep(current - 1); return; }
       showLanding();
+      {% else %}
+      // Already configured: the landing card and the fields are both on
+      // screen at once (no "Continue" gate to go back behind) - just
+      // scroll up to it instead of hiding the fields with no button left
+      // to bring them back.
+      landing.scrollIntoView({ behavior: 'smooth' });
+      {% endif %}
     });
   });
 
