@@ -231,6 +231,18 @@ document.addEventListener('DOMContentLoaded', function () {
   // .js-setup-reset comment above) so it's reachable from wherever the
   // admin currently is, not just the landing screen - both share the one
   // hidden #setup-reset-form.
+  // The wizard's own localStorage draft (see the "Auto-save draft" block
+  // below) survives a server-side reset - it's per-browser state, nothing
+  // to do with .env/settings.json. Without clearing it here, reopening
+  // /setup after "Start over"/"Reset everything" silently re-fills
+  // non-secret fields (Jellyfin URL, recipients, ...) with STALE values
+  // from before the reset, which looks like the reset "didn't work" even
+  // though the server is genuinely blank - the admin just can't tell
+  // because the form doesn't look empty.
+  function clearSetupDraft() {
+    try { localStorage.removeItem(DRAFT_KEY); } catch (e) { /* private browsing / storage disabled */ }
+  }
+
   document.querySelectorAll('.js-setup-reset').forEach((resetBtn) => {
     resetBtn.addEventListener('click', () => {
       showConfirm({
@@ -239,7 +251,7 @@ document.addEventListener('DOMContentLoaded', function () {
           'This cannot be undone - export a copy first if you might need these values again.',
         confirmText: '⟲ Delete .env and start over',
         danger: true,
-      }).then((ok) => { if (ok) { document.getElementById('setup-reset-form').submit(); } });
+      }).then((ok) => { if (ok) { clearSetupDraft(); document.getElementById('setup-reset-form').submit(); } });
     });
   });
 
@@ -261,7 +273,7 @@ document.addEventListener('DOMContentLoaded', function () {
         'and you\'ll be dropped back into the setup wizard afterwards.',
       confirmText: '⟲ Reset everything',
       danger: true,
-    }).then((ok) => { if (ok) { resetSettingsForm.submit(); } });
+    }).then((ok) => { if (ok) { clearSetupDraft(); resetSettingsForm.submit(); } });
   });
   {% endif %}
   {% if just_attempted %}
