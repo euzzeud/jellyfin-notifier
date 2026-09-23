@@ -71,19 +71,40 @@ def _format_duration(run_time_ticks: int | None) -> str | None:
     return f"{minutes} min"
 
 
-def _type_label(item_type: str, payload: dict) -> str:
+def resolve_type_label(settings: EmailSettings, item: dict) -> str:
+    """Builds the content-card type badge text (e.g. "Movie", "Season 2 —
+    The Wire", "Coming soon • Film") from the item's raw type/series info
+    and the admin-editable Settings.label_* fields - computed at render
+    time (not baked in at ingestion) so a label change in the admin
+    applies immediately to anything already queued/pending, and so
+    "upcoming" items reuse the same Movie/Series wording as "new content"
+    items, just prefixed with settings.label_coming_soon."""
+    item_type = item.get("item_type")
     if item_type == "Movie":
-        return "Movie"
-    if item_type == "Series":
-        return "Series"
-    if item_type == "Season":
-        series = payload.get("SeriesName", "")
-        season_num = payload.get("SeasonNumber00") or payload.get("SeasonNumber")
-        return f"Season {season_num} — {series}".strip(" —")
-    if item_type == "Episode":
-        series = payload.get("SeriesName", "")
-        return f"Episode — {series}".strip(" —")
-    return item_type or "Content"
+        label = settings.label_movie
+    elif item_type == "Series":
+        label = settings.label_series
+    elif item_type == "Season":
+        series = item.get("series_name") or ""
+        season_num = item.get("season_number")
+        try:
+            label = settings.label_season_fmt.format(season=season_num or "", series=series)
+        except (KeyError, IndexError, ValueError):
+            label = f"Season {season_num} — {series}"
+        label = label.strip(" —")
+    elif item_type == "Episode":
+        series = item.get("series_name") or ""
+        try:
+            label = settings.label_episode_fmt.format(series=series)
+        except (KeyError, IndexError, ValueError):
+            label = f"Episode — {series}"
+        label = label.strip(" —")
+    else:
+        label = item_type or settings.label_content
+
+    if item.get("_is_upcoming"):
+        label = f"{settings.label_coming_soon} • {label}"
+    return label
 
 
 def item_from_payload(payload: dict) -> dict:
@@ -94,30 +115,25 @@ def item_from_payload(payload: dict) -> dict:
         "name": payload.get("Name", "Untitled"),
         "year": payload.get("Year"),
         "overview": payload.get("Overview"),
-        "type_label": _type_label(payload.get("ItemType"), payload),
+        "series_name": payload.get("SeriesName"),
+        "season_number": payload.get("SeasonNumber00") or payload.get("SeasonNumber"),
     }
 
 
 def item_from_api(item: dict) -> dict:
     """Normalizes an item returned by the Jellyfin API (/Items) into an
     internal dict. Used by the poller, as a replacement for the webhook."""
-    item_type = item.get("Type")
     return {
         "item_id": item.get("Id"),
-        "item_type": item_type,
+        "item_type": item.get("Type"),
         "name": item.get("Name", "Untitled"),
         "year": item.get("ProductionYear"),
         "overview": item.get("Overview"),
         "genres": item.get("Genres"),
         "community_rating": item.get("CommunityRating"),
         "run_time_ticks": item.get("RunTimeTicks"),
-        "type_label": _type_label(
-            item_type,
-            {
-                "SeriesName": item.get("SeriesName"),
-                "SeasonNumber00": item.get("ParentIndexNumber"),
-            },
-        ),
+        "series_name": item.get("SeriesName"),
+        "season_number": item.get("ParentIndexNumber"),
     }
 
 
@@ -194,7 +210,7 @@ def _build_render_items(
                 "name": item["name"],
                 "year": item.get("year"),
                 "overview": _truncate_overview(item.get("overview"), settings.overview_max_length),
-                "type_label": item.get("type_label"),
+                "type_label": resolve_type_label(settings, item),
                 "genres": _format_genres(item.get("genres")),
                 "rating": _format_rating(item.get("community_rating")),
                 "duration": _format_duration(item.get("run_time_ticks")),

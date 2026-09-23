@@ -44,6 +44,29 @@
       <label>Footer</label>
       <input type="text" name="template_footer" id="template_footer" value="{{ settings.template_footer }}" />
 
+      <label>Content-type badge text</label>
+      <div class="row">
+        <div>
+          <input type="text" name="label_movie" id="label_movie" value="{{ settings.label_movie }}" placeholder="Movie" />
+          <small class="hint">Movie</small>
+        </div>
+        <div>
+          <input type="text" name="label_series" id="label_series" value="{{ settings.label_series }}" placeholder="Series" />
+          <small class="hint">Series</small>
+        </div>
+      </div>
+      <div class="row u-mt-8px">
+        <div>
+          <input type="text" name="label_season_fmt" id="label_season_fmt" value="{{ settings.label_season_fmt }}" placeholder="Season {season} — {series}" />
+          <small class="hint">Season ({{ '{season}' }} / {{ '{series}' }} available)</small>
+        </div>
+        <div>
+          <input type="text" name="label_episode_fmt" id="label_episode_fmt" value="{{ settings.label_episode_fmt }}" placeholder="Episode — {series}" />
+          <small class="hint">Episode ({{ '{series}' }} available)</small>
+        </div>
+      </div>
+      <small class="hint">Translate the type shown on each item's card (e.g. "Film"/"Série" for a French mail).</small>
+
       <label>Mail colors</label>
       <div class="color-row">
         <div class="color-field"><input type="color" name="color_bg" id="color_bg" value="{{ settings.color_bg }}" /><span>Background</span></div>
@@ -111,6 +134,7 @@ const validateUrl = "{{ url_for('admin.template_validate') }}";
 const livePreviewUrl = "{{ url_for('admin.template_live_preview') }}";
 const frame = document.getElementById('preview-frame');
 const watchedIds = ['template_intro_single', 'template_intro_multi', 'template_footer',
+                     'label_movie', 'label_series', 'label_season_fmt', 'label_episode_fmt',
                      'color_bg', 'color_card', 'color_header', 'color_accent', 'color_button', 'color_text', 'color_muted'];
 
 let timer = null;

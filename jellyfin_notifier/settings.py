@@ -23,6 +23,17 @@ DEFAULT_INTRO_SINGLE = "New content is available!"
 DEFAULT_INTRO_MULTI = "{count} new items are available!"
 DEFAULT_FOOTER = "Automatically sent by Jellyfin - Enzo GIOIELLI"
 
+# Text shown on each item's type badge (the content card) - translatable so
+# the whole mail can be shown in another language (e.g. "Film"/"Série" for
+# French). {season}/{series} are substituted into the Season/Episode
+# formats (Python str.format placeholders).
+DEFAULT_LABEL_MOVIE = "Movie"
+DEFAULT_LABEL_SERIES = "Series"
+DEFAULT_LABEL_SEASON_FMT = "Season {season} — {series}"
+DEFAULT_LABEL_EPISODE_FMT = "Episode — {series}"
+DEFAULT_LABEL_CONTENT = "Content"
+DEFAULT_LABEL_COMING_SOON = "Coming soon"
+
 _lock = threading.Lock()
 
 
@@ -40,6 +51,14 @@ class Settings:
     template_intro_single: str = DEFAULT_INTRO_SINGLE
     template_intro_multi: str = DEFAULT_INTRO_MULTI
     template_footer: str = DEFAULT_FOOTER
+
+    # Content-type badge text ("Movie"/"Series"/...) shown on each item's
+    # card - see the module-level DEFAULT_LABEL_* comment above.
+    label_movie: str = DEFAULT_LABEL_MOVIE
+    label_series: str = DEFAULT_LABEL_SERIES
+    label_season_fmt: str = DEFAULT_LABEL_SEASON_FMT
+    label_episode_fmt: str = DEFAULT_LABEL_EPISODE_FMT
+    label_content: str = DEFAULT_LABEL_CONTENT
 
     # Mail colors (editable from the "New Content Notifications" tab with
     # color pickers) - injected into email.html, which keeps inline styles
@@ -62,6 +81,16 @@ class Settings:
     upcoming_intro_single: str = "A new title is coming soon!"
     upcoming_intro_multi: str = "{count} new titles are coming soon!"
     upcoming_footer: str = DEFAULT_FOOTER
+
+    upcoming_label_movie: str = DEFAULT_LABEL_MOVIE
+    upcoming_label_series: str = DEFAULT_LABEL_SERIES
+    upcoming_label_season_fmt: str = DEFAULT_LABEL_SEASON_FMT
+    upcoming_label_episode_fmt: str = DEFAULT_LABEL_EPISODE_FMT
+    upcoming_label_content: str = DEFAULT_LABEL_CONTENT
+    # "Coming soon" prefix shown before the type badge on upcoming-title
+    # cards - specific to this mail, no "new content" equivalent.
+    upcoming_label_coming_soon: str = DEFAULT_LABEL_COMING_SOON
+
     upcoming_color_bg: str = "#101010"
     upcoming_color_card: str = "#18181b"
     upcoming_color_header: str = "#101014"
@@ -144,6 +173,12 @@ class Settings:
                 template_intro_single=self.upcoming_intro_single,
                 template_intro_multi=self.upcoming_intro_multi,
                 template_footer=self.upcoming_footer,
+                label_movie=self.upcoming_label_movie,
+                label_series=self.upcoming_label_series,
+                label_season_fmt=self.upcoming_label_season_fmt,
+                label_episode_fmt=self.upcoming_label_episode_fmt,
+                label_content=self.upcoming_label_content,
+                label_coming_soon=self.upcoming_label_coming_soon,
                 overview_max_length=self.overview_max_length,
                 color_bg=self.upcoming_color_bg,
                 color_card=self.upcoming_color_card,
@@ -159,6 +194,12 @@ class Settings:
             template_intro_single=self.template_intro_single,
             template_intro_multi=self.template_intro_multi,
             template_footer=self.template_footer,
+            label_movie=self.label_movie,
+            label_series=self.label_series,
+            label_season_fmt=self.label_season_fmt,
+            label_episode_fmt=self.label_episode_fmt,
+            label_content=self.label_content,
+            label_coming_soon=self.upcoming_label_coming_soon,
             overview_max_length=self.overview_max_length,
             color_bg=self.color_bg,
             color_card=self.color_card,
@@ -202,6 +243,12 @@ class ScopedEmailSettings:
     template_intro_single: str
     template_intro_multi: str
     template_footer: str
+    label_movie: str
+    label_series: str
+    label_season_fmt: str
+    label_episode_fmt: str
+    label_content: str
+    label_coming_soon: str
     overview_max_length: int
     color_bg: str
     color_card: str

@@ -111,7 +111,11 @@ def item_from_upcoming(entry: dict) -> dict:
     code. No item_id -> no Jellyfin poster or deep_link; an uploaded
     poster (poster_filename) is injected separately by admin.py (it needs
     to know the URL/disk path, which are specific to the current HTTP
-    request)."""
+    request). The "Coming soon • <type>" badge text itself is NOT baked in
+    here - _is_upcoming just flags the item so email_sender.resolve_type_label()
+    prefixes it with the admin-editable settings.label_coming_soon at
+    render time (translatable, and reuses the same Movie/Series wording as
+    "new content" items)."""
     note = entry.get("note") or ""
     year = entry.get("year")
     return {
@@ -123,5 +127,5 @@ def item_from_upcoming(entry: dict) -> dict:
         "genres": None,
         "community_rating": None,
         "run_time_ticks": None,
-        "type_label": f"Coming soon • {entry.get('type_label') or 'Movie'}",
+        "_is_upcoming": True,
     }

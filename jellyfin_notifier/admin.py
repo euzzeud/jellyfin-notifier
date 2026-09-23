@@ -25,7 +25,7 @@ from . import mail_history, metrics, service_control
 from .api_console import run_request
 from .config import SMTP_ENCRYPTIONS
 from .email_blocks import BLOCK_TYPES, compile_blocks_to_html, resolve_blocks_json
-from .email_sender import TEMPLATES_DIR, render_preview_html, send_email, send_test_email
+from .email_sender import TEMPLATES_DIR, render_preview_html, resolve_type_label, send_email, send_test_email
 from .jellyfin_client import JellyfinClient
 from .pending import load_pending
 from .poller import DEFAULT_POLLER_LIMIT
@@ -45,6 +45,7 @@ _FIELD_PREFIX = {"new": "", "upcoming": "upcoming_"}
 _SIMPLE_FIELDS = (
     "template_subject_single", "template_subject_multi",
     "template_intro_single", "template_intro_multi", "template_footer",
+    "label_movie", "label_series", "label_season_fmt", "label_episode_fmt", "label_content",
     "color_bg", "color_card", "color_header", "color_accent", "color_button", "color_text", "color_muted",
 )
 
@@ -62,7 +63,6 @@ FAKE_PREVIEW_ITEMS = [
         "genres": ["Action", "Science Fiction"],
         "community_rating": 7.5,
         "run_time_ticks": 63_000_000_000,
-        "type_label": "Movie",
         "_fake_deep_link": "#preview",
     },
 ]
@@ -80,7 +80,7 @@ FAKE_UPCOMING_PREVIEW_ITEMS = [
         "genres": None,
         "community_rating": None,
         "run_time_ticks": None,
-        "type_label": "Coming soon • Movie",
+        "_is_upcoming": True,
     },
 ]
 
@@ -273,7 +273,10 @@ def dashboard():
 
     poll_status = poller.status() if poller else None
     service_status = service_control.get_status()
-    pending = load_pending(cfg.pending_items_path)
+    # Queue table below shows the same translated type badge the actual
+    # mail will use (resolve_type_label reads the label_* settings) -
+    # pending_items.json itself only stores the raw item_type/series info.
+    pending = [{**item, "type_label": resolve_type_label(settings, item)} for item in load_pending(cfg.pending_items_path)]
     logs_tail = service_control.get_logs(40)
 
     return render_template(
@@ -505,6 +508,12 @@ def _save_simple_texts(scope: str, settings: Settings, cfg) -> None:
         value = request.form.get(field)
         if value:
             setattr(settings, prefix + field, value)
+    if scope == "upcoming":
+        # No "new content" equivalent - the "Coming soon" prefix only
+        # applies to the Upcoming mail, so it isn't part of _SIMPLE_FIELDS.
+        value = request.form.get("label_coming_soon")
+        if value:
+            settings.upcoming_label_coming_soon = value
     save_settings(cfg.settings_path, settings)
 
 
@@ -613,6 +622,7 @@ def _template_live_preview(scope: str, template_name: str, fake_items: list[dict
 
     for field in (
         "template_intro_single", "template_intro_multi", "template_footer",
+        "label_movie", "label_series", "label_season_fmt", "label_episode_fmt", "label_content",
         "color_bg", "color_card", "color_header", "color_accent", "color_button", "color_text", "color_muted",
     ):
         if payload.get(field):
@@ -860,6 +870,7 @@ def upcoming_live_preview():
 
     for field in (
         "template_intro_single", "template_intro_multi", "template_footer",
+        "label_movie", "label_series", "label_season_fmt", "label_episode_fmt", "label_content", "label_coming_soon",
         "color_bg", "color_card", "color_header", "color_accent", "color_button", "color_text", "color_muted",
     ):
         if payload.get(field):

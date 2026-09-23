@@ -123,6 +123,21 @@
       <label>Footer</label>
       <input type="text" name="template_footer" id="template_footer" value="{{ settings.template_footer }}" />
 
+      <label>Content-type badge text</label>
+      <div class="row">
+        <div>
+          <input type="text" name="label_movie" id="label_movie" value="{{ settings.label_movie }}" placeholder="Movie" />
+          <small class="hint">Movie</small>
+        </div>
+        <div>
+          <input type="text" name="label_series" id="label_series" value="{{ settings.label_series }}" placeholder="Series" />
+          <small class="hint">Series</small>
+        </div>
+      </div>
+      <label class="u-mt-8px">"Coming soon" prefix</label>
+      <input type="text" name="label_coming_soon" id="label_coming_soon" value="{{ settings.label_coming_soon }}" placeholder="Coming soon" />
+      <small class="hint">Shown before the type badge (e.g. "Coming soon • Movie") — translate for a French mail: "Bientôt"/"Prochainement".</small>
+
       <label>Mail colors</label>
       <div class="color-row">
         <div class="color-field"><input type="color" name="color_bg" id="color_bg" value="{{ settings.color_bg }}" /><span>Background</span></div>
@@ -192,6 +207,7 @@ const validateUrl = "{{ url_for('admin.template_validate') }}";
 const livePreviewUrl = "{{ url_for('admin.upcoming_live_preview') }}";
 const frame = document.getElementById('preview-frame');
 const watchedIds = ['template_intro_single', 'template_intro_multi', 'template_footer',
+                     'label_movie', 'label_series', 'label_coming_soon',
                      'color_bg', 'color_card', 'color_header', 'color_accent', 'color_button', 'color_text', 'color_muted'];
 
 let timer = null;
