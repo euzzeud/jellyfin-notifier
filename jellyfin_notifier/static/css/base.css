@@ -526,9 +526,19 @@ body.unsaved-bar-open main { padding-bottom:110px; transition: padding-bottom .2
   box-shadow: var(--shadow-pop); backdrop-filter: blur(8px);
   animation: toastin .3s var(--ease);
   transition: opacity .3s var(--ease), transform .3s var(--ease);
+  /* A raw error string (a Jellyfin/requests exception, an unbroken URL
+     with no spaces to wrap at) used to just overflow .toast-container's
+     max-width instead of wrapping inside it, stretching the toast far
+     wider than intended - same fix already applied to .alert/.stat
+     .value/pre.logbox for the exact same reason. Long messages are also
+     truncated in JS now (see showToast in base.html), this is defense
+     in depth for whatever's left after that. */
+  overflow-wrap:anywhere; word-break:break-word;
 }
 .toast.ok { background: rgba(23,45,32,.92); color:var(--green); border:1px solid rgba(62,207,110,.35); }
 .toast.err { background: rgba(48,20,21,.92); color:var(--red); border:1px solid rgba(240,85,92,.35); }
 .toast.out { opacity:0; transform: translateX(12px); }
+.toast.clickable { cursor:pointer; }
+.toast.clickable:hover { filter: brightness(1.12); }
 @keyframes toastin { from { opacity:0; transform: translateX(16px); } to { opacity:1; transform:none; } }
 .flash-toast { display:none; }

@@ -94,16 +94,38 @@
 </main>
 </div>
 <script>
+// A toast is meant for a short status line ("Login successful.", "Action
+// 'restart' completed.") - but several call sites just forward a raw
+// exception/HTTP error straight into it (e.g. a poller/service action
+// that fails, or a Jellyfin connection error), which can be several
+// hundred characters of stack trace and URL. Past TOAST_TRUNCATE_AT it's
+// cut short with "…" and the toast becomes clickable to show the rest in
+// the same popup Mail History's "Failed" pill uses - keeps the toast
+// itself small and legible instead of turning into a giant floating wall
+// of text, without losing the detail entirely.
+const TOAST_TRUNCATE_AT = 160;
+
 function showToast(message, ok) {
   const container = document.getElementById('toast-container');
   const toast = document.createElement('div');
   toast.className = 'toast ' + (ok ? 'ok' : 'err');
-  toast.textContent = message;
+  const isLong = message.length > TOAST_TRUNCATE_AT;
+  toast.textContent = isLong ? message.slice(0, TOAST_TRUNCATE_AT).trimEnd() + '…' : message;
+  if (isLong) {
+    toast.classList.add('clickable');
+    toast.title = 'Click to see the full message';
+    toast.addEventListener('click', () => {
+      showDetailModal({ title: ok ? 'Details' : 'Error details', message: message });
+    });
+  }
   container.appendChild(toast);
+  // Long (truncated) toasts get more time on screen - there's a "click
+  // for the rest" affordance to notice and act on, not just a line to read.
+  const dismissAfter = isLong ? 6500 : 3200;
   setTimeout(() => {
     toast.classList.add('out');
     setTimeout(() => toast.remove(), 320);
-  }, 3200);
+  }, dismissAfter);
 }
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.flash-toast').forEach(el => {
