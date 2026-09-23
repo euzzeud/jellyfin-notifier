@@ -95,6 +95,7 @@ nav a.active {
    mobile, comfortable beyond that. */
 main { width:100%; max-width:1800px; margin:0 auto; padding:28px clamp(16px, 4vw, 48px) 60px; box-sizing:border-box; }
 main.wide { max-width:2000px; }
+.app-footer { text-align:center; color:var(--muted-dim); font-size:12px; padding:0 16px 24px; }
 @media (max-width: 640px) {
   header { padding:12px 16px; flex-wrap:wrap; row-gap:10px; }
   header .right { gap:10px; }
