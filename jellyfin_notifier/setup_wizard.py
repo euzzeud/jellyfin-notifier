@@ -35,7 +35,11 @@ setup_bp = Blueprint("setup", __name__)
 # addition can't disappear from the wizard.
 _STEP_DEFS = [
     {"id": "admin", "title": "Account", "keys": ["ADMIN_USERNAME", "ADMIN_PASSWORD"]},
-    {"id": "jellyfin", "title": "Jellyfin connection", "keys": ["JELLYFIN_URL", "JELLYFIN_API_KEY", "JELLYFIN_PUBLIC_URL"]},
+    # "Connector", not "Connection" - the admin nav already has a distinct
+    # "Jellyfin Connection" page (api_console.html: live URL/API key
+    # overrides + a raw API request console), unrelated to this wizard
+    # step. Same name for two different things was confusing.
+    {"id": "jellyfin", "title": "Jellyfin Connector", "keys": ["JELLYFIN_URL", "JELLYFIN_API_KEY", "JELLYFIN_PUBLIC_URL"]},
     {
         "id": "mail", "title": "Mail server",
         "keys": [

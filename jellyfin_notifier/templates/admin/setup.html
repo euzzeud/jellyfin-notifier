@@ -52,24 +52,35 @@
 {% endif %}
 
 <div class="card" id="setup-landing">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px;">
+    {% if bootstrap_mode %}
+    <h2>Welcome — let's configure jellyfin-notifier</h2>
+    {% else %}
+    <h2>Environment (.env)</h2>
+    {% endif %}
+    {% if env_exists %}
+    {# Wipes .env and restarts into a blank wizard - relevant whenever a
+       .env file exists to wipe, whether it's a broken/incomplete one still
+       being filled in (bootstrap_mode) or a previously-working one
+       (configured mode) - not just the latter. #}
+    <button type="button" id="setup-reset-btn" class="danger" style="flex-shrink:0; font-size:12px; padding:8px 14px;">⟲ Start over</button>
+    {% endif %}
+  </div>
   {% if bootstrap_mode %}
-  <h2>Welcome — let's configure jellyfin-notifier</h2>
   <p class="muted" style="font-size:13px;">
     No valid <code>.env</code> was found (or it's missing required values), so the app can't fully start yet.
     A few short steps, or import an existing <code>.env</code> file below — the service restarts itself
     automatically once saved and picks up the new configuration, no SSH access needed.
   </p>
   {% else %}
-  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px;">
-    <h2>Environment (.env)</h2>
-    <button type="button" id="setup-reset-btn" class="danger" style="flex-shrink:0; font-size:12px; padding:8px 14px;">⟲ Start over</button>
-  </div>
   <p class="muted" style="font-size:13px;">
     Edits the real <code>.env</code> file on this server. Saving restarts the service automatically to apply
     the new values — expect a brief interruption (a few seconds) while it comes back up.
     Fields left blank keep their current saved value; secret fields (passwords, API keys) are never shown
     back here for security, only overwritten if you type a new value.
   </p>
+  {% endif %}
+  {% if env_exists %}
   <form method="post" action="{{ url_for('setup.setup_reset') }}" id="setup-reset-form" style="display:none;"></form>
   {% endif %}
 
@@ -141,7 +152,7 @@
     {% endif %}
 
     <div class="wizard-nav">
-      <button type="button" class="secondary" data-wizard-prev {% if loop.first %}style="visibility:hidden;"{% endif %}>← Previous</button>
+      <button type="button" class="secondary" data-wizard-prev>← Previous</button>
       {% if step.id == 'review' %}
       <button type="submit">Save changes</button>
       {% else %}
@@ -168,6 +179,11 @@
   function showWizard() {
     landing.style.display = 'none';
     wizardContainer.style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  function showLanding() {
+    wizardContainer.style.display = 'none';
+    landing.style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   beginBtn.addEventListener('click', showWizard);
@@ -237,7 +253,13 @@
     btn.addEventListener('click', goNext);
   });
   document.querySelectorAll('[data-wizard-prev]').forEach((btn) => {
-    btn.addEventListener('click', () => { if (current > 0) showStep(current - 1); });
+    btn.addEventListener('click', () => {
+      // On the very first step there's no earlier step to go back to -
+      // "Previous" instead returns to the landing screen (Welcome/import),
+      // rather than being hidden with nothing to do.
+      if (current > 0) { showStep(current - 1); return; }
+      showLanding();
+    });
   });
 
   // Enter in a text/password field advances to the next step (only if the
