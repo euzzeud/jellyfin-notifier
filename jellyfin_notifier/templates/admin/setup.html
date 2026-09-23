@@ -35,7 +35,16 @@
   }
 </style>
 
-{% if setup_error %}
+{% if setup_error and (just_attempted or not bootstrap_mode) %}
+{#
+  Not shown for a plain first-run GET (bootstrap_mode, not just_attempted):
+  JF_SETUP_ERROR there just means "nothing's been configured yet", which is
+  the normal, expected state on a fresh install - not an error to alarm the
+  admin with before they've even had a chance to open the wizard. Still
+  shown once a save has actually been attempted and rejected
+  (just_attempted), and always shown in "configured" mode - there it means
+  a previously-working install broke, which is worth flagging.
+#}
 <div class="alert err">{{ setup_error }}</div>
 {% endif %}
 {% if saved %}
