@@ -75,15 +75,11 @@ def _run(cmd: list[str], timeout: int = 15) -> tuple[bool, str]:
         # `systemctl`/`journalctl`/`sudo` don't exist at all (ex: running
         # locally on Windows/macOS for development) - a raw OS error message
         # ("[WinError 2] The system cannot find the file specified") is
-        # confusing on its own, so it's worth spelling out WHY explicitly:
-        # this whole card/page only works under a real systemd deployment
-        # (the target LXC), not a local dev run.
-        return False, (
-            f"'{cmd[0]}' was not found on this system. Service control and "
-            "the Logs page require systemd (journalctl/systemctl), which "
-            "only exists on the target Linux deployment - not when running "
-            "locally for development (e.g. on Windows or macOS)."
-        )
+        # confusing on its own, so this says what's actually missing.
+        # get_status() turns this into a plain "unknown" for the status
+        # pill rather than showing it directly; service_action()/get_logs()
+        # still surface it (toast/logs page), so it's kept short there too.
+        return False, f"'{cmd[0]}' was not found on this system."
     except Exception as exc:
         return False, str(exc)
 
