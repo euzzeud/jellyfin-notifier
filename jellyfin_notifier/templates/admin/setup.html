@@ -175,10 +175,14 @@
       }).then((ok) => { if (ok) { document.getElementById('setup-reset-form').submit(); } });
     });
   }
-  {% if setup_error %}
-  // A save was just attempted and rejected - the admin is already mid-flow,
-  // so skip straight past the landing screen instead of making them click
-  // "Let's begin" again to see the error they're already looking at above it.
+  {% if just_attempted %}
+  // A save was just attempted and rejected (not the same as setup_error
+  // being set in general - that also stays true on every plain GET while
+  // boot-time config is incomplete, which must NOT skip the landing
+  // screen, or it would never show at all until .env is fully valid).
+  // Here the admin is already mid-flow, so skip straight past it instead
+  // of making them click "Let's begin" again to see the error they're
+  // already looking at above it.
   showWizard();
   {% endif %}
 

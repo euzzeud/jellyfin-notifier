@@ -17,9 +17,20 @@ SECRET_KEYS = {
     "JELLYFIN_API_KEY", "WEBHOOK_SHARED_SECRET",
 }
 
-# Keys required for Config.from_env() to succeed at all (mirrors config.py) -
-# used to decide whether the app can boot normally or must show the wizard.
-REQUIRED_KEYS = ("SMTP_USERNAME", "SMTP_PASSWORD", "NOTIFY_RECIPIENTS", "ADMIN_USERNAME", "ADMIN_PASSWORD")
+# Keys the install can't reasonably work without - either Config.from_env()
+# itself raises when they're missing (SMTP_USERNAME/SMTP_PASSWORD/
+# NOTIFY_RECIPIENTS/ADMIN_USERNAME/ADMIN_PASSWORD - mirrors config.py), or
+# Config.from_env() would happily fall back to a useless default and never
+# complain (JELLYFIN_URL falls back to http://localhost:8096,
+# JELLYFIN_API_KEY falls back to "" - an empty key still "boots" but every
+# Jellyfin API call then fails with 401, which is exactly the kind of
+# silently-broken install unresolved_keys() exists to catch). Used both to
+# decide whether the app can boot normally, and to mark the wizard's own
+# required fields (red asterisk + blocks moving to the next step).
+REQUIRED_KEYS = (
+    "SMTP_USERNAME", "SMTP_PASSWORD", "NOTIFY_RECIPIENTS", "ADMIN_USERNAME", "ADMIN_PASSWORD",
+    "JELLYFIN_URL", "JELLYFIN_API_KEY",
+)
 
 # Fill-in-the-blank example values from .env.example that are never valid to
 # actually use, as opposed to its other defaults (SMTP_HOST=smtp.gmail.com,

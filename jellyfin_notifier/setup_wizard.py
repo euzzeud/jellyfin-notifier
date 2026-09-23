@@ -159,6 +159,14 @@ def setup_view():
         fields=fields,
         steps=_build_steps(fields),
         setup_error=current_app.config.get("JF_SETUP_ERROR"),
+        # NOT the same thing as setup_error being set: JF_SETUP_ERROR stays
+        # set on every plain GET for as long as the boot-time config is
+        # incomplete, whereas just_attempted means "a save was JUST
+        # submitted and rejected" - only the latter should skip the landing
+        # screen straight to the wizard (see setup_save()'s error branch).
+        # Conflating the two used to skip the landing page on every single
+        # visit while .env was incomplete, so it never actually showed.
+        just_attempted=False,
         env_exists=env_path.exists(),
         saved=request.args.get("saved") == "1",
     )
@@ -207,6 +215,7 @@ def setup_save():
             fields=fields,
             steps=_build_steps(fields),
             setup_error=f"Saved, but the configuration is still incomplete: {error}",
+            just_attempted=True,
             env_exists=env_path.exists(),
             saved=False,
         )
