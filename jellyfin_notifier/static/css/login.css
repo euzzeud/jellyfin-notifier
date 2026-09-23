@@ -20,22 +20,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 .login-card {
-  /* max-width bumped from 360 to 420: the logo/text scale fix below makes
-     "Notifier" noticeably wider (matching the logo's own lettering size
-     instead of looking undersized next to it), and 360 was too tight to
-     fit "[logo] Jellyfin Notifier" on one line at that new size without
-     wrapping or overflowing the card. */
+  /* max-width bumped from 360 to 420: "Jellyfin Notifier" is a single SVG
+     (icon + wordmark both, see .login-brand img below) wider than the old
+     icon-plus-short-span layout, and 420 gives it room without wrapping. */
   width:100%; max-width:420px; margin:16px; background: var(--panel); border:1px solid var(--border);
   border-radius: var(--radius-lg); padding:32px 30px; box-shadow: 0 20px 50px -20px rgba(0,0,0,.6);
   backdrop-filter: blur(8px); animation: cardin .4s var(--ease) backwards;
 }
 @keyframes cardin { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform:none; } }
-.login-brand { display:flex; align-items:center; gap:12px; justify-content:center; margin-bottom:28px; }
+.login-brand { display:flex; align-items:center; justify-content:center; margin-bottom:28px; }
+/* "Jellyfin Notifier" is a single SVG (assets/jellyfin-notifier-wordmark.svg):
+   the original logo's icon, unchanged, next to "Jellyfin Notifier" set in
+   real vector letterforms (Poppins Bold, the closest visual match to the
+   original wordmark's own lettering) instead of a plain HTML span picked
+   independently - see the comment on header .brand in base.css. */
 .login-brand img { height:44px; width:auto; display:block; }
-/* Same scale-matching as header .brand span in base.css: at this logo's
-   44px rendered height, its own "Jellyfin" wordmark has a ~25px cap
-   height, which a bold sans-serif needs ~35px font-size to match. */
-.login-brand span { font-size:35px; font-weight:700; letter-spacing:.2px; }
 label { display:block; font-size:12.5px; color:var(--muted); margin: 14px 0 6px; font-weight:600; }
 input[type=text], input[type=password] {
   width:100%; background: rgba(0,0,0,.32); border:1px solid var(--border); color:var(--text);

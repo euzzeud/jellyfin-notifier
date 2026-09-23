@@ -55,15 +55,15 @@ header {
   border-bottom:1px solid var(--border-soft); padding:16px 28px;
   display:flex; align-items:center; justify-content:space-between;
 }
-header .brand { font-weight:700; font-size:19px; letter-spacing:.3px; display:flex; align-items:center; gap:12px; }
-/* The "Notifier" text should be at the same scale as the "Jellyfin"
-   wordmark baked into the logo SVG right next to it. The SVG's own
-   viewBox is 252x72 and its lettering's cap-height is ~41 of those 72
-   units; at the logo's rendered height here (34px) that's a ~19.3px cap
-   height. A bold sans-serif's cap-height is roughly 0.72x its font-size,
-   so matching that takes ~27px here - 22px (or the old 12.5px this
-   replaced) reads visibly smaller than the logo's own text next to it. */
-header .brand span { color:var(--text); font-weight:700; font-size:27px; letter-spacing:.2px; }
+/* "Jellyfin Notifier" is a single SVG (assets/jellyfin-notifier-wordmark.svg):
+   the original logo's icon, unchanged, next to "Jellyfin Notifier" set as
+   real vector letterforms (Poppins Bold, the closest visual match to the
+   original wordmark's own lettering - generated with fontTools from the
+   actual glyph outlines, not just an HTML span in a different font). That
+   used to be this icon + a plain HTML "Notifier" span, which never quite
+   matched the logo's own embedded "Jellyfin" lettering (different font,
+   independently-picked size) - a single image sidesteps both problems. */
+header .brand { display:flex; align-items:center; }
 header .right { display:flex; align-items:center; gap:16px; }
 .logout-form button {
   background:none; box-shadow:none; border:1px solid rgba(229,72,77,.45); color:#e5484d;
