@@ -59,7 +59,7 @@
     <div class="stat"><div class="label">Item types</div><div class="value u-fz-14px">{{ poll_status.item_types|join(', ') }}</div></div>
     <div class="stat"><div class="label">Fetch limit</div><div class="value">{{ poll_status.limit }}</div></div>
     <div class="stat"><div class="label">Next window</div><div class="value u-fz-13px">{{ next_slot.strftime("%a %d/%m %H:%M") }}</div></div>
-    <div class="stat"><div class="label">Last mail error</div><div class="value u-gen-81d4833e">{{ poll_status.last_email_error or "none" }}</div></div>
+    <div class="stat"><div class="label">Last mail error</div><div class="value u-gen-81d4833e">{{ poll_status.last_email_error or "—" }}</div></div>
   </div>
   {% if poll_status.last_fetch_error %}
   <div class="alert err u-mt-14px">Last Jellyfin error: {{ poll_status.last_fetch_error }}</div>
