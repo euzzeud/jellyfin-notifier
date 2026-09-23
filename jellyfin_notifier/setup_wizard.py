@@ -128,23 +128,36 @@ def _fields_for(env_path: Path) -> list[dict]:
     like that is shown empty instead, with the placeholder text as a
     grayed-out input hint (`placeholder_hint`) so the expected format is
     still visible. Genuinely usable defaults (PORT=5005,
-    NOTIFY_ITEM_TYPES=Movie,Series...) are unaffected and still pre-filled."""
+    NOTIFY_ITEM_TYPES=Movie,Series...) are unaffected and still pre-filled.
+
+    `has_saved_value` gets the same placeholder-aware treatment for secret
+    fields: a .env that still holds the literal example password
+    (SMTP_PASSWORD=xxxxxxxxxxxxxxxx - e.g. from a .env.example copied
+    as-is, or a previous incomplete save) is NOT "saved" in any meaningful
+    sense. Counting it as saved made the field show "•••••••• (saved,
+    leave empty to keep it)" and skip the required-field check on the
+    review step - the admin, seeing "already saved", would leave it blank
+    and get bounced right back to the same unresolved_keys() error forever,
+    with no indication *why* it kept failing."""
     existing = env_setup.parse_env_file(env_path)
     fields = []
     for field in env_setup.field_spec():
         saved = existing.get(field["key"])
         if field["secret"]:
             value, placeholder_hint = "", ""
+            is_placeholder = saved is not None and saved == env_setup.PLACEHOLDER_VALUES.get(field["key"])
+            has_saved_value = bool(saved) and not is_placeholder
         else:
             value = saved if saved is not None else field["default"]
             placeholder_hint = ""
             if value == env_setup.PLACEHOLDER_VALUES.get(field["key"]):
                 value, placeholder_hint = "", value
+            has_saved_value = bool(saved)
         fields.append({
             **field,
             "value": value,
             "placeholder_hint": placeholder_hint,
-            "has_saved_value": bool(saved),
+            "has_saved_value": has_saved_value,
         })
     return fields
 
