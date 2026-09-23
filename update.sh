@@ -93,4 +93,4 @@ echo
 echo "Update complete."
 echo "IMPORTANT: edit ${TARGET}/.env to set ADMIN_USERNAME / ADMIN_PASSWORD if not already done,"
 echo "then 'systemctl restart jellyfin-notifier'."
-echo "Admin interface: http://<lxc-ip>:5005/"
+echo "Admin interface: http://<ip>:5005/"

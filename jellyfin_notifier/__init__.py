@@ -52,7 +52,7 @@ def _format_timestamp(value: str | None) -> str:
     there for /health and /metrics consumers) into a friendly display form
     for the admin UI, e.g. "22 Sep 2026, 22:10:21". Always converted to the
     local timezone of whoever/wherever is running this (the user's machine
-    in dev, the LXC's own local time in production) and shown WITHOUT a
+    in dev, the server's own local time in production) and shown WITHOUT a
     "UTC"/"UTC+02:00"-style suffix - the admin is reading their own clock,
     a timezone label is just noise. Falls back to the raw value if it
     can't be parsed."""
@@ -150,7 +150,7 @@ def create_app(config: Config | None = None) -> Flask:
         return response
     # Without this, Jinja caches compiled templates indefinitely for as long
     # as the process runs (app.debug=False here, so auto_reload would
-    # default to False): editing an .html file on the LXC without
+    # default to False): editing an .html file on the server without
     # restarting the service would never show up. Negligible cost (one mtime
     # check per render) for a lightly-used LAN admin tool - mainly avoids
     # wasting time debugging a "stale" page. Python code changes (.py)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # deploy.sh
-# Production deployment of jellyfin-notifier on this LXC.
+# Production deployment of jellyfin-notifier on this server.
 # Run as root: sudo ./deploy.sh
 #
 # Idempotent: safe to re-run. Pulls the latest code, creates .env from
@@ -103,11 +103,11 @@ PORT=${PORT:-5005}
 
 # Best-effort detection of this machine's LAN IP, for the summary URLs below -
 # falls back to a placeholder if it can't be determined (e.g. no `ip`/`hostname -I`).
-LXC_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
-if [ -z "$LXC_IP" ]; then
-  LXC_IP=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i=="src") print $(i+1)}')
+HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+if [ -z "$HOST_IP" ]; then
+  HOST_IP=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i=="src") print $(i+1)}')
 fi
-LXC_IP=${LXC_IP:-<lxc-ip>}
+HOST_IP=${HOST_IP:-<ip>}
 
 log "Checking /health (port $PORT)"
 sleep 2
@@ -127,7 +127,7 @@ cat /tmp/health_response.json
 log "Checking that the interface responds"
 ADMIN_CODE=$(curl -sL -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}/login" || echo "000")
 [ "$ADMIN_CODE" = "200" ] || fail "The interface did not respond ($ADMIN_CODE) on /login."
-log "Interface reachable: http://${LXC_IP}:${PORT}/"
+log "Interface reachable: http://${HOST_IP}:${PORT}/"
 
 # ---- 7. Cleanup -------------------------------------------------------------------
 log "Cleaning up the source directory"
@@ -136,12 +136,12 @@ rm -rf "$SRC_DIR"
 log "Deployment finished successfully."
 echo "  - Service   : systemctl status $SERVICE_NAME"
 echo "  - Logs      : journalctl -u $SERVICE_NAME -f"
-echo "  - Interface : http://${LXC_IP}:${PORT}/"
-echo "  - Health    : http://${LXC_IP}:${PORT}/health"
-echo "  - Metrics   : http://${LXC_IP}:${PORT}/metrics"
+echo "  - Interface : http://${HOST_IP}:${PORT}/"
+echo "  - Health    : http://${HOST_IP}:${PORT}/health"
+echo "  - Metrics   : http://${HOST_IP}:${PORT}/metrics"
 if [ "$NEEDS_SETUP" -eq 1 ]; then
   echo
   echo "  .env is not fully filled in yet - open the interface above, you'll"
-  echo "  land on the setup wizard (http://${LXC_IP}:${PORT}/setup) to finish"
+  echo "  land on the setup wizard (http://${HOST_IP}:${PORT}/setup) to finish"
   echo "  the configuration (or import an existing settings file there)."
 fi

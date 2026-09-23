@@ -144,8 +144,8 @@ def poll_now():
     /metrics (LAN-only trust model, nothing here reads or changes
     credentials) - but unlike those two this one has a real side effect
     (an actual poll cycle, which can send mail), so it's POST-only. A GET
-    would make it triggerable by anything that can get the LXC's IP to load
-    an <img> tag or similar - it used to accept GET too, which was an
+    would make it triggerable by anything that can get the server's IP to
+    load an <img> tag or similar - it used to accept GET too, which was an
     oversight, not a deliberate design choice like /health and /metrics
     being public."""
     poller = current_app.config.get("JF_POLLER")

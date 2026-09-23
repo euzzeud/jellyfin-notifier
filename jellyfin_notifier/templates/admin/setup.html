@@ -183,7 +183,7 @@
 <div class="card">
   <h2>Backup &amp; restore</h2>
   <p class="muted u-fz-12p5px">
-    Export all notifier settings (mail texts &amp; colors, schedule, poller/Jellyfin/SMTP overrides) to a JSON file, or restore a previously exported one — handy before moving to a new LXC/server. This does <strong>not</strong> include the queue, the "upcoming" titles, the mail history, or your raw HTML template edits. (For the credentials themselves - SMTP/admin passwords, API keys - use the .env import above instead.)
+    Export all notifier settings (mail texts &amp; colors, schedule, poller/Jellyfin/SMTP overrides) to a JSON file, or restore a previously exported one — handy before moving to a new server. This does <strong>not</strong> include the queue, the "upcoming" titles, the mail history, or your raw HTML template edits. (For the credentials themselves - SMTP/admin passwords, API keys - use the .env import above instead.)
   </p>
   <div class="actions u-mt-0">
     <a href="{{ url_for('admin.settings_export') }}" class="btn secondary">⬇ Export settings</a>

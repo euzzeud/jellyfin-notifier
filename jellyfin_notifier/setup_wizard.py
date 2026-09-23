@@ -135,7 +135,7 @@ def _schedule_restart(delay: float = 1.2) -> None:
     fresh Python interpreter, re-runs run.py from scratch) - it works
     without any process manager, which matters since this has to work the
     same way in local dev (a bare `python run.py`, no systemd) as it does
-    on the LXC (systemd).
+    in production (systemd).
 
     If os.execv() itself fails for any reason (a bad interpreter path, a
     permission quirk, anything) this used to fail COMPLETELY SILENTLY: the
