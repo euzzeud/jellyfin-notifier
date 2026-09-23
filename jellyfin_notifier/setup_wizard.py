@@ -24,6 +24,68 @@ from .config import Config
 
 setup_bp = Blueprint("setup", __name__)
 
+# Groups the flat field list from env_setup.field_spec() into a lighter,
+# guided multi-step flow (Previous/Next) instead of one long form - each
+# step covers one decision the admin actually has to make. "advanced" is
+# deliberately last and marked optional: every key in it already has a
+# sane default in .env.example, so a first-time install can go straight
+# to Review without touching it. Any key that shows up in .env.example but
+# isn't listed in a step's `keys` below still gets shown (appended to
+# "advanced") rather than silently dropped, so a future .env.example
+# addition can't disappear from the wizard.
+_STEP_DEFS = [
+    {"id": "admin", "title": "Admin account", "keys": ["ADMIN_USERNAME", "ADMIN_PASSWORD"]},
+    {"id": "jellyfin", "title": "Jellyfin connection", "keys": ["JELLYFIN_URL", "JELLYFIN_API_KEY", "JELLYFIN_PUBLIC_URL"]},
+    {
+        "id": "mail", "title": "Mail server",
+        "keys": [
+            "SMTP_HOST", "SMTP_PORT", "SMTP_ENCRYPTION", "SMTP_USERNAME", "SMTP_PASSWORD",
+            "SENDER_EMAIL", "SENDER_NAME", "NOTIFY_RECIPIENTS",
+        ],
+    },
+    {
+        "id": "advanced", "title": "Advanced", "optional": True,
+        "keys": [
+            "DEBOUNCE_SECONDS", "NOTIFY_ITEM_TYPES", "WEBHOOK_SHARED_SECRET", "PORT",
+            "POLLER_ENABLED", "POLL_INTERVAL_SECONDS", "SEEN_ITEMS_PATH",
+            "SETTINGS_PATH", "PENDING_ITEMS_PATH", "UPCOMING_PATH",
+        ],
+    },
+]
+
+# Fields rendered as a tag/chip input (comma-separated list) instead of a
+# plain text box - currently just the mail recipients list, same widget
+# already used for item-type overrides on the dashboard.
+_TAG_LIST_KEYS = {"NOTIFY_RECIPIENTS"}
+
+
+def _build_steps(fields: list[dict]) -> list[dict]:
+    by_key = {f["key"]: f for f in fields}
+    used: set[str] = set()
+    steps = []
+    for step_def in _STEP_DEFS:
+        step_fields = []
+        for key in step_def["keys"]:
+            field = by_key.get(key)
+            if field is None:
+                continue
+            field = {**field, "is_tag_list": field["key"] in _TAG_LIST_KEYS}
+            step_fields.append(field)
+            used.add(key)
+        steps.append({"id": step_def["id"], "title": step_def["title"], "optional": step_def.get("optional", False), "fields": step_fields})
+
+    # Any field not covered by a step above (e.g. a new .env.example key)
+    # lands in "advanced" rather than being dropped from the wizard.
+    leftover = [f for f in fields if f["key"] not in used]
+    if leftover:
+        for step in steps:
+            if step["id"] == "advanced":
+                step["fields"].extend({**f, "is_tag_list": f["key"] in _TAG_LIST_KEYS} for f in leftover)
+                break
+
+    steps.append({"id": "review", "title": "Review & save", "optional": False, "fields": []})
+    return steps
+
 
 def _env_path() -> Path:
     return current_app.config.get("JF_ENV_PATH") or Path(".env")
@@ -49,15 +111,45 @@ def _schedule_restart(delay: float = 1.2) -> None:
     threading.Thread(target=_do_restart, daemon=True).start()
 
 
+def _fields_for(env_path: Path) -> list[dict]:
+    """Builds the field list the setup form renders from. Deliberately
+    never pre-fills a field with one of .env.example's fill-in-the-blank
+    placeholder values (env_setup.PLACEHOLDER_VALUES - "your-address@gmail.com",
+    "someone@example.com", the fake Jellyfin IPs, "change-me"): those exist
+    only to show the expected shape in .env.example, not as something a
+    real install could legitimately keep. Pre-filling them looked like a
+    real value already typed in, which is exactly how they used to slip
+    through unresolved_keys() and get saved verbatim (see
+    env_setup.PLACEHOLDER_VALUES's own docstring). A field like that is
+    shown empty instead, with the placeholder text as a grayed-out input
+    hint (`placeholder_hint`) so the expected format is still visible.
+    Genuinely usable defaults (SMTP_HOST=smtp.gmail.com, PORT=5005,
+    NOTIFY_ITEM_TYPES=Movie,Series...) are unaffected and still pre-filled."""
+    existing = env_setup.parse_env_file(env_path)
+    fields = []
+    for field in env_setup.field_spec():
+        saved = existing.get(field["key"])
+        if field["secret"]:
+            value, placeholder_hint = "", ""
+        else:
+            value = saved if saved is not None else field["default"]
+            placeholder_hint = ""
+            if value == env_setup.PLACEHOLDER_VALUES.get(field["key"]):
+                value, placeholder_hint = "", value
+        fields.append({
+            **field,
+            "value": value,
+            "placeholder_hint": placeholder_hint,
+            "has_saved_value": bool(saved),
+        })
+    return fields
+
+
 @setup_bp.route("/setup", methods=["GET"])
 def setup_view():
     env_path = _env_path()
     configured = current_app.config.get("JF_CONFIG") is not None
-    existing = env_setup.parse_env_file(env_path)
-    fields = []
-    for field in env_setup.field_spec():
-        value = "" if field["secret"] else existing.get(field["key"], field["default"])
-        fields.append({**field, "value": value, "has_saved_value": bool(existing.get(field["key"]))})
+    fields = _fields_for(env_path)
 
     return render_template(
         "admin/setup.html",
@@ -65,6 +157,7 @@ def setup_view():
         bootstrap_mode=not configured,
         configured=configured,
         fields=fields,
+        steps=_build_steps(fields),
         setup_error=current_app.config.get("JF_SETUP_ERROR"),
         env_exists=env_path.exists(),
         saved=request.args.get("saved") == "1",
@@ -105,17 +198,14 @@ def setup_save():
             error = "Still using the example value for: " + ", ".join(unresolved) + " - replace it with a real value."
 
     if error:
-        existing = env_setup.parse_env_file(env_path)
-        fields = []
-        for field in env_setup.field_spec():
-            value = "" if field["secret"] else existing.get(field["key"], field["default"])
-            fields.append({**field, "value": value, "has_saved_value": bool(existing.get(field["key"]))})
+        fields = _fields_for(env_path)
         return render_template(
             "admin/setup.html",
             active="setup",
             bootstrap_mode=current_app.config.get("JF_CONFIG") is None,
             configured=current_app.config.get("JF_CONFIG") is not None,
             fields=fields,
+            steps=_build_steps(fields),
             setup_error=f"Saved, but the configuration is still incomplete: {error}",
             env_exists=env_path.exists(),
             saved=False,
@@ -162,17 +252,14 @@ def setup_import():
     text = upload.read().decode("utf-8", errors="replace")
     ok, error = env_setup.import_env_file(env_path, text)
     if not ok:
-        existing = env_setup.parse_env_file(env_path)
-        fields = []
-        for field in env_setup.field_spec():
-            value = "" if field["secret"] else existing.get(field["key"], field["default"])
-            fields.append({**field, "value": value, "has_saved_value": bool(existing.get(field["key"]))})
+        fields = _fields_for(env_path)
         return render_template(
             "admin/setup.html",
             active="setup",
             bootstrap_mode=current_app.config.get("JF_CONFIG") is None,
             configured=current_app.config.get("JF_CONFIG") is not None,
             fields=fields,
+            steps=_build_steps(fields),
             setup_error=f"Could not import {upload.filename!r}: {error}",
             env_exists=env_path.exists(),
             saved=False,

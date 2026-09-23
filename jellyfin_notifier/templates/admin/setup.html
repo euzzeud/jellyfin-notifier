@@ -2,13 +2,43 @@
 {% block title %}{{ 'Setup' if bootstrap_mode else 'Environment' }} - Jellyfin Notifier{% endblock %}
 {% block content %}
 
+<style>
+  .wizard-progress { display:flex; gap:6px; margin-bottom:18px; flex-wrap:wrap; }
+  .wizard-progress .step-dot {
+    flex:1; min-width:70px; text-align:center; padding:8px 6px; border-radius: var(--radius-sm);
+    background: var(--panel2); border:1px solid var(--border-soft); font-size:11px; font-weight:600;
+    color: var(--muted-dim); transition: all .18s var(--ease); cursor:default;
+  }
+  .wizard-progress .step-dot .n {
+    display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px;
+    border-radius:50%; background: rgba(255,255,255,.08); font-size:10.5px; margin-right:5px;
+  }
+  .wizard-progress .step-dot.done { color: var(--green); border-color: rgba(62,207,110,.3); }
+  .wizard-progress .step-dot.done .n { background: rgba(62,207,110,.18); }
+  .wizard-progress .step-dot.active { color:#fff; background: linear-gradient(135deg, var(--blue2), var(--purple2)); border-color:transparent; }
+  .wizard-progress .step-dot.active .n { background: rgba(255,255,255,.22); }
+  .wizard-step { display:none; }
+  .wizard-step.active { display:block; }
+  .wizard-nav { display:flex; justify-content:space-between; align-items:center; margin-top:20px; gap:10px; }
+  .wizard-optional-tag {
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted-dim);
+    background: rgba(255,255,255,.06); padding:2px 8px; border-radius:999px; margin-left:8px;
+  }
+  .wizard-review-row { display:flex; justify-content:space-between; gap:14px; padding:8px 0; border-bottom:1px solid var(--border-soft); font-size:13px; }
+  .wizard-review-row:last-child { border-bottom:none; }
+  .wizard-review-row .k { color:var(--muted); }
+  .wizard-review-row .v { color:var(--text); font-weight:500; text-align:right; word-break:break-word; }
+  .wizard-draft-hint { font-size:11.5px; color:var(--muted-dim); margin-top:10px; }
+  .wizard-draft-hint button { all:unset; cursor:pointer; color:var(--blue); font-weight:600; }
+</style>
+
 {% if bootstrap_mode %}
 <div class="card">
   <h2>Welcome — let's configure jellyfin-notifier</h2>
   <p class="muted" style="font-size:13px;">
     No valid <code>.env</code> was found (or it's missing required values), so the app can't fully start yet.
-    Fill in the fields below, or import an existing <code>.env</code> file, then save — the service restarts
-    itself automatically and picks up the new configuration, no SSH access needed.
+    A few short steps below, or import an existing <code>.env</code> file — the service restarts itself
+    automatically once saved and picks up the new configuration, no SSH access needed.
   </p>
 </div>
 {% else %}
@@ -34,7 +64,7 @@
   <h2>Import an existing .env file</h2>
   <p class="muted" style="font-size:12.5px;">
     Already have a filled-in <code>.env</code> (from another install, or a backup)? Upload it directly instead
-    of retyping everything below — it fully replaces the current file.
+    of going through the steps below — it fully replaces the current file.
   </p>
   <form method="post" action="{{ url_for('setup.setup_import') }}" enctype="multipart/form-data" style="margin-top:12px;">
     <div class="row" style="align-items:center;">
@@ -44,33 +74,219 @@
   </form>
 </div>
 
-<form method="post" action="{{ url_for('setup.setup_save') }}" class="card" data-track-dirty="true">
-  <h2>{{ 'Configuration' if bootstrap_mode else 'Fields' }}</h2>
-  {% for field in fields %}
-  <label>
-    {{ field.key }}{% if field.required %} <span style="color:var(--red);">*</span>{% endif %}
-  </label>
-  {% if field.secret %}
-  <input type="password" name="{{ field.key }}" id="field-{{ field.key }}" placeholder="{{ '••••••••  (saved, leave empty to keep it)' if field.has_saved_value else '(leave empty to keep unset)' }}" autocomplete="new-password" />
-  {% else %}
-  <input type="text" name="{{ field.key }}" id="field-{{ field.key }}" value="{{ field.value }}" />
-  {% endif %}
-  {% if field.key == 'JELLYFIN_URL' %}
-  <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
-    <button type="button" class="secondary" onclick="testJellyfinConnection()">Test connection</button>
-    <span id="jellyfin-test-result" style="font-size:12.5px;"></span>
+<form method="post" action="{{ url_for('setup.setup_save') }}" class="card" data-track-dirty="true" id="wizard-form" novalidate>
+  <h2 style="margin-bottom:6px;">{{ 'Configuration' if bootstrap_mode else 'Fields' }}</h2>
+
+  <div class="wizard-progress" id="wizard-progress">
+    {% for step in steps %}
+    <div class="step-dot" data-goto-step="{{ loop.index0 }}"><span class="n">{{ loop.index }}</span>{{ step.title }}{% if step.optional %}<span class="wizard-optional-tag">optional</span>{% endif %}</div>
+    {% endfor %}
   </div>
-  {% endif %}
-  {% if field.help %}
-  <small class="hint">{{ field.help }}</small>
-  {% endif %}
+
+  {% for step in steps %}
+  <div class="wizard-step" data-step="{{ loop.index0 }}" data-step-id="{{ step.id }}">
+    {% if step.id == 'review' %}
+      <p class="muted" style="font-size:12.5px; margin-bottom:14px;">
+        Quick check before saving — secret fields (passwords, API keys) are shown as
+        {{ '"will be set"' if bootstrap_mode else '"kept as-is" / "will be changed"' }}, never in clear text.
+      </p>
+      <div id="wizard-review-body"></div>
+    {% else %}
+      {% if step.optional %}
+      <p class="muted" style="font-size:12.5px; margin-bottom:14px;">
+        These all have sensible defaults — skip ahead unless you need to change something here.
+      </p>
+      {% endif %}
+      {% for field in step.fields %}
+      <label>
+        {{ field.key }}{% if field.required %} <span style="color:var(--red);">*</span>{% endif %}
+      </label>
+      {% if field.secret %}
+      <input type="password" name="{{ field.key }}" id="field-{{ field.key }}" data-secret="1" data-required="{{ '1' if field.required else '' }}" data-has-saved="{{ '1' if field.has_saved_value else '' }}" placeholder="{{ '••••••••  (saved, leave empty to keep it)' if field.has_saved_value else '(leave empty to keep unset)' }}" autocomplete="new-password" />
+      {% elif field.is_tag_list %}
+      <div id="taglist-{{ field.key }}" class="tag-input" data-placeholder="{{ field.placeholder_hint }}"></div>
+      <input type="hidden" name="{{ field.key }}" id="field-{{ field.key }}" value="{{ field.value }}" data-required="{{ '1' if field.required else '' }}" />
+      {% else %}
+      <input type="text" name="{{ field.key }}" id="field-{{ field.key }}" value="{{ field.value }}" placeholder="{{ field.placeholder_hint }}" data-required="{{ '1' if field.required else '' }}" />
+      {% endif %}
+      {% if field.key == 'JELLYFIN_URL' %}
+      <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+        <button type="button" class="secondary" onclick="testJellyfinConnection()">Test connection</button>
+        <span id="jellyfin-test-result" style="font-size:12.5px;"></span>
+      </div>
+      {% endif %}
+      {% if field.help %}
+      <small class="hint">{{ field.help }}</small>
+      {% endif %}
+      {% endfor %}
+    {% endif %}
+
+    <div class="wizard-nav">
+      <button type="button" class="secondary" data-wizard-prev {% if loop.first %}style="visibility:hidden;"{% endif %}>← Previous</button>
+      {% if step.id == 'review' %}
+      <button type="submit">Save changes</button>
+      {% else %}
+      <button type="button" data-wizard-next>Next →</button>
+      {% endif %}
+    </div>
+  </div>
   {% endfor %}
-  <div class="actions">
-    <button type="submit">Save &amp; restart</button>
-  </div>
+
+  <p class="wizard-draft-hint" id="wizard-draft-hint" style="display:none;">
+    Your answers so far are saved in this browser as you go, so refreshing or coming back later won't lose them.
+    <button type="button" id="wizard-draft-clear">Clear saved answers</button>
+  </p>
 </form>
 
 <script>
+(function () {
+  const form = document.getElementById('wizard-form');
+  const steps = Array.from(form.querySelectorAll('.wizard-step'));
+  const dots = Array.from(document.querySelectorAll('#wizard-progress .step-dot'));
+  let current = 0;
+
+  function requiredFieldsFor(stepEl) {
+    return Array.from(stepEl.querySelectorAll('[data-required="1"]')).filter((el) => {
+      // A required secret field only blocks moving on during first-run setup
+      // (bootstrap_mode) with nothing saved yet - once a value exists, blank
+      // legitimately means "keep the current one", same rule the server uses.
+      if (el.dataset.secret === '1' && el.dataset.hasSaved === '1') return false;
+      return true;
+    });
+  }
+
+  function validateStep(stepEl) {
+    const missing = requiredFieldsFor(stepEl).filter((el) => !el.value.trim());
+    missing.forEach((el) => { el.style.borderColor = 'var(--red)'; });
+    if (missing.length && missing[0].focus) missing[0].focus();
+    return !missing.length;
+  }
+
+  function showStep(index) {
+    steps.forEach((el, i) => el.classList.toggle('active', i === index));
+    dots.forEach((el, i) => {
+      el.classList.toggle('active', i === index);
+      el.classList.toggle('done', i < index);
+    });
+    current = index;
+    if (steps[index].dataset.stepId === 'review') renderReview();
+    window.scrollTo({ top: form.offsetTop - 20, behavior: 'smooth' });
+  }
+
+  document.querySelectorAll('[data-wizard-next]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!validateStep(steps[current])) return;
+      if (current < steps.length - 1) showStep(current + 1);
+    });
+  });
+  document.querySelectorAll('[data-wizard-prev]').forEach((btn) => {
+    btn.addEventListener('click', () => { if (current > 0) showStep(current - 1); });
+  });
+  dots.forEach((dot, i) => {
+    // Jumping ahead via the progress dots still has to pass every step in
+    // between (same rule as clicking Next repeatedly) - jumping BACK is
+    // always allowed, nothing to lose by revisiting an earlier step.
+    dot.addEventListener('click', () => {
+      if (i <= current) { showStep(i); return; }
+      for (let s = current; s < i; s++) { if (!validateStep(steps[s])) { showStep(s); return; } }
+      showStep(i);
+    });
+  });
+
+  function renderReview() {
+    const body = document.getElementById('wizard-review-body');
+    body.innerHTML = '';
+    steps.forEach((stepEl) => {
+      if (stepEl.dataset.stepId === 'review') return;
+      stepEl.querySelectorAll('label').forEach((label) => {
+        const key = label.textContent.trim().replace(/\s*\*$/, '');
+        const input = stepEl.querySelector('#field-' + CSS.escape(key));
+        if (!input) return;
+        let display;
+        if (input.dataset.secret === '1') {
+          display = input.value ? 'will be changed' : (input.dataset.hasSaved === '1' ? 'kept as-is' : 'will be set');
+        } else {
+          display = input.value ? input.value : '(default)';
+        }
+        const row = document.createElement('div');
+        row.className = 'wizard-review-row';
+        const k = document.createElement('span'); k.className = 'k'; k.textContent = key;
+        const v = document.createElement('span'); v.className = 'v'; v.textContent = display;
+        row.appendChild(k); row.appendChild(v);
+        body.appendChild(row);
+      });
+    });
+  }
+
+  showStep(0);
+
+  // --- Auto-save draft to this browser (non-secret fields only - a secret
+  // never round-trips back into the form anyway, and it has no business
+  // sitting in localStorage). Restores on load into whatever is still
+  // blank, without overwriting a value the server just rendered back
+  // (e.g. after a validation error) or one the admin already typed.
+  const DRAFT_KEY = 'jfnotifier_setup_draft_v1';
+  function draftableInputs() {
+    return Array.from(form.querySelectorAll('input[id^="field-"]')).filter((el) => el.dataset.secret !== '1');
+  }
+  function loadDraft() {
+    try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function saveDraft() {
+    try {
+      const data = {};
+      draftableInputs().forEach((el) => { if (el.value) data[el.name] = el.value; });
+      if (Object.keys(data).length) {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+        document.getElementById('wizard-draft-hint').style.display = 'block';
+      } else {
+        localStorage.removeItem(DRAFT_KEY);
+      }
+    } catch (e) { /* private browsing / storage disabled - draft just won't persist */ }
+  }
+  (function restoreDraft() {
+    const draft = loadDraft();
+    if (!Object.keys(draft).length) return;
+    draftableInputs().forEach((el) => {
+      if (!el.value && draft[el.name] !== undefined) {
+        el.value = draft[el.name];
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    document.getElementById('wizard-draft-hint').style.display = 'block';
+  })();
+  form.addEventListener('input', saveDraft);
+  form.addEventListener('change', saveDraft);
+  document.getElementById('wizard-draft-clear').addEventListener('click', () => {
+    try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+    // A reload (rather than clearing each input in place) is the simplest
+    // reliable way to also reset the tag-input widget's own internal
+    // state, which doesn't track direct DOM/value changes made from
+    // outside it - same reasoning as the "Reset" button in base.html.
+    window.location.reload();
+  });
+  // A real submit means setup succeeded and is about to restart the
+  // service - the draft has done its job, clear it so a later fresh
+  // setup (e.g. after a full reinstall) doesn't get pre-filled with a
+  // previous, possibly unrelated install's values.
+  form.addEventListener('submit', () => { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} });
+
+  // --- Recipients as tags, not a raw comma-separated text box.
+  document.querySelectorAll('[id^="taglist-"]').forEach((root) => {
+    const key = root.id.replace('taglist-', '');
+    const hidden = document.getElementById('field-' + key);
+    if (!hidden || typeof createTagInput !== 'function') return;
+    createTagInput({
+      root,
+      hiddenInput: hidden,
+      suggestions: [],
+      placeholder: root.dataset.placeholder || 'name@example.com',
+      validate: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+      invalidMessage: 'Enter a valid email address',
+    });
+  });
+})();
+
 function testJellyfinConnection() {
   const urlField = document.getElementById('field-JELLYFIN_URL');
   const keyField = document.getElementById('field-JELLYFIN_API_KEY');
