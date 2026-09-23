@@ -16,7 +16,7 @@
   <input type="hidden" name="action" value="toggle" />
   <div class="toggle-copy">
     <h2>Mail sending</h2>
-    <p class="muted" style="font-size:12.5px;">
+    <p class="muted u-fz-12p5px">
       {% if mail_active %}Enabled — the poller, the webhook and manual announcements can send mail.{% elif is_validated %}Disabled — the saved configuration was validated by a test mail, flip the switch to start sending.{% else %}Disabled — send a successful test mail below with the settings you want to keep before this can be enabled.{% endif %}
     </p>
   </div>
@@ -30,19 +30,19 @@
 <div class="card">
   <h2>Currently effective</h2>
   {% if mail_active %}
-  <p class="muted" style="font-size:12px;">
+  <p class="muted u-fz-12px">
     Any field left empty below falls back to the value from the service configuration (.env). Works with any standard SMTP provider — Outlook, OVH, a self-hosted server, etc.
   </p>
   <div class="grid">
-    <div class="stat"><div class="label">Host</div><div class="value" style="font-size:14px;">{{ smtp.host }}</div></div>
+    <div class="stat"><div class="label">Host</div><div class="value u-fz-14px">{{ smtp.host }}</div></div>
     <div class="stat"><div class="label">Port</div><div class="value">{{ smtp.port }}</div></div>
-    <div class="stat"><div class="label">Encryption</div><div class="value" style="font-size:14px;">{{ smtp.encryption|upper }}</div></div>
-    <div class="stat"><div class="label">Username</div><div class="value" style="font-size:13px;">{{ smtp.username }}</div></div>
-    <div class="stat"><div class="label">Sender</div><div class="value" style="font-size:13px;">{{ smtp.sender_name }} &lt;{{ smtp.sender_email }}&gt;</div></div>
-    <div class="stat"><div class="label">Recipients</div><div class="value" style="font-size:13px;">{{ smtp.recipients|join(', ') }}</div></div>
+    <div class="stat"><div class="label">Encryption</div><div class="value u-fz-14px">{{ smtp.encryption|upper }}</div></div>
+    <div class="stat"><div class="label">Username</div><div class="value u-fz-13px">{{ smtp.username }}</div></div>
+    <div class="stat"><div class="label">Sender</div><div class="value u-fz-13px">{{ smtp.sender_name }} &lt;{{ smtp.sender_email }}&gt;</div></div>
+    <div class="stat"><div class="label">Recipients</div><div class="value u-fz-13px">{{ smtp.recipients|join(', ') }}</div></div>
   </div>
   {% else %}
-  <p class="muted" style="font-size:13px;">
+  <p class="muted u-fz-13px">
     <span class="pill bad">Not configured</span> Mail sending is disabled, so no server is actually in use yet. Fill in the fields below (or leave them empty to use the service's defaults), send a test mail to validate them, then enable sending above.
   </p>
   {% endif %}
@@ -56,11 +56,11 @@
       <label>Host</label>
       <input type="text" name="smtp_host_override" value="{{ settings.smtp_host_override }}" placeholder="{{ default_host }} (default)" />
     </div>
-    <div style="max-width:140px;">
+    <div class="u-maxw-140px">
       <label>Port</label>
       <input type="number" name="smtp_port_override" min="0" value="{{ settings.smtp_port_override or '' }}" placeholder="{{ default_port }} (default)" />
     </div>
-    <div style="max-width:180px;">
+    <div class="u-maxw-180px">
       <label>Encryption</label>
       <select name="smtp_encryption_override">
         <option value="" {{ 'selected' if not settings.smtp_encryption_override else '' }}>Default ({{ default_encryption|upper }})</option>
@@ -78,8 +78,8 @@
   <label>Password</label>
   <input type="password" name="smtp_password_override" placeholder="{{ '••••••••  (override saved, leave empty to keep it)' if has_password_override else '(default from .env, leave empty to keep it)' }}" autocomplete="new-password" />
   {% if has_password_override %}
-  <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-weight:400;">
-    <input type="checkbox" name="clear_password_override" value="1" style="width:auto;" />
+  <label class="u-d-flex-ai-center-gap-8px-mt-10px-fw-400">
+    <input class="u-w-auto" type="checkbox" name="clear_password_override" value="1" />
     Clear the saved password override (fall back to the .env value)
   </label>
   {% endif %}
@@ -105,7 +105,7 @@
   <input type="hidden" name="action" value="test" />
   <input type="hidden" name="test_recipient" id="test_recipient_hidden" />
   <h2>Send a test mail</h2>
-  <p class="muted" style="font-size:12px;">Sends a minimal plain-text mail using the currently saved settings, to verify the connection works. Save your changes above first if you just edited them.</p>
+  <p class="muted u-fz-12px">Sends a minimal plain-text mail using the currently saved settings, to verify the connection works. Save your changes above first if you just edited them.</p>
   <label>Recipient</label>
   {% if smtp.recipients %}
   <select id="test_recipient_select" onchange="document.getElementById('test_recipient_custom').style.display = (this.value === '__custom__') ? 'block' : 'none';">
@@ -114,7 +114,7 @@
     {% endfor %}
     <option value="__custom__">Other address…</option>
   </select>
-  <input type="text" id="test_recipient_custom" placeholder="someone@example.com" style="display:none; margin-top:8px;" />
+  <input class="u-d-none-mt-8px" type="text" id="test_recipient_custom" placeholder="someone@example.com" />
   {% else %}
   <input type="text" id="test_recipient_custom" placeholder="someone@example.com" />
   <small class="hint">No recipient is configured yet — add one above, or type an address to test with just once.</small>

@@ -1,0 +1,30 @@
+.wizard-progress { display:flex; gap:6px; margin-bottom:18px; flex-wrap:wrap; }
+.wizard-progress .step-dot {
+  flex:1; min-width:70px; text-align:center; padding:8px 6px; border-radius: var(--radius-sm);
+  background: var(--panel2); border:1px solid var(--border-soft); font-size:11px; font-weight:600;
+  color: var(--muted-dim); transition: all .18s var(--ease); cursor:default;
+}
+.wizard-progress .step-dot .n {
+  display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px;
+  border-radius:50%; background: rgba(255,255,255,.08); font-size:10.5px; margin-right:5px;
+}
+.wizard-progress .step-dot.done { color: var(--green); border-color: rgba(62,207,110,.3); }
+.wizard-progress .step-dot.done .n { background: rgba(62,207,110,.18); }
+.wizard-progress .step-dot.active { color:#fff; background: linear-gradient(135deg, var(--blue2), var(--purple2)); border-color:transparent; }
+.wizard-progress .step-dot.active .n { background: rgba(255,255,255,.22); }
+.wizard-step { display:none; }
+.wizard-step.active { display:block; }
+.wizard-nav { display:flex; justify-content:space-between; align-items:center; margin-top:20px; gap:10px; }
+.wizard-optional-tag {
+  font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted-dim);
+  background: rgba(255,255,255,.06); padding:2px 8px; border-radius:999px; margin-left:8px;
+}
+.wizard-review-row { display:flex; justify-content:space-between; gap:14px; padding:8px 0; border-bottom:1px solid var(--border-soft); font-size:13px; }
+.wizard-review-row:last-child { border-bottom:none; }
+.wizard-review-row .k { color:var(--muted); }
+.wizard-review-row .v { color:var(--text); font-weight:500; text-align:right; word-break:break-word; }
+.wizard-draft-hint { font-size:11.5px; color:var(--muted-dim); margin-top:10px; }
+.wizard-draft-hint button { all:unset; cursor:pointer; color:var(--blue); font-weight:600; }
+.setup-landing-import {
+  margin-top:18px; padding-top:18px; border-top:1px solid var(--border-soft);
+}

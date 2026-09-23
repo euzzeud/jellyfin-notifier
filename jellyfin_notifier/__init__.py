@@ -22,6 +22,12 @@ from .webhook import webhook_bp
 _SETUP_EXEMPT_ENDPOINTS = {
     "setup.setup_view", "setup.setup_save", "setup.setup_import", "setup.setup_test_jellyfin",
     "admin.assets", "webhook.health",
+    # Flask's built-in static file server (css/*.css, favicon) - without
+    # this, every stylesheet request during setup mode (exactly when the
+    # setup wizard itself, the one page guaranteed reachable, needs its
+    # CSS) gets redirected back to /setup instead of returning the file,
+    # leaving the wizard completely unstyled on a fresh install.
+    "static",
 }
 
 # Logger dedicated to the admin interface's HTTP requests (Logs page ->

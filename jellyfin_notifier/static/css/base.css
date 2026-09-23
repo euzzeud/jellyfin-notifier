@@ -1,0 +1,466 @@
+/* Native browser transition between two pages (tab switch, back
+   navigation, etc): a cross-fade instead of the "jump" of a classic
+   navigation. Works in recent Chrome/Edge; ignored without error
+   elsewhere (Firefox/Safari simply fall back to the usual behavior,
+   nothing to handle on the JS side). */
+@view-transition { navigation: auto; }
+::view-transition-old(root), ::view-transition-new(root) {
+  animation-duration: .22s;
+  animation-timing-function: cubic-bezier(.16,.84,.44,1);
+}
+
+:root {
+  --bg:#0b0b0d; --bg-glow: radial-gradient(1100px 520px at 12% -10%, rgba(0,164,220,.14), transparent 60%),
+                            radial-gradient(900px 480px at 100% 0%, rgba(170,92,195,.12), transparent 55%);
+  --panel: rgba(255,255,255,.045); --panel-solid:#17171a; --panel2: rgba(255,255,255,.03);
+  --border: rgba(255,255,255,.14); --border-soft: rgba(255,255,255,.1);
+  --purple:#c589e0; --purple2:#a166c4; --blue:#2ec2ff; --blue2:#0ba8dd;
+  --text:#ffffff; --muted:#b4b4bd; --muted-dim:#8c8c96;
+  --green:#3ecf6e; --red:#f0555c;
+  --radius-lg:16px; --radius-md:11px; --radius-sm:8px;
+  --shadow-card: 0 1px 0 rgba(255,255,255,.03) inset, 0 10px 30px -14px rgba(0,0,0,.55);
+  --shadow-pop: 0 14px 34px -12px rgba(0,0,0,.6);
+  --ease: cubic-bezier(.16,.84,.44,1);
+}
+* { box-sizing: border-box; }
+::selection { background: rgba(18,179,240,.35); color:#fff; }
+html { scroll-behavior: smooth; }
+body {
+  margin:0; min-height:100vh; background: var(--bg-glow), var(--bg); color:var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+/* No "pagein" animation on body: it would duplicate the cross-fade from
+   @view-transition above (cards keep their own small entrance via
+   .card/cardin further down). */
+
+/* header + nav are grouped inside .topbar, the only "sticky" element
+   (top:0) - previously each was sticky separately with a hardcoded top
+   for nav (top:56px) that didn't exactly match the header's real height
+   (which varies with logo/text size): that caused a small visible
+   overlap/jump while scrolling. A single sticky wrapper eliminates that
+   manual calculation and makes it impossible to desync. */
+.topbar { position: sticky; top:0; z-index:20; }
+header {
+  background: rgba(12,12,14,.72); backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-bottom:1px solid var(--border-soft); padding:16px 28px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+header .brand { font-weight:700; font-size:19px; letter-spacing:.3px; display:flex; align-items:center; gap:12px; }
+/* The "Notifier" text should be at the same scale as the Jellyfin logo
+   next to it (like on the login page) - an old rule left over from a
+   previous header (logo + small "Admin" subtitle) was still shrinking
+   it down to 12.5px regardless, making it tiny and grayed out. */
+header .brand span { color:var(--text); font-weight:700; font-size:22px; letter-spacing:.2px; }
+header .right { display:flex; align-items:center; gap:16px; }
+.logout-form button {
+  background:none; box-shadow:none; border:1px solid rgba(229,72,77,.45); color:#e5484d;
+  padding:6px 14px; font-size:12px; font-weight:600;
+}
+.logout-form button:hover { color:#fff; background:#e5484d; border-color:#e5484d; transform:none; filter:none; }
+
+nav {
+  display:flex; gap:2px; padding:8px 24px; background: rgba(255,255,255,.02);
+  border-bottom:1px solid var(--border-soft); flex-wrap:wrap;
+  backdrop-filter: blur(10px);
+}
+nav a {
+  color:var(--muted); text-decoration:none; font-size:13px; font-weight:500; padding:8px 14px;
+  border-radius:999px; transition: color .18s var(--ease), background-color .18s var(--ease), transform .18s var(--ease);
+  position: relative;
+}
+nav a:hover { background: rgba(255,255,255,.06); color:var(--text); }
+nav a:active { transform: scale(.97); }
+nav a.active {
+  background: linear-gradient(135deg, var(--blue2), var(--purple2)); color:#fff;
+  box-shadow: 0 4px 14px -4px rgba(18,179,240,.5);
+}
+
+/* Full window width rather than a narrow centered column (which left a
+   huge dead margin on both sides on a wide screen) - max-width only acts
+   as a safety net on an ultra-wide monitor, not a real constraint on a
+   normal screen/laptop. Horizontal padding via clamp(): tight on
+   mobile, comfortable beyond that. */
+main { width:100%; max-width:1800px; margin:0 auto; padding:28px clamp(16px, 4vw, 48px) 60px; box-sizing:border-box; }
+main.wide { max-width:2000px; }
+@media (max-width: 640px) {
+  header { padding:12px 16px; flex-wrap:wrap; row-gap:10px; }
+  header .right { gap:10px; }
+  nav { padding:6px 14px; gap:0; }
+  nav a { padding:7px 11px; font-size:12.5px; }
+  main { padding:18px 14px 44px; }
+  .card { padding:16px 18px; }
+  .row > * { min-width:120px; }
+}
+.split { display:grid; grid-template-columns: minmax(340px, 1fr) minmax(340px, 1fr); gap:20px; align-items:start; }
+.split .preview-col { position: sticky; top:112px; }
+@media (max-width: 980px) { .split { grid-template-columns: 1fr; } .split .preview-col { position:static; } }
+.preview-frame-wrap { border:1px solid var(--border); border-radius: var(--radius-md); overflow:hidden; background:#0b0b0c; box-shadow: var(--shadow-card); }
+.preview-frame-wrap iframe { width:100%; height:640px; border:0; display:block; background:#101010; }
+.color-row { display:flex; gap:14px; flex-wrap:wrap; margin-top:14px; }
+.color-field { display:flex; align-items:center; gap:8px; background:var(--panel2); border:1px solid var(--border-soft); border-radius:999px; padding:6px 12px 6px 6px; }
+.color-field input[type=color] { width:28px; height:28px; padding:0; border:none; border-radius:50%; overflow:hidden; cursor:pointer; background:none; }
+.color-field span { font-size:12px; color:var(--muted); font-weight:500; }
+
+.card {
+  background: var(--panel); border:1px solid var(--border); border-radius: var(--radius-lg);
+  padding:22px 24px; margin-bottom:18px; box-shadow: var(--shadow-card);
+  backdrop-filter: blur(6px); transition: border-color .2s var(--ease), transform .2s var(--ease);
+  animation: cardin .4s var(--ease) backwards;
+}
+.card:hover { border-color: rgba(255,255,255,.15); }
+@keyframes cardin { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
+.card h2 {
+  margin-top:0; margin-bottom:16px; font-size:12.5px; color:var(--muted); text-transform:uppercase;
+  letter-spacing:1px; font-weight:700; display:flex; align-items:center; gap:8px;
+}
+
+.card.danger-zone { border-color: rgba(240,85,92,.3); background: rgba(240,85,92,.04); }
+.card.danger-zone:hover { border-color: rgba(240,85,92,.45); }
+.card.danger-zone h2 { color: var(--red); }
+
+/* "Switch" card (enable/disable a notification module) */
+.card.toggle-card { display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap; }
+.card.toggle-card .toggle-copy h2 { margin-bottom:4px; }
+.card.toggle-card .toggle-copy p { margin:0; }
+.card.toggle-card.disabled { border-color: rgba(240,85,92,.22); }
+.switch { position:relative; display:inline-flex; align-items:center; cursor:pointer; flex-shrink:0; }
+.switch input { position:absolute; opacity:0; width:0; height:0; }
+.switch-track {
+  width:46px; height:26px; background: rgba(255,255,255,.14); border:1px solid var(--border);
+  border-radius:999px; display:block; position:relative; transition: background-color .18s var(--ease), border-color .18s var(--ease);
+}
+.switch-thumb {
+  position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%;
+  background:#fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); transition: transform .18s var(--ease);
+}
+.switch input:checked + .switch-track { background: linear-gradient(135deg, var(--blue), var(--blue2)); border-color: transparent; }
+.switch input:checked + .switch-track .switch-thumb { transform: translateX(20px); }
+.switch input:focus-visible + .switch-track { box-shadow: 0 0 0 3px rgba(46,194,255,.3); }
+.switch-label { font-size:12.5px; font-weight:700; margin-left:10px; color:var(--muted); min-width:64px; }
+.switch input:checked ~ .switch-label { color: var(--green); }
+
+.grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap:12px; }
+.stat {
+  background: var(--panel2); border:1px solid var(--border-soft); border-radius: var(--radius-md);
+  padding:14px 16px; transition: background-color .2s var(--ease), transform .2s var(--ease);
+  /* min-width:0 lets the grid track shrink below its content's width -
+     without it, a long token with no space (email, URL, API key) forces
+     the cell (and so the whole grid row) to widen instead of wrapping,
+     and overflows the card. */
+  min-width:0;
+}
+.stat:hover { background: rgba(255,255,255,.05); transform: translateY(-1px); }
+.stat .label { color:var(--muted-dim); font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; font-weight:600; }
+.stat .value {
+  font-size:19px; font-weight:700; margin-top:6px; letter-spacing:-.2px;
+  /* Allows breaking anywhere inside a too-long token (mail address,
+     URL, API key...) rather than overflowing the cell. */
+  overflow-wrap:anywhere; word-break:break-word;
+}
+
+.pill {
+  display:inline-flex; align-items:center; gap:5px; padding:4px 11px; border-radius:999px;
+  font-size:10.5px; font-weight:700; letter-spacing:.3px; text-transform:uppercase;
+}
+.pill::before { content:""; width:6px; height:6px; border-radius:50%; background: currentColor; }
+.pill.ok { background:rgba(62,207,110,.13); color:var(--green); box-shadow: inset 0 0 0 1px rgba(62,207,110,.2); }
+.pill.bad { background:rgba(240,85,92,.13); color:var(--red); box-shadow: inset 0 0 0 1px rgba(240,85,92,.2); }
+
+label { display:block; font-size:12.5px; color:var(--muted); margin: 16px 0 7px; font-weight:600; }
+input[type=text], input[type=password], input[type=number], input[type=time], select, textarea {
+  width:100%; background: rgba(0,0,0,.32); border:1px solid var(--border); color:var(--text);
+  padding:10px 12px; border-radius: var(--radius-sm); font-size:13.5px; font-family: inherit;
+  transition: border-color .18s var(--ease), box-shadow .18s var(--ease), background-color .18s var(--ease);
+}
+input::placeholder, textarea::placeholder { color: var(--muted-dim); opacity: 1; }
+input:hover, select:hover, textarea:hover { border-color: rgba(255,255,255,.3); }
+input:focus, select:focus, textarea:focus {
+  outline:none; border-color: var(--blue); background: rgba(46,194,255,.08);
+  box-shadow: 0 0 0 3px rgba(46,194,255,.22);
+}
+textarea { font-family: "SF Mono", Consolas, "Cascadia Code", monospace; font-size:12.5px; line-height:1.55; }
+
+.row { display:flex; gap:10px; flex-wrap:wrap; }
+.row > * { flex:1; min-width:140px; }
+/* A button inside a .row (e.g. the "Copy" button next to a read-only URL
+   field) should size to its label, not stretch to share the row equally
+   with the input next to it - only the input(s) should flex to fill. */
+.row > button, .row > .btn { flex:0 0 auto; min-width:0; }
+.checkboxes { display:flex; gap:8px; flex-wrap:wrap; }
+.checkboxes label {
+  display:flex; align-items:center; gap:7px; background: var(--panel2); border:1px solid var(--border-soft);
+  padding:8px 13px; border-radius:999px; margin:0; color:var(--text); font-size:12.5px; font-weight:500;
+  cursor:pointer; transition: background-color .18s var(--ease), border-color .18s var(--ease);
+}
+.checkboxes label:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.2); }
+.checkboxes input { width:auto; accent-color: var(--blue); }
+
+.tag-input {
+  position: relative; display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+  background: rgba(0,0,0,.22); border:1px solid var(--border); border-radius: var(--radius-sm);
+  padding:7px 9px; min-height:42px; cursor:text;
+  transition: border-color .18s var(--ease), box-shadow .18s var(--ease), background-color .18s var(--ease);
+}
+.tag-input:hover { border-color: rgba(255,255,255,.22); }
+.tag-input:focus-within { border-color: var(--blue); background: rgba(18,179,240,.06); box-shadow: 0 0 0 3px rgba(18,179,240,.16); }
+.tag-input-chips { display:flex; flex-wrap:wrap; gap:6px; }
+.tag-chip {
+  display:inline-flex; align-items:center; gap:6px; background: linear-gradient(135deg, var(--blue2), var(--purple2));
+  color:#fff; padding:4px 4px 4px 11px; border-radius:999px; font-size:12.5px; font-weight:600; white-space:nowrap;
+}
+.tag-chip button {
+  all:unset; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  width:16px; height:16px; border-radius:50%; background: rgba(255,255,255,.22); font-size:10px; line-height:1;
+  transition: background-color .15s var(--ease);
+}
+.tag-chip button:hover { background: rgba(255,255,255,.4); }
+.tag-input-text {
+  flex:1; min-width:140px; background:none !important; border:none !important; padding:4px 2px !important;
+  box-shadow:none !important; color:var(--text); font-size:13.5px;
+}
+.tag-input-text:focus { outline:none; box-shadow:none !important; background:none !important; }
+.tag-input-suggestions {
+  position:absolute; top:calc(100% + 6px); left:0; right:0; background: var(--panel-solid); border:1px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-pop); max-height:220px; overflow:auto; z-index:30;
+  display:none; animation: alertin .15s var(--ease);
+}
+.tag-input-suggestions.open { display:block; }
+.tag-input-suggestion { padding:9px 12px; font-size:13px; cursor:pointer; color:var(--text); }
+.tag-input-suggestion:hover, .tag-input-suggestion.active { background: rgba(255,255,255,.08); }
+.tag-input.tag-input-invalid { border-color: var(--red); box-shadow: 0 0 0 3px rgba(240,85,92,.16); animation: taginshake .3s var(--ease); }
+@keyframes taginshake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+.tag-input-error-msg { display:none; color:var(--red); font-size:11.5px; margin-top:2px; flex-basis:100%; }
+.tag-input-error-msg.show { display:block; }
+.tag-chip.invalid { background: linear-gradient(135deg, #f0656c, #cf3b42); }
+
+button, .btn {
+  background: linear-gradient(135deg, var(--blue), var(--blue2)); color:#fff; border:none;
+  padding:10px 20px; border-radius: 999px; font-size:13px; font-weight:600; cursor:pointer;
+  text-decoration:none; display:inline-flex; align-items:center; gap:6px;
+  box-shadow: 0 6px 16px -6px rgba(18,179,240,.55);
+  transition: transform .16s var(--ease), box-shadow .16s var(--ease), filter .16s var(--ease);
+}
+button.secondary, .btn.secondary {
+  background: rgba(255,255,255,.07); box-shadow:none; border:1px solid var(--border);
+}
+button.danger, .btn.danger { background: linear-gradient(135deg, #f0656c, #cf3b42); box-shadow: 0 6px 16px -6px rgba(240,85,92,.5); }
+button:hover, .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+button:active, .btn:active { transform: translateY(0) scale(.98); }
+button.secondary:hover, .btn.secondary:hover { background: rgba(255,255,255,.11); }
+
+.actions { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+
+.alert {
+  padding:11px 15px; border-radius: var(--radius-sm); font-size:13px; margin-bottom:16px;
+  animation: alertin .25s var(--ease); font-weight:500;
+  /* A long token with no space (e.g. a URL encoded in a Jellyfin/
+     requests error message) would otherwise overflow the box instead of
+     wrapping - same fix as .stat .value. */
+  overflow-wrap:anywhere; word-break:break-word;
+}
+@keyframes alertin { from { opacity:0; transform: translateY(-4px); } to { opacity:1; transform:none; } }
+.alert.ok { background:rgba(62,207,110,.1); color:var(--green); border:1px solid rgba(62,207,110,.28); }
+.alert.err { background:rgba(240,85,92,.1); color:var(--red); border:1px solid rgba(240,85,92,.28); }
+
+pre.logbox {
+  background: rgba(0,0,0,.3); border:1px solid var(--border-soft); border-radius: var(--radius-md);
+  padding:16px; font-size:12px; line-height:1.6; overflow:auto; max-height:480px;
+  white-space:pre-wrap; word-break:break-all; font-family: "SF Mono", Consolas, "Cascadia Code", monospace;
+}
+pre.logbox::-webkit-scrollbar, main::-webkit-scrollbar { width:9px; height:9px; }
+pre.logbox::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius:99px; }
+pre.logbox::-webkit-scrollbar-track { background: transparent; }
+
+/* Logs page: the box behaves like .logbox (same background/border) but
+   is a <div> (not a <pre>) so each line can be styled individually
+   (category badge + severity color). */
+.logbox.log-lines {
+  background: rgba(0,0,0,.3); border:1px solid var(--border-soft); border-radius: var(--radius-md);
+  padding:8px; font-size:12px; line-height:1.6; overflow:auto; max-height:600px;
+  font-family: "SF Mono", Consolas, "Cascadia Code", monospace;
+}
+.log-line {
+  display:flex; gap:10px; align-items:flex-start; padding:4px 8px; border-radius:6px;
+  white-space:pre-wrap; word-break:break-all; border-left:3px solid transparent;
+}
+.log-line:hover { background: rgba(255,255,255,.03); }
+.log-line .log-text { flex:1; color: var(--muted); }
+.log-line .log-badge {
+  flex-shrink:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+  font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;
+  padding:2px 7px; border-radius:999px; background: rgba(255,255,255,.08); color:var(--muted-dim);
+  margin-top:1px;
+}
+.log-line.lvl-error { border-left-color: var(--red); background: rgba(240,85,92,.06); }
+.log-line.lvl-error .log-text { color:#ff9b9e; }
+.log-line.lvl-warning { border-left-color:#e8a13d; background: rgba(232,161,61,.06); }
+.log-line.lvl-warning .log-text { color:#f0c07d; }
+.log-line.lvl-info .log-text { color:var(--text); }
+.log-line.lvl-debug .log-text { color:var(--muted-dim); }
+.log-empty { padding:20px; text-align:center; color:var(--muted-dim); font-size:12.5px; }
+
+.log-toolbar { display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+.log-filters { display:flex; gap:6px; flex-wrap:wrap; }
+.log-chip {
+  background: rgba(255,255,255,.04); border:1px solid var(--border-soft); color:var(--muted);
+  padding:6px 12px; border-radius:999px; font-size:12px; font-weight:600; cursor:pointer;
+  display:inline-flex; align-items:center; gap:6px; transition: all .15s var(--ease);
+}
+.log-chip:hover { color:var(--text); border-color: var(--border); }
+.log-chip.active { background: linear-gradient(135deg, var(--blue2), var(--purple2)); color:#fff; border-color:transparent; }
+.log-chip-count { background: rgba(255,255,255,.12); border-radius:999px; padding:1px 6px; font-size:10.5px; }
+.log-chip.active .log-chip-count { background: rgba(255,255,255,.25); }
+.log-chip.level-chip.lvl-error.active { background: var(--red); }
+.log-chip.level-chip.lvl-warning.active { background:#e8a13d; }
+.log-chip.level-chip.lvl-info.active { background: var(--blue2); }
+
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--border-soft); }
+th { color:var(--muted-dim); font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; font-weight:700; }
+tbody tr { transition: background-color .15s var(--ease); }
+tbody tr:hover { background: rgba(255,255,255,.03); }
+
+.muted { color:var(--muted); }
+small.hint { color:var(--muted-dim); display:block; margin-top:6px; font-size:11.5px; }
+
+/* Visual "stackable blocks" editor (drag-and-drop) - a reorderable
+   block list (native Drag and Drop API, no external library), with a
+   mini settings form per block. */
+.block-list { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+.block-item {
+  background: var(--panel2); border:1px solid var(--border-soft); border-radius: var(--radius-md);
+  padding:14px 16px; transition: border-color .18s var(--ease), opacity .18s var(--ease), transform .18s var(--ease);
+}
+.block-item.dragging { opacity:.4; }
+.block-item.drag-over { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(46,194,255,.25); }
+.block-item-head { display:flex; align-items:center; gap:10px; }
+.block-item-handle { cursor:grab; color:var(--muted-dim); font-size:15px; line-height:1; user-select:none; padding:2px 2px; }
+.block-item-handle:active { cursor:grabbing; }
+.block-item-title { flex:1; font-size:13px; font-weight:600; color:var(--text); }
+.block-item-remove {
+  all:unset; cursor:pointer; color:var(--muted-dim); font-size:12px; padding:4px 8px; border-radius:999px;
+  transition: background-color .15s var(--ease), color .15s var(--ease);
+}
+.block-item-remove:hover { background: rgba(240,85,92,.14); color:var(--red); }
+.block-item-fields { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:10px; margin-top:12px; }
+.block-item-fields label { margin:0 0 5px; font-size:11.5px; }
+.block-item-fields .full { grid-column: 1 / -1; }
+.block-item-fields .checkline { display:flex; align-items:center; gap:7px; margin-top:8px; }
+.block-item-fields .checkline input { width:auto; accent-color: var(--blue); }
+.block-item-fields .checkline label { margin:0; font-size:12.5px; color:var(--text); font-weight:500; cursor:pointer; }
+.block-add-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+.block-add-row button { font-size:12px; padding:8px 14px; }
+.block-empty { color:var(--muted-dim); font-size:12.5px; text-align:center; padding:18px 22px; border:1px dashed var(--border-soft); border-radius: var(--radius-md); }
+.block-empty-hint { margin-top:6px; font-size:11.5px; }
+
+/* "Unsaved changes" alert - a bar fixed at the bottom of the screen +
+   a slight page shake (MSN Messenger "wizz" style) if you try to
+   navigate away without saving. */
+@keyframes pageshake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-5px); }
+  40%, 60% { transform: translateX(5px); }
+}
+body.shake-warn { animation: pageshake .4s cubic-bezier(.36,.07,.19,.97); }
+.unsaved-bar {
+  position: fixed; left:0; right:0; bottom:0; z-index:998;
+  background: rgba(23,23,26,.96); backdrop-filter: blur(12px);
+  border-top:1px solid var(--border); padding:14px 26px;
+  display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap;
+  box-shadow: 0 -12px 30px -12px rgba(0,0,0,.55);
+  transform: translateY(100%); transition: transform .25s var(--ease);
+}
+.unsaved-bar.show { transform: translateY(0); }
+.unsaved-bar.pulse { animation: barpulse .4s var(--ease); }
+@keyframes barpulse { 0%, 100% { box-shadow: 0 -12px 30px -12px rgba(0,0,0,.55); } 50% { box-shadow: 0 -12px 30px -6px rgba(240,85,92,.45); } }
+.unsaved-bar .msg { font-size:14px; font-weight:600; }
+.unsaved-bar .unsaved-actions { display:flex; align-items:center; gap:20px; }
+.unsaved-bar .reset-link {
+  all:unset; cursor:pointer; color:var(--blue); font-weight:600; font-size:13px;
+  transition: color .15s var(--ease);
+}
+.unsaved-bar .reset-link:hover { color:#fff; }
+.unsaved-bar button.save { padding:9px 20px; }
+@media (max-width: 620px) { .unsaved-bar { padding:12px 16px; } .unsaved-bar .msg { font-size:13px; } }
+
+/* The "unsaved changes" bar is fixed at the bottom of the screen:
+   without this, it would sit ON TOP OF the bottom of the form (e.g. the
+   Recipients field on the Mail Server page) at the scroll position
+   where it appears, hiding it completely rather than simply resting
+   below it. */
+body.unsaved-bar-open main { padding-bottom:130px; transition: padding-bottom .2s var(--ease); }
+
+/* Custom confirmation box (replaces window.confirm(), which shows a
+   generic-looking browser box that isn't centered on the page - this
+   one is centered, themed like the admin, closable with Escape or a
+   click outside. */
+.modal-overlay {
+  position: fixed; inset:0; background: rgba(4,4,6,.62); backdrop-filter: blur(5px);
+  display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px;
+  opacity:0; pointer-events:none; transition: opacity .2s var(--ease);
+}
+.modal-overlay.show { opacity:1; pointer-events:auto; }
+.modal-box {
+  background: var(--panel-solid); border:1px solid var(--border); border-radius: var(--radius-lg);
+  padding:26px 28px; max-width:440px; width:100%; box-shadow: var(--shadow-pop);
+  transform: translateY(10px) scale(.97); transition: transform .22s var(--ease);
+}
+.modal-overlay.show .modal-box { transform:none; }
+.modal-box h3 { margin:0 0 10px; font-size:16.5px; font-weight:700; }
+.modal-box p { margin:0 0 22px; font-size:13.5px; line-height:1.55; color:var(--muted); }
+.modal-box .actions { display:flex; justify-content:flex-end; gap:10px; margin-top:0; }
+
+/* JSON validation popup (settings.json import): same theme as the
+   confirmation box, but wider and with the file content shown line by
+   line (numbers + highlighting) like a code editor, so the offending
+   line is spotted at a glance instead of a raw error message like
+   "Expecting value: line 4 column 1". */
+.json-modal-box { max-width:640px; }
+.json-error-nav { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+.json-error-nav span { font-size:12px; color:var(--muted); font-weight:600; white-space:nowrap; }
+.json-nav-btn {
+  background: rgba(240,85,92,.12); border:1px solid rgba(240,85,92,.35); color:var(--red);
+  border-radius: var(--radius-sm); width:30px; height:30px; min-width:30px; font-size:16px; line-height:1;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+}
+.json-nav-btn:hover { background: rgba(240,85,92,.22); }
+.json-modal-box .json-error-msg {
+  margin:0 0 16px; padding:10px 13px; border-radius: var(--radius-sm);
+  background: rgba(48,20,21,.55); border:1px solid rgba(240,85,92,.35);
+  color:#ffb3b6; font-size:12.5px; font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  line-height:1.5; white-space:pre-wrap; word-break:break-word;
+}
+.json-lines {
+  margin:0; max-height:min(50vh, 420px); overflow:auto; border-radius: var(--radius-sm);
+  border:1px solid var(--border-soft); background: rgba(0,0,0,.28);
+  font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size:12.5px; line-height:1.6;
+}
+.json-line { display:flex; padding:0 12px; white-space:pre; }
+.json-line .ln {
+  flex:0 0 auto; width:38px; text-align:right; margin-right:14px; color:var(--muted-dim);
+  -webkit-user-select:none; user-select:none;
+}
+.json-line .txt { color:#d7d7df; white-space:pre-wrap; word-break:break-word; }
+.json-line.err { background: rgba(240,85,92,.16); border-left:3px solid var(--red); margin-left:-3px; }
+.json-line.err .ln { color:var(--red); font-weight:700; }
+.json-line.err .txt { color:#ffd7d8; }
+.json-modal-box .actions { margin-top:20px; }
+
+.toast-container {
+  position: fixed; top:20px; right:20px; z-index:999; display:flex; flex-direction:column;
+  gap:10px; pointer-events:none; max-width: 340px;
+}
+.toast {
+  pointer-events:auto; padding:12px 16px; border-radius: var(--radius-md); font-size:13px; font-weight:500;
+  box-shadow: var(--shadow-pop); backdrop-filter: blur(8px);
+  animation: toastin .3s var(--ease);
+  transition: opacity .3s var(--ease), transform .3s var(--ease);
+}
+.toast.ok { background: rgba(23,45,32,.92); color:var(--green); border:1px solid rgba(62,207,110,.35); }
+.toast.err { background: rgba(48,20,21,.92); color:var(--red); border:1px solid rgba(240,85,92,.35); }
+.toast.out { opacity:0; transform: translateX(12px); }
+@keyframes toastin { from { opacity:0; transform: translateX(16px); } to { opacity:1; transform:none; } }
+.flash-toast { display:none; }

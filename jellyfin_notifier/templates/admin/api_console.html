@@ -7,7 +7,7 @@
 <form method="post" class="card" data-track-dirty="true">
   <input type="hidden" name="action" value="save_connection" />
   <h2>Jellyfin Connector</h2>
-  <p class="muted" style="font-size:12px;">
+  <p class="muted u-fz-12px">
     {% if using_override %}An override is active (also used by the poller and the mails).{% else %}Currently using the .env values ({{ effective_url }}).{% endif %}
   </p>
   <div class="row">
@@ -19,8 +19,8 @@
       <label>API key (leave empty to use the .env value)</label>
       <input type="password" name="jellyfin_api_key_override" id="jellyfin_api_key_override" placeholder="{{ '••••••••  (override saved, leave empty to keep it)' if has_api_key_override else '(default from .env, leave empty to keep it)' }}" autocomplete="new-password" />
       {% if has_api_key_override %}
-      <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-weight:400;">
-        <input type="checkbox" name="clear_api_key_override" value="1" style="width:auto;" />
+      <label class="u-d-flex-ai-center-gap-8px-mt-10px-fw-400">
+        <input class="u-w-auto" type="checkbox" name="clear_api_key_override" value="1" />
         Clear the saved API key override (fall back to the .env value)
       </label>
       {% endif %}
@@ -30,8 +30,8 @@
     <button type="submit">Save changes</button>
     <button type="button" class="secondary" id="test-connection-btn">⚡ Test connection</button>
   </div>
-  <div id="test-connection-result" style="display:none; margin-top:16px;">
-    <h2 style="margin-bottom:8px;">Test result — <span class="pill" id="test-connection-pill"></span></h2>
+  <div class="u-d-none-mt-16px" id="test-connection-result">
+    <h2 class="u-mb-8px">Test result — <span class="pill" id="test-connection-pill"></span></h2>
     <pre class="logbox" id="test-connection-body"></pre>
   </div>
 </form>
@@ -40,7 +40,7 @@
   <input type="hidden" name="action" value="run" />
   <h2>API console</h2>
   <div class="row">
-    <div style="max-width:120px;">
+    <div class="u-maxw-120px">
       <label>Method</label>
       <select name="method">
         {% for m in ["GET", "POST"] %}
@@ -48,7 +48,7 @@
         {% endfor %}
       </select>
     </div>
-    <div style="flex:3;">
+    <div class="u-flex-3">
       <label>Path (relative to {{ effective_url }})</label>
       <input type="text" name="path" value="{{ path }}" placeholder="/Items" />
     </div>
@@ -64,7 +64,7 @@
 {% if result %}
 <div class="card">
   <h2>Response — <span class="pill {{ 'ok' if result.ok else 'bad' }}">{{ result.status_code or 'network error' }}</span></h2>
-  <p class="muted" style="font-size:12px;word-break:break-all;">{{ result.url }}</p>
+  <p class="muted u-fz-12px-wb-break-all">{{ result.url }}</p>
   <pre class="logbox">{{ result.body | tojson(indent=2) }}</pre>
 </div>
 {% endif %}

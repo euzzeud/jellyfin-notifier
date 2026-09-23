@@ -4,12 +4,12 @@
 
 <div class="card">
   <h2>Mail history (last {{ history|length }} of up to {{ limit }})</h2>
-  <p class="muted" style="font-size:12px;">
+  <p class="muted u-fz-12px">
     Every mail the service actually tried to send — new content notifications, upcoming announcements, and connection test mails — success or failure, most recent first.
   </p>
 
   {% if not history %}
-  <p class="muted" style="font-size:13px;">No mail has been sent yet.</p>
+  <p class="muted u-fz-13px">No mail has been sent yet.</p>
   {% else %}
   <table>
     <tr>
@@ -22,15 +22,15 @@
     </tr>
     {% for entry in history %}
     <tr>
-      <td style="white-space:nowrap;font-size:12px;">{{ entry.timestamp.replace('T', ' ') }}</td>
+      <td class="u-ws-nowrap-fz-12px">{{ entry.timestamp.replace('T', ' ') }}</td>
       <td>
         {% if entry.scope == 'new' %}<span class="pill ok">New content</span>
         {% elif entry.scope == 'upcoming' %}<span class="pill ok">Upcoming</span>
         {% else %}<span class="pill">Test</span>{% endif %}
       </td>
-      <td style="font-size:12.5px;max-width:220px;">{{ entry.subject }}</td>
-      <td style="font-size:12.5px;max-width:220px;">{{ entry.item_names|join(', ') if entry.item_names else '—' }}</td>
-      <td style="font-size:12px;max-width:200px;word-break:break-all;">{{ entry.recipients|join(', ') }}</td>
+      <td class="u-fz-12p5px-maxw-220px">{{ entry.subject }}</td>
+      <td class="u-fz-12p5px-maxw-220px">{{ entry.item_names|join(', ') if entry.item_names else '—' }}</td>
+      <td class="u-fz-12px-maxw-200px-wb-break-all">{{ entry.recipients|join(', ') }}</td>
       <td>
         {% if entry.success %}
         <span class="pill ok">Sent</span>
@@ -42,7 +42,7 @@
     {% if not entry.success and entry.error %}
     <tr>
       <td></td>
-      <td colspan="5" style="color:var(--red);font-size:11.5px;padding-top:0;">{{ entry.error }}</td>
+      <td class="u-gen-ad36628f" colspan="5">{{ entry.error }}</td>
     </tr>
     {% endif %}
     {% endfor %}

@@ -11,8 +11,8 @@
     </div>
     {% if poll_status %}
     <div class="stat"><div class="label">Poller</div><div class="value"><span class="pill {{ 'ok' if poll_status.running else 'bad' }}">{{ 'running' if poll_status.running else 'stopped' }}</span></div></div>
-    <div class="stat"><div class="label">Last poll</div><div class="value" style="font-size:13px;">{{ poll_status.last_poll_at | friendly_dt }}</div></div>
-    <div class="stat"><div class="label">Last mail error</div><div class="value" style="font-size:12px;color:#e5484d;">{{ poll_status.last_email_error or "none" }}</div></div>
+    <div class="stat"><div class="label">Last poll</div><div class="value u-fz-13px">{{ poll_status.last_poll_at | friendly_dt }}</div></div>
+    <div class="stat"><div class="label">Last mail error</div><div class="value u-gen-81d4833e">{{ poll_status.last_email_error or "none" }}</div></div>
     {% else %}
     <div class="stat"><div class="label">Poller</div><div class="value"><span class="muted">disabled</span></div></div>
     {% endif %}
@@ -21,11 +21,11 @@
 
 <div class="card">
   <h2>External monitoring</h2>
-  <p class="muted" style="font-size:12.5px;">
+  <p class="muted u-fz-12p5px">
     This endpoint is unauthenticated on purpose, so an external monitoring tool (Uptime Kuma, Grafana, a simple cron+curl check, …) can poll it directly without credentials. It returns HTTP 200 while healthy and HTTP 503 as soon as the poller looks stuck or the last mail failed to send.
   </p>
-  <div class="row" style="align-items:center;">
-    <input type="text" readonly value="{{ health_url }}" id="health-url" style="flex:1;font-family:'SF Mono',Consolas,monospace;font-size:12.5px;" onclick="this.select();" />
+  <div class="row u-ai-center">
+    <input class="u-gen-96ee8156" type="text" readonly value="{{ health_url }}" id="health-url" onclick="this.select();" />
     <button type="button" class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('health-url').value).then(() => showToast('Copied.', true))">Copy</button>
   </div>
   <small class="hint">Point Uptime Kuma's monitor type "HTTP(s) - Keyword" or "JSON Query" at this URL — no username/password needed.</small>
@@ -33,17 +33,17 @@
 
 <div class="card">
   <h2>Detailed metrics (Grafana / InfluxDB / Telegraf)</h2>
-  <p class="muted" style="font-size:12.5px;">
+  <p class="muted u-fz-12p5px">
     A second, richer endpoint for a full metrics pipeline: cumulative counters (mail sent/failed by type, HTTP requests by status class, admin login attempts, poll cycle duration) on top of the same live poller state as <code>/health</code>. Also unauthenticated, flat JSON, one field per line — a good fit for Telegraf's <code>inputs.http</code> plugin with <code>data_format = "json"</code> (no need for <code>inputs.exec</code> + curl).
   </p>
-  <div class="row" style="align-items:center;">
-    <input type="text" readonly value="{{ metrics_url }}" id="metrics-url" style="flex:1;font-family:'SF Mono',Consolas,monospace;font-size:12.5px;" onclick="this.select();" />
+  <div class="row u-ai-center">
+    <input class="u-gen-96ee8156" type="text" readonly value="{{ metrics_url }}" id="metrics-url" onclick="this.select();" />
     <button type="button" class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('metrics-url').value).then(() => showToast('Copied.', true))">Copy</button>
   </div>
   <small class="hint">Counters reset when the service restarts — as expected for this kind of metric, handle it in Grafana with <code>non_negative_derivative()</code> (InfluxQL) or <code>derivative()</code> (Flux) rather than reading the raw value as a rate.</small>
-  <details style="margin-top:14px;">
-    <summary style="cursor:pointer; font-size:12.5px; color:var(--muted); user-select:none;">Example Telegraf config</summary>
-    <pre class="logbox" style="margin-top:10px; font-size:11.5px;">[[inputs.http]]
+  <details class="u-mt-14px">
+    <summary class="u-gen-e23261fa">Example Telegraf config</summary>
+    <pre class="logbox u-mt-10px-fz-11p5px">[[inputs.http]]
   urls = ["{{ metrics_url }}"]
   name_override = "jellyfin_notifier"
   data_format = "json"

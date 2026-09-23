@@ -11,7 +11,7 @@
   <input type="hidden" name="form_type" value="toggle" />
   <div class="toggle-copy">
     <h2>New Content Notifications</h2>
-    <p class="muted" style="font-size:12.5px;">
+    <p class="muted u-fz-12p5px">
       {% if notifications_enabled %}Sends a mail whenever new content is detected (webhook or poller).{% else %}Disabled — new content is still tracked quietly, but no mail is sent.{% endif %}
     </p>
   </div>
@@ -64,7 +64,7 @@
     <form method="post" class="card" id="blocks-form" data-track-dirty="true">
       <input type="hidden" name="form_type" value="blocks" />
       <h2>Visual block builder</h2>
-      <p class="muted" style="font-size:12px;margin-top:-8px;">
+      <p class="muted u-fz-12px-mt--8px">
         Stack blocks, drag the ⠿ handle to reorder. Saving replaces the raw HTML template below (a backup of the previous version is kept).
         The logo, date, <strong>introduction text</strong> and footer are not blocks — they always show above/below your blocks, and are edited in "Texts &amp; colors" above.
       </p>
@@ -78,7 +78,7 @@
     <form method="post" class="card" id="raw-form" data-track-dirty="true">
       <input type="hidden" name="form_type" value="raw" />
       <h2>Raw HTML template</h2>
-      <div id="syntax-status" class="alert ok" style="display:none;"></div>
+      <div id="syntax-status" class="alert ok u-d-none"></div>
       <textarea name="raw_source" id="raw_source" rows="22" spellcheck="false">{{ raw_source }}</textarea>
       <small class="hint">
         Available variables: items (list), count, date, logo_src, intro_text, footer_text, color_*.
@@ -95,7 +95,7 @@
   <div class="preview-col">
     <div class="card">
       <h2>Live preview</h2>
-      <p class="muted" style="font-size:12px;margin-top:-8px;">Based on an example ("Terminator") — reflects your changes before you even save.</p>
+      <p class="muted u-fz-12px-mt--8px">Based on an example ("Terminator") — reflects your changes before you even save.</p>
       <div class="preview-frame-wrap">
         <iframe id="preview-frame" title="Mail preview"></iframe>
       </div>

@@ -1,39 +1,8 @@
 {% extends "admin/base.html" %}
 {% block title %}{{ 'Setup' if bootstrap_mode else 'Environment' }} - Jellyfin Notifier{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/setup.css') }}" />{% endblock %}
 {% block content %}
 
-<style>
-  .wizard-progress { display:flex; gap:6px; margin-bottom:18px; flex-wrap:wrap; }
-  .wizard-progress .step-dot {
-    flex:1; min-width:70px; text-align:center; padding:8px 6px; border-radius: var(--radius-sm);
-    background: var(--panel2); border:1px solid var(--border-soft); font-size:11px; font-weight:600;
-    color: var(--muted-dim); transition: all .18s var(--ease); cursor:default;
-  }
-  .wizard-progress .step-dot .n {
-    display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px;
-    border-radius:50%; background: rgba(255,255,255,.08); font-size:10.5px; margin-right:5px;
-  }
-  .wizard-progress .step-dot.done { color: var(--green); border-color: rgba(62,207,110,.3); }
-  .wizard-progress .step-dot.done .n { background: rgba(62,207,110,.18); }
-  .wizard-progress .step-dot.active { color:#fff; background: linear-gradient(135deg, var(--blue2), var(--purple2)); border-color:transparent; }
-  .wizard-progress .step-dot.active .n { background: rgba(255,255,255,.22); }
-  .wizard-step { display:none; }
-  .wizard-step.active { display:block; }
-  .wizard-nav { display:flex; justify-content:space-between; align-items:center; margin-top:20px; gap:10px; }
-  .wizard-optional-tag {
-    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted-dim);
-    background: rgba(255,255,255,.06); padding:2px 8px; border-radius:999px; margin-left:8px;
-  }
-  .wizard-review-row { display:flex; justify-content:space-between; gap:14px; padding:8px 0; border-bottom:1px solid var(--border-soft); font-size:13px; }
-  .wizard-review-row:last-child { border-bottom:none; }
-  .wizard-review-row .k { color:var(--muted); }
-  .wizard-review-row .v { color:var(--text); font-weight:500; text-align:right; word-break:break-word; }
-  .wizard-draft-hint { font-size:11.5px; color:var(--muted-dim); margin-top:10px; }
-  .wizard-draft-hint button { all:unset; cursor:pointer; color:var(--blue); font-weight:600; }
-  .setup-landing-import {
-    margin-top:18px; padding-top:18px; border-top:1px solid var(--border-soft);
-  }
-</style>
 
 {% if setup_error and (just_attempted or not bootstrap_mode) %}
 {#
@@ -52,7 +21,7 @@
 {% endif %}
 
 <div class="card" id="setup-landing">
-  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px;">
+  <div class="u-d-flex-jc-space-between-ai-flex-start-gap-14px">
     {% if bootstrap_mode %}
     <h2>Welcome — let's configure jellyfin-notifier</h2>
     {% else %}
@@ -66,17 +35,17 @@
        button (js-setup-reset class, not id - only one id per page) sits in
        the wizard steps' own header, so it stays reachable from any step
        instead of only from the landing screen. #}
-    <button type="button" class="danger js-setup-reset" style="flex-shrink:0; font-size:12px; padding:8px 14px;">⟲ Start over</button>
+    <button type="button" class="danger js-setup-reset u-gen-7c2be17a">⟲ Start over</button>
     {% endif %}
   </div>
   {% if bootstrap_mode %}
-  <p class="muted" style="font-size:13px;">
+  <p class="muted u-fz-13px">
     No valid <code>.env</code> was found (or it's missing required values), so the app can't fully start yet.
     A few short steps, or import an existing <code>.env</code> file below — the service restarts itself
     automatically once saved and picks up the new configuration, no SSH access needed.
   </p>
   {% else %}
-  <p class="muted" style="font-size:13px;">
+  <p class="muted u-fz-13px">
     Edits the real <code>.env</code> file on this server. Saving restarts the service automatically to apply
     the new values — expect a brief interruption (a few seconds) while it comes back up.
     Fields left blank keep their current saved value; secret fields (passwords, API keys) are never shown
@@ -84,34 +53,34 @@
   </p>
   {% endif %}
   {% if env_exists %}
-  <form method="post" action="{{ url_for('setup.setup_reset') }}" id="setup-reset-form" style="display:none;"></form>
+  <form class="u-d-none" method="post" action="{{ url_for('setup.setup_reset') }}" id="setup-reset-form"></form>
   {% endif %}
 
   <div class="setup-landing-import">
-    <h2 style="font-size:14px; margin-bottom:6px;">Import an existing .env file</h2>
-    <p class="muted" style="font-size:12.5px;">
+    <h2 class="u-fz-14px-mb-6px">Import an existing .env file</h2>
+    <p class="muted u-fz-12p5px">
       Already have a filled-in <code>.env</code> (from another install, or a backup)? Upload it directly instead
       of going through the steps below — it fully replaces the current file.
     </p>
-    <form method="post" action="{{ url_for('setup.setup_import') }}" enctype="multipart/form-data" style="margin-top:12px;">
-      <div class="row" style="align-items:center;">
+    <form class="u-mt-12px" method="post" action="{{ url_for('setup.setup_import') }}" enctype="multipart/form-data">
+      <div class="row u-ai-center">
         <input type="file" name="env_file" accept=".env,text/plain" required />
         <button type="submit" class="secondary">Import &amp; restart</button>
       </div>
     </form>
   </div>
 
-  <div style="margin-top:22px; text-align:right;">
+  <div class="u-mt-22px-ta-right">
     <button type="button" id="setup-landing-begin">{{ "Let's begin →" if bootstrap_mode else "Continue →" }}</button>
   </div>
 </div>
 
-<div id="wizard-container" style="display:none;">
+<div class="u-d-none" id="wizard-container">
 <form method="post" action="{{ url_for('setup.setup_save') }}" class="card" id="wizard-form" novalidate>
-  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:6px;">
-    <h2 style="margin-bottom:0;">{{ 'Configuration' if bootstrap_mode else 'Fields' }}</h2>
+  <div class="u-d-flex-jc-space-between-ai-flex-start-gap-14px-mb-6px">
+    <h2 class="u-mb-0">{{ 'Configuration' if bootstrap_mode else 'Fields' }}</h2>
     {% if env_exists %}
-    <button type="button" class="danger js-setup-reset" style="flex-shrink:0; font-size:12px; padding:8px 14px;">⟲ Start over</button>
+    <button type="button" class="danger js-setup-reset u-gen-7c2be17a">⟲ Start over</button>
     {% endif %}
   </div>
 
@@ -124,20 +93,20 @@
   {% for step in steps %}
   <div class="wizard-step" data-step="{{ loop.index0 }}" data-step-id="{{ step.id }}">
     {% if step.id == 'review' %}
-      <p class="muted" style="font-size:12.5px; margin-bottom:14px;">
+      <p class="muted u-fz-12p5px-mb-14px">
         Quick check before saving — secret fields (passwords, API keys) are shown as
         {{ '"will be set"' if bootstrap_mode else '"kept as-is" / "will be changed"' }}, never in clear text.
       </p>
       <div id="wizard-review-body"></div>
     {% else %}
       {% if step.optional %}
-      <p class="muted" style="font-size:12.5px; margin-bottom:14px;">
+      <p class="muted u-fz-12p5px-mb-14px">
         These all have sensible defaults — skip ahead unless you need to change something here.
       </p>
       {% endif %}
       {% for field in step.fields %}
       <label>
-        {{ field.key }}{% if field.required %} <span style="color:var(--red);">*</span>{% endif %}
+        {{ field.key }}{% if field.required %} <span class="u-gen-26a2dff5">*</span>{% endif %}
       </label>
       {% if field.secret %}
       <input type="password" name="{{ field.key }}" id="field-{{ field.key }}" data-secret="1" data-required="{{ '1' if field.required else '' }}" data-has-saved="{{ '1' if field.has_saved_value else '' }}" placeholder="{{ '••••••••  (saved, leave empty to keep it)' if field.has_saved_value else '(leave empty to keep unset)' }}" autocomplete="new-password" />
@@ -148,9 +117,9 @@
       <input type="text" name="{{ field.key }}" id="field-{{ field.key }}" value="{{ field.value }}" placeholder="{{ field.placeholder_hint }}" data-required="{{ '1' if field.required else '' }}" />
       {% endif %}
       {% if field.key == 'JELLYFIN_URL' %}
-      <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+      <div class="u-d-flex-ai-center-gap-10px-mt-8px">
         <button type="button" class="secondary" onclick="testJellyfinConnection()">Test connection</button>
-        <span id="jellyfin-test-result" style="font-size:12.5px;"></span>
+        <span class="u-fz-12p5px" id="jellyfin-test-result"></span>
       </div>
       {% endif %}
       {% if field.help %}
@@ -170,7 +139,7 @@
   </div>
   {% endfor %}
 
-  <p class="wizard-draft-hint" id="wizard-draft-hint" style="display:none;">
+  <p class="wizard-draft-hint u-d-none" id="wizard-draft-hint">
     Your answers so far are kept in this browser as a local backup, so refreshing or coming back later won't lose
     them — but nothing is actually applied until you click "Save changes" on the last step.
     <button type="button" id="wizard-draft-clear">Clear saved answers</button>

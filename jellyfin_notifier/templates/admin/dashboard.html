@@ -58,15 +58,15 @@
         {% else %}<span class="pill ok">running</span>{% endif %}
       </div>
     </div>
-    <div class="stat"><div class="label">Last poll</div><div class="value" style="font-size:13px;">{{ poll_status.last_poll_at | friendly_dt }}</div></div>
+    <div class="stat"><div class="label">Last poll</div><div class="value u-fz-13px">{{ poll_status.last_poll_at | friendly_dt }}</div></div>
     <div class="stat"><div class="label">Interval</div><div class="value">{{ poll_status.poll_interval_seconds }}s</div></div>
-    <div class="stat"><div class="label">Item types</div><div class="value" style="font-size:14px;">{{ poll_status.item_types|join(', ') }}</div></div>
+    <div class="stat"><div class="label">Item types</div><div class="value u-fz-14px">{{ poll_status.item_types|join(', ') }}</div></div>
     <div class="stat"><div class="label">Fetch limit</div><div class="value">{{ poll_status.limit }}</div></div>
-    <div class="stat"><div class="label">Next window</div><div class="value" style="font-size:13px;">{{ next_slot.strftime("%a %d/%m %H:%M") }}</div></div>
-    <div class="stat"><div class="label">Last mail error</div><div class="value" style="font-size:12px;color:#e5484d;">{{ poll_status.last_email_error or "none" }}</div></div>
+    <div class="stat"><div class="label">Next window</div><div class="value u-fz-13px">{{ next_slot.strftime("%a %d/%m %H:%M") }}</div></div>
+    <div class="stat"><div class="label">Last mail error</div><div class="value u-gen-81d4833e">{{ poll_status.last_email_error or "none" }}</div></div>
   </div>
   {% if poll_status.last_fetch_error %}
-  <div class="alert err" style="margin-top:14px;">Last Jellyfin error: {{ poll_status.last_fetch_error }}</div>
+  <div class="alert err u-mt-14px">Last Jellyfin error: {{ poll_status.last_fetch_error }}</div>
   {% endif %}
 
   <div class="actions">
@@ -82,7 +82,7 @@
     {% endif %}
   </div>
 
-  <form method="post" style="margin-top:20px;" data-track-dirty="true">
+  <form class="u-mt-20px" method="post" data-track-dirty="true">
     <input type="hidden" name="action" value="save_poller" />
     <label>Item types to watch</label>
     <div class="tag-input" id="item-types-input"></div>
@@ -110,18 +110,18 @@
 
 <div class="card">
   <h2>Already-seen items</h2>
-  <p class="muted" style="font-size:12.5px;">
+  <p class="muted u-fz-12p5px">
     The poller's dedup state (<code>seen_items.json</code>) — item IDs it already knows about, so they aren't
     re-notified. Managing this is rarely needed day to day; it's mainly useful to fix a poller about to
     re-send old items, or to inspect what it currently tracks.
   </p>
-  <div class="grid" style="margin-top:14px;">
+  <div class="grid u-mt-14px">
     <div class="stat">
       <div class="label">Tracked items</div>
       <div class="value" id="seen-count">—</div>
     </div>
   </div>
-  <pre class="logbox" id="seen-ids-box" style="display:none; margin-top:14px; max-height:240px;"></pre>
+  <pre class="logbox u-d-none-mt-14px-maxh-240px" id="seen-ids-box"></pre>
   <div class="actions">
     <button type="button" class="secondary" id="seen-view-btn" onclick="toggleSeenIds()">View IDs</button>
     <a href="{{ url_for('admin.poller_seen_export') }}" class="btn secondary">⬇ Export</a>
@@ -150,21 +150,21 @@
 
 <div class="card">
   <h2>Backup &amp; restore</h2>
-  <p class="muted" style="font-size:12.5px;">
+  <p class="muted u-fz-12p5px">
     Export all notifier settings (mail texts &amp; colors, schedule, poller/Jellyfin/SMTP overrides) to a JSON file, or restore a previously exported one — handy before moving to a new LXC/server. This does <strong>not</strong> include the queue, the "upcoming" titles, the mail history, or your raw HTML template edits.
   </p>
-  <div class="actions" style="margin-top:0;">
+  <div class="actions u-mt-0">
     <a href="{{ url_for('admin.settings_export') }}" class="btn secondary">⬇ Export settings</a>
     <button type="button" class="secondary" onclick="document.getElementById('import-settings-input').click();">⬆ Import settings</button>
   </div>
-  <form method="post" action="{{ url_for('admin.settings_import') }}" enctype="multipart/form-data" id="import-settings-form" style="display:none;">
+  <form class="u-d-none" method="post" action="{{ url_for('admin.settings_import') }}" enctype="multipart/form-data" id="import-settings-form">
     <input type="file" name="settings_file" id="import-settings-input" accept="application/json" onchange="handleSettingsImportFile(this)" />
   </form>
 </div>
 
 <div class="card danger-zone">
   <h2>Danger zone</h2>
-  <p class="muted" style="font-size:12.5px;">
+  <p class="muted u-fz-12p5px">
     Resets all notifier settings (mail texts &amp; colors, schedule, poller options, Jellyfin Connector overrides, SMTP server configuration) back to their default values.
     This does <strong>not</strong> touch the queue, the "upcoming" titles list and their posters, the poller's "already seen" state, or your raw HTML template edits.
   </p>

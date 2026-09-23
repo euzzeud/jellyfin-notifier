@@ -5,61 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="view-transition" content="same-origin" />
 <title>Sign in - Jellyfin Notifier</title>
-<style>
-  @view-transition { navigation: auto; }
-  ::view-transition-old(root), ::view-transition-new(root) {
-    animation-duration: .22s;
-    animation-timing-function: cubic-bezier(.16,.84,.44,1);
-  }
-
-  :root {
-    --bg:#0b0b0d; --bg-glow: radial-gradient(1100px 520px at 12% -10%, rgba(0,164,220,.14), transparent 60%),
-                              radial-gradient(900px 480px at 100% 0%, rgba(170,92,195,.12), transparent 55%);
-    --panel: rgba(255,255,255,.06); --border: rgba(255,255,255,.16); --border-soft: rgba(255,255,255,.1);
-    --purple:#c589e0; --blue:#2ec2ff; --blue2:#0ba8dd; --text:#ffffff; --muted:#b4b4bd; --red:#f0555c;
-    --radius-lg:16px; --radius-sm:8px; --ease: cubic-bezier(.16,.84,.44,1);
-  }
-  * { box-sizing: border-box; }
-  html, body { height:100%; }
-  body {
-    margin:0; display:flex; align-items:center; justify-content:center;
-    background: var(--bg-glow), var(--bg); color:var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-  .login-card {
-    width:100%; max-width:360px; margin:16px; background: var(--panel); border:1px solid var(--border);
-    border-radius: var(--radius-lg); padding:32px 30px; box-shadow: 0 20px 50px -20px rgba(0,0,0,.6);
-    backdrop-filter: blur(8px); animation: cardin .4s var(--ease) backwards;
-  }
-  @keyframes cardin { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform:none; } }
-  .login-brand { display:flex; align-items:center; gap:12px; justify-content:center; margin-bottom:28px; }
-  .login-brand img { height:44px; width:auto; display:block; }
-  .login-brand span { font-size:24px; font-weight:700; letter-spacing:.2px; }
-  label { display:block; font-size:12.5px; color:var(--muted); margin: 14px 0 6px; font-weight:600; }
-  input[type=text], input[type=password] {
-    width:100%; background: rgba(0,0,0,.32); border:1px solid var(--border); color:var(--text);
-    padding:11px 12px; border-radius: var(--radius-sm); font-size:13.5px; font-family: inherit;
-    transition: border-color .18s var(--ease), box-shadow .18s var(--ease);
-  }
-  input::placeholder { color: var(--muted); opacity: .75; }
-  input:focus {
-    outline:none; border-color: var(--blue); background: rgba(46,194,255,.08);
-    box-shadow: 0 0 0 3px rgba(46,194,255,.22);
-  }
-  button {
-    width:100%; margin-top:22px; background: linear-gradient(135deg, var(--blue), var(--blue2)); color:#fff;
-    border:none; padding:11px 18px; border-radius:999px; font-size:13.5px; font-weight:600; cursor:pointer;
-    box-shadow: 0 6px 16px -6px rgba(18,179,240,.55);
-    transition: transform .16s var(--ease), filter .16s var(--ease);
-  }
-  button:hover { transform: translateY(-1px); filter: brightness(1.08); }
-  button:active { transform: translateY(0) scale(.98); }
-  .error {
-    background: rgba(240,85,92,.1); color:var(--red); border:1px solid rgba(240,85,92,.28);
-    padding:10px 14px; border-radius: var(--radius-sm); font-size:13px; margin-bottom:4px; font-weight:500;
-  }
-</style>
+<link rel="icon" type="image/svg+xml" href="{{ url_for('admin.assets', filename='favicon.svg') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}" />
 </head>
 <body>
 <div class="login-card">

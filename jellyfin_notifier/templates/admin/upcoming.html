@@ -14,7 +14,7 @@
   <input type="hidden" name="form_type" value="toggle" />
   <div class="toggle-copy">
     <h2>Upcoming Content Notifications</h2>
-    <p class="muted" style="font-size:12.5px;">
+    <p class="muted u-fz-12p5px">
       {% if notifications_enabled %}Lets you send "coming soon" announcement mails for manually added titles.{% else %}Disabled — announcements can't be sent until this is turned back on.{% endif %}
     </p>
   </div>
@@ -67,9 +67,9 @@
           <td><input type="checkbox" class="upcoming-check" name="ids" value="{{ item.id }}" form="announce-form" /></td>
           <td>
             {% if poster_url(item) %}
-            <img src="{{ poster_url(item) }}" alt="" style="width:32px;height:48px;object-fit:cover;border-radius:4px;display:block;" />
+            <img class="u-w-32px-h-48px-ofit-cover-br-4px-d-block" src="{{ poster_url(item) }}" alt="" />
             {% else %}
-            <div style="width:32px;height:48px;border-radius:4px;background:var(--panel2);"></div>
+            <div class="u-gen-bef3be3b"></div>
             {% endif %}
           </td>
           <td>{{ item.name }}</td>
@@ -94,9 +94,9 @@
       <h2>Send an announcement</h2>
       <p class="muted">Check the titles above (the preview on the right updates live) then send a "Coming soon" mail for the selected ones.</p>
       {% if not notifications_enabled %}
-      <p class="muted" style="color:var(--red);font-size:12.5px;">This module is disabled above — enable it first to send an announcement.</p>
+      <p class="muted u-gen-7d7921ff">This module is disabled above — enable it first to send an announcement.</p>
       {% elif not mail_enabled %}
-      <p class="muted" style="color:var(--red);font-size:12.5px;">Mail sending is disabled — validate and enable it on the <a href="{{ url_for('admin.mail_server_view') }}">Mail Server</a> page first.</p>
+      <p class="muted u-gen-7d7921ff">Mail sending is disabled — validate and enable it on the <a href="{{ url_for('admin.mail_server_view') }}">Mail Server</a> page first.</p>
       {% endif %}
       <div class="actions">
         <button type="submit" id="announce-btn" {{ 'disabled' if not notifications_enabled or not mail_enabled else '' }}>📣 Send announcement</button>
@@ -143,7 +143,7 @@
     <form method="post" class="card" id="blocks-form" data-track-dirty="true">
       <input type="hidden" name="form_type" value="blocks" />
       <h2>Visual block builder</h2>
-      <p class="muted" style="font-size:12px;margin-top:-8px;">
+      <p class="muted u-fz-12px-mt--8px">
         Stack blocks, drag the ⠿ handle to reorder. Saving replaces the raw HTML template below (a backup of the previous version is kept).
         The logo, date, <strong>introduction text</strong> and footer are not blocks — they always show above/below your blocks, and are edited in "Texts &amp; colors" above.
       </p>
@@ -157,7 +157,7 @@
     <form method="post" class="card" id="raw-form" data-track-dirty="true">
       <input type="hidden" name="form_type" value="raw" />
       <h2>Raw HTML template</h2>
-      <div id="syntax-status" class="alert ok" style="display:none;"></div>
+      <div id="syntax-status" class="alert ok u-d-none"></div>
       <textarea name="raw_source" id="raw_source" rows="22" spellcheck="false">{{ raw_source }}</textarea>
       <small class="hint">
         Available variables: items (list), count, date, logo_src, intro_text, footer_text, color_*.
@@ -174,7 +174,7 @@
   <div class="preview-col">
     <div class="card">
       <h2>Live preview</h2>
-      <p class="muted" style="font-size:12px;margin-top:-8px;" id="preview-hint">
+      <p class="muted u-fz-12px-mt--8px" id="preview-hint">
         {% if items %}Check one or more titles on the left to preview them — otherwise, a generic example.{% else %}Add a title, or just edit the texts/colors/HTML below.{% endif %}
       </p>
       <div class="preview-frame-wrap">
