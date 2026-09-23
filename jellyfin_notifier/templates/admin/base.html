@@ -11,6 +11,7 @@
 {% block extra_head %}{% endblock %}
 </head>
 <body>
+<div id="edge-glow"></div>
 <div class="toast-container" id="toast-container"></div>
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal-box">
@@ -842,6 +843,7 @@ function initUnsavedGuard() {
   const resetBtn = document.getElementById('unsaved-reset');
   const saveBtn = document.getElementById('unsaved-save');
   const shakeTarget = document.getElementById('shake-target');
+  const edgeGlow = document.getElementById('edge-glow');
   let dirtyForm = null;
 
   function serialize(form) {
@@ -993,11 +995,16 @@ function initUnsavedGuard() {
       // bar itself (a fixed sibling of #shake-target, not a descendant)
       // is untouched by this and stays put throughout.
       shakeTarget.classList.remove('shake-warn');
+      edgeGlow.classList.remove('flash');
       // Forces a reflow so the animation can be replayed if it's already running.
       void shakeTarget.offsetWidth;
       shakeTarget.classList.add('shake-warn');
-      bar.classList.add('pulse');
-      setTimeout(() => bar.classList.remove('pulse'), 420);
+      // A thin red glow flashed around the whole viewport's edge - see
+      // the comment on #edge-glow in base.css for why this replaced a
+      // shadow pulsing on .unsaved-bar itself (it read as a stray smudge
+      // clipped by the screen edge, not an intentional effect).
+      edgeGlow.classList.add('flash');
+      setTimeout(() => edgeGlow.classList.remove('flash'), 420);
     });
   });
 }

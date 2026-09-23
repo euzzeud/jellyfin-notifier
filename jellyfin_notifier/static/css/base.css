@@ -398,6 +398,28 @@ small.hint { color:var(--muted-dim); display:block; margin-top:6px; font-size:11
   40%, 60% { transform: translateX(5px); }
 }
 #shake-target.shake-warn { animation: pageshake .4s cubic-bezier(.36,.07,.19,.97); }
+
+/* The red "you can't leave yet" flash: previously a box-shadow pulsed
+   directly on .unsaved-bar, but a shadow only reads as a shadow when
+   it's cast to one side of something - here it was symmetric-ish around
+   a bar sitting flush near the bottom of the screen, so most of it was
+   clipped by the viewport edge and what showed looked like a stray
+   smudge under the bar rather than an intentional effect. Flashing a
+   thin glow around the actual edges of the page instead - where a
+   "you tried to leave and got blocked" cue reads clearly, doesn't get
+   clipped by anything - fixes both: no more odd partial shadow, and the
+   warning is now tied to the whole viewport shaking, not just the one
+   small element floating over it. */
+#edge-glow {
+  position:fixed; inset:0; z-index:1001; pointer-events:none;
+  box-shadow: inset 0 0 0 0 rgba(240,85,92,0);
+}
+#edge-glow.flash { animation: edgeglow .4s var(--ease); }
+@keyframes edgeglow {
+  0%, 100% { box-shadow: inset 0 0 0 0 rgba(240,85,92,0); }
+  50% { box-shadow: inset 0 0 70px 0 rgba(240,85,92,.4), inset 0 0 0 2px rgba(240,85,92,.55); }
+}
+
 .unsaved-bar {
   position: fixed; left:50%; bottom:22px; z-index:998;
   width:min(680px, calc(100% - 40px));
@@ -408,8 +430,6 @@ small.hint { color:var(--muted-dim); display:block; margin-top:6px; font-size:11
   transform: translate(-50%, calc(100% + 40px)); transition: transform .25s var(--ease);
 }
 .unsaved-bar.show { transform: translate(-50%, 0); }
-.unsaved-bar.pulse { animation: barpulse .4s var(--ease); }
-@keyframes barpulse { 0%, 100% { box-shadow: var(--shadow-pop); } 50% { box-shadow: 0 14px 34px -12px rgba(240,85,92,.55); } }
 .unsaved-bar .msg { font-size:14px; font-weight:600; }
 .unsaved-bar .unsaved-actions { display:flex; align-items:center; gap:20px; }
 .unsaved-bar .reset-link {
