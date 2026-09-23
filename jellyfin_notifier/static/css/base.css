@@ -177,8 +177,13 @@ main.wide { max-width:2000px; }
 .pill.bad { background:rgba(240,85,92,.13); color:var(--red); box-shadow: inset 0 0 0 1px rgba(240,85,92,.2); }
 /* A .pill can also be a real <button> (e.g. Mail History's "Failed"
    pills, clickable to show the full error) - strips the browser's
-   default button chrome so it still looks exactly like the <span> ones. */
-button.pill { border:none; font: inherit; cursor:pointer; }
+   default button chrome so it still looks exactly like the <span> ones.
+   font-family only, NOT the `font` shorthand: `font: inherit` resets
+   EVERY font-related longhand, including font-size and font-weight -
+   which then silently overrode .pill's own font-size:10.5px/
+   font-weight:700 (a button has higher specificity than .pill alone),
+   making "Failed" render smaller and non-bold next to "Sent". */
+button.pill { border:none; font-family:inherit; cursor:pointer; }
 
 label { display:block; font-size:12.5px; color:var(--muted); margin: 16px 0 7px; font-weight:600; }
 input[type=text], input[type=password], input[type=number], input[type=time], select, textarea {
