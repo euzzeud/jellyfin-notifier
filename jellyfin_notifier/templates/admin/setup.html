@@ -184,12 +184,17 @@
 <div class="card danger-zone">
   <h2>Danger zone</h2>
   <p class="muted u-fz-12p5px">
-    Resets all notifier settings (mail texts &amp; colors, schedule, poller options, Jellyfin Connector overrides, SMTP server configuration) back to their default values.
-    This does <strong>not</strong> touch the queue, the "upcoming" titles list and their posters, the poller's "already seen" state, or your raw HTML template edits.
+    Resets <strong>absolutely everything</strong> back to a fresh, never-configured install: the <code>.env</code>
+    file (all credentials — SMTP/admin passwords, API keys), settings.json (mail texts &amp; colors, schedule,
+    poller/Jellyfin/SMTP overrides), the pending mail queue, the "upcoming" titles list and their posters, the
+    poller's "already seen" state, and the two HTML email templates (restored to what ships with this install —
+    your edits are still kept as a timestamped backup). This cannot be undone. Since nothing would be configured
+    afterwards, you'll be dropped straight back into this setup wizard.
   </p>
-  <form method="post" action="{{ url_for('admin.settings_reset') }}" id="reset-settings-form">
-    <div class="actions">
-      <button type="submit" class="danger">⟲ Reset settings to defaults</button>
+  <form method="post" action="{{ url_for('setup.factory_reset') }}" id="reset-settings-form">
+    <div class="row u-ai-center">
+      <input type="password" name="confirm_password" placeholder="Your password, to confirm" required autocomplete="current-password" />
+      <button type="submit" class="danger">⟲ Reset everything</button>
     </div>
   </form>
 </div>
@@ -239,16 +244,22 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   {% if not bootstrap_mode %}
-  // settings.json's own reset button (separate confirmation from the .env
-  // "Start over" above - resetting settings.json doesn't touch .env/the
-  // login credentials at all, so it gets its own, less alarming wording).
+  // The Danger Zone's "Reset everything" - deliberately much more alarming
+  // than the .env "Start over" above, since this wipes literally
+  // everything the app owns (.env included) in one shot, not just the
+  // credentials. The password field on the form itself is the first line
+  // of friction; this confirm dialog is the second, spelling out the full
+  // scope one more time before it's irreversible.
   const resetSettingsForm = document.getElementById('reset-settings-form');
   resetSettingsForm.addEventListener('submit', (e) => {
     e.preventDefault();
     showConfirm({
-      title: 'Reset all settings to their defaults?',
-      message: 'Custom texts, colors, schedule, poller and connection overrides will be lost. This cannot be undone.',
-      confirmText: '⟲ Reset settings',
+      title: 'Reset absolutely everything?',
+      message: 'This wipes the .env file (all credentials), settings.json, the pending mail queue, the ' +
+        '"upcoming" titles and their posters, the poller\'s "already seen" state, and restores the email ' +
+        'templates to their shipped defaults - a fresh, never-configured install. This cannot be undone, ' +
+        'and you\'ll be dropped back into the setup wizard afterwards.',
+      confirmText: '⟲ Reset everything',
       danger: true,
     }).then((ok) => { if (ok) { resetSettingsForm.submit(); } });
   });

@@ -294,24 +294,6 @@ def dashboard():
 
 
 # ---------------------------------------------------------------------------
-# Reset settings (settings.json) to the code's default values - email
-# text/colors, schedule, poller/Jellyfin/SMTP overrides. Does NOT touch the
-# data (pending queue, "upcoming" titles + posters, poller "already seen"
-# state) nor the edited raw HTML templates (email.html / email_upcoming.html,
-# which have their own backups in templates/backups/).
-# ---------------------------------------------------------------------------
-
-@admin_bp.route("/settings/reset", methods=["POST"])
-def settings_reset():
-    cfg = _config()
-    save_settings(cfg.settings_path, Settings())
-    logger.warning("All notifier settings reset to their defaults.")
-    # Same "Configuration" page as settings_import() above, not the
-    # dashboard - see its comment.
-    return redirect(url_for("setup.setup_view", settings_reset=1))
-
-
-# ---------------------------------------------------------------------------
 # Poller control (start/stop/pause/resume) from the admin
 # ---------------------------------------------------------------------------
 

@@ -3,10 +3,10 @@ created (when missing/incomplete - the app boots in a limited mode and
 every other page redirects here until the required keys are filled in) and
 edited afterwards (once logged in, like any other admin page) from the web
 interface, instead of requiring SSH + a text editor on the server. The
-settings.json backup/restore/reset cards (see admin.py's settings_export/
-settings_import/settings_reset) also render on this same page/template -
-the admin thinks of both as "the configuration", even though they're two
-separate files with very different sensitivity (.env holds credentials,
+settings.json backup/restore cards (see admin.py's settings_export/
+settings_import) also render on this same page/template - the admin
+thinks of both as "the configuration", even though they're two separate
+files with very different sensitivity (.env holds credentials,
 settings.json doesn't - see import_env_file()'s docstring in env_setup.py).
 
 Saving writes .env then restarts the process in place (os.execv, after a
@@ -16,10 +16,13 @@ values are picked up immediately - no manual `systemctl restart` needed."""
 from __future__ import annotations
 
 import hmac
+import logging
 import os
+import shutil
 import sys
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session, url_for
@@ -27,8 +30,21 @@ from flask import Blueprint, current_app, jsonify, redirect, render_template, re
 from . import env_setup
 from .api_console import run_request
 from .config import Config
+from .pending import clear_pending
+from .settings import Settings, save_settings
+from .upcoming import clear_upcoming
 
 setup_bp = Blueprint("setup", __name__)
+logger = logging.getLogger(__name__)
+
+# The two outgoing HTML email templates (see email_sender.py's TEMPLATES_DIR
+# / admin.py's EMAIL_TEMPLATE_PATH / EMAIL_UPCOMING_TEMPLATE_PATH) can be
+# edited in place from the admin's raw template editor - _DEFAULT_TEMPLATES_DIR
+# holds an untouched copy of what ships with this install (never written to
+# by that editor), used by factory_reset() below to restore them.
+_TEMPLATES_DIR = Path(__file__).parent / "templates"
+_DEFAULT_TEMPLATES_DIR = _TEMPLATES_DIR / "defaults"
+_RESETTABLE_TEMPLATES = ("email.html", "email_upcoming.html")
 
 # Groups the flat field list from env_setup.field_spec() into a lighter,
 # guided multi-step flow (Previous/Next) instead of one long form - each
@@ -261,13 +277,92 @@ def setup_reset():
     a blank first-run wizard (create_app() only reaches setup mode when no
     valid .env exists). Gated behind login like any other change here -
     _setup_auth only allows the unauthenticated path while JF_CONFIG is
-    None, which isn't the case for a page that has this button at all."""
+    None, which isn't the case for a page that has this button at all.
+
+    Only wipes .env - settings.json, the pending queue, the "upcoming"
+    titles/posters, the poller's "already seen" state and the email
+    templates are all left untouched. For the version that wipes
+    everything, see factory_reset() below (the Danger Zone's own button)."""
     env_path = _env_path()
     env_path.unlink(missing_ok=True)
     _schedule_restart()
     return render_template(
         "admin/setup_restarting.html",
         heading="Configuration reset — restarting…",
+        subtext="This page will reload automatically in a few seconds, into a blank setup.",
+    )
+
+
+def _restore_default_templates() -> None:
+    """Restores email.html/email_upcoming.html to the version shipped with
+    this install (_DEFAULT_TEMPLATES_DIR - never written to by the admin's
+    raw template editor, which only ever touches the live email.html/
+    email_upcoming.html directly). Takes a timestamped backup first, same
+    pattern as a normal template save (_save_raw_template() in admin.py),
+    so a customized version isn't lost forever, just superseded - it's
+    still sitting in templates/backups/ afterwards."""
+    backup_dir = _TEMPLATES_DIR / "backups"
+    backup_dir.mkdir(exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    for name in _RESETTABLE_TEMPLATES:
+        live_path = _TEMPLATES_DIR / name
+        default_path = _DEFAULT_TEMPLATES_DIR / name
+        if not default_path.exists():
+            # Shouldn't happen in a normal install (both ship in the
+            # package) - skip rather than fail the whole reset over one
+            # missing reference file.
+            continue
+        if live_path.exists():
+            shutil.copy2(live_path, backup_dir / f"{live_path.stem}.{stamp}.html.bak")
+        shutil.copy2(default_path, live_path)
+
+
+@setup_bp.route("/setup/factory-reset", methods=["POST"])
+def factory_reset():
+    """The Danger Zone's own "Reset everything" button - deliberately much
+    broader than setup_reset() ("Start over", .env only) or a plain
+    settings.json reset: wipes EVERY piece of state this app owns in one
+    shot - the .env credentials, settings.json, the pending mail queue,
+    the "upcoming" titles and their posters, the poller's "already seen"
+    state, and the two HTML email templates (restored to what ships with
+    this install) - leaving the install exactly like a fresh, never-
+    configured one. Ends the same way setup_reset() does: .env is gone, so
+    the restart drops straight into a blank first-run wizard - there is no
+    longer any config left to redirect to, or log into, otherwise.
+
+    Gated behind the same password re-authentication as a .env import
+    (see setup_import()) - if any single action here deserves asking
+    twice, it's the one that deletes everything at once."""
+    cfg = current_app.config.get("JF_CONFIG")
+    env_path = _env_path()
+
+    if cfg is None:
+        # The Danger Zone card is only ever rendered once configured
+        # (see setup.html), so this shouldn't be reachable - but if it
+        # somehow is (e.g. a stale/bookmarked form), there's no admin
+        # account yet to check a password against and nothing configured
+        # to reset, so just send them to the wizard instead of guessing.
+        return redirect(url_for("setup.setup_view"))
+
+    confirm_password = request.form.get("confirm_password", "")
+    if not confirm_password or not hmac.compare_digest(confirm_password, cfg.admin_password):
+        return _import_rejected(env_path, "Incorrect password - nothing was reset.")
+
+    save_settings(cfg.settings_path, Settings())
+    clear_pending(cfg.pending_items_path)
+    clear_upcoming(cfg.upcoming_path)
+    Path(cfg.seen_items_path).unlink(missing_ok=True)
+    _restore_default_templates()
+    env_path.unlink(missing_ok=True)
+    logger.warning(
+        "Factory reset: .env, settings.json, pending queue, upcoming titles, "
+        "poller seen-state and email templates were all wiped/restored to defaults."
+    )
+
+    _schedule_restart()
+    return render_template(
+        "admin/setup_restarting.html",
+        heading="Everything reset — restarting…",
         subtext="This page will reload automatically in a few seconds, into a blank setup.",
     )
 

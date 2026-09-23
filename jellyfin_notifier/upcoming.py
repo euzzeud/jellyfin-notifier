@@ -34,6 +34,18 @@ def list_upcoming(path: str) -> list[dict]:
     return _load(path)
 
 
+def clear_upcoming(path: str) -> None:
+    """Empties the "upcoming" list entirely and deletes every uploaded
+    poster along with it (delete_upcoming() does the same for one entry at
+    a time - this is that, for all of them at once, used by the "reset
+    everything" danger-zone action)."""
+    for entry in _load(path):
+        poster_filename = entry.get("poster_filename")
+        if poster_filename:
+            (UPLOADS_DIR / poster_filename).unlink(missing_ok=True)
+    _save(path, [])
+
+
 def add_upcoming(path: str, name: str, year: str | None, note: str | None, type_label: str) -> dict:
     items = _load(path)
     entry = {
