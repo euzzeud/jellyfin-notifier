@@ -392,7 +392,7 @@ function checkJsonSettingsFile(file) {
 // (all of them if the field is empty, filtered otherwise).
 // `hiddenInput.value` stays a comma-separated list, so the form
 // containing it needs no server-side changes.
-function createTagInput({ root, hiddenInput, suggestions = [], placeholder = 'Type to add...', validate = null, invalidMessage = 'Invalid value' }) {
+function createTagInput({ root, hiddenInput, suggestions = [], placeholder = 'Type to add...', validate = null, invalidMessage = 'Invalid value', maxTags = null }) {
   const chipsEl = document.createElement('div');
   chipsEl.className = 'tag-input-chips';
   const textEl = document.createElement('input');
@@ -451,6 +451,12 @@ function createTagInput({ root, hiddenInput, suggestions = [], placeholder = 'Ty
       chip.appendChild(btn);
       chipsEl.appendChild(chip);
     });
+    // At the cap, hide the text field entirely - remove the chip to type
+    // a replacement - rather than leaving an input that silently swaps
+    // the value out on every Enter.
+    const atCap = maxTags && tags.length >= maxTags;
+    textEl.style.display = atCap ? 'none' : '';
+    if (atCap) { suggEl.classList.remove('open'); }
   }
 
   function addTag(raw) {
@@ -465,7 +471,13 @@ function createTagInput({ root, hiddenInput, suggestions = [], placeholder = 'Ty
     clearError();
     textEl.value = '';
     if (!tags.some(t => t.toLowerCase() === value.toLowerCase())) {
-      tags.push(value);
+      if (maxTags && tags.length >= maxTags) {
+        // Single-slot-style input (e.g. maxTags: 1): a new tag replaces
+        // the existing one(s) rather than piling up.
+        tags = [value];
+      } else {
+        tags.push(value);
+      }
       sync();
     }
     renderSuggestions();

@@ -89,7 +89,9 @@
   <input type="text" name="sender_name_override" value="{{ settings.sender_name_override }}" placeholder="{{ default_sender_name }} (default)" />
 
   <label>Sender email (the "From" address — usually the same as the username)</label>
-  <input type="text" name="sender_email_override" value="{{ settings.sender_email_override }}" placeholder="{{ default_sender_email }} (default)" />
+  <div class="tag-input" id="sender-email-input"></div>
+  <input type="hidden" name="sender_email_override" id="sender_email_override" value="{{ settings.sender_email_override }}" />
+  <small class="hint">Empty = default ({{ default_sender_email }}).</small>
 
   <label>Recipients</label>
   <div class="tag-input" id="recipients-input"></div>
@@ -144,6 +146,15 @@ document.addEventListener('DOMContentLoaded', () => {
     placeholder: 'name@example.com',
     validate: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
     invalidMessage: 'That doesn\'t look like a valid email address.',
+  });
+  createTagInput({
+    root: document.getElementById('sender-email-input'),
+    hiddenInput: document.getElementById('sender_email_override'),
+    suggestions: [],
+    placeholder: 'name@example.com',
+    validate: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+    invalidMessage: 'That doesn\'t look like a valid email address.',
+    maxTags: 1,
   });
 });
 </script>
