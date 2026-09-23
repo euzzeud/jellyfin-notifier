@@ -74,7 +74,7 @@
   </form>
 </div>
 
-<form method="post" action="{{ url_for('setup.setup_save') }}" class="card" data-track-dirty="true" id="wizard-form" novalidate>
+<form method="post" action="{{ url_for('setup.setup_save') }}" class="card" id="wizard-form" novalidate>
   <h2 style="margin-bottom:6px;">{{ 'Configuration' if bootstrap_mode else 'Fields' }}</h2>
 
   <div class="wizard-progress" id="wizard-progress">
@@ -133,7 +133,8 @@
   {% endfor %}
 
   <p class="wizard-draft-hint" id="wizard-draft-hint" style="display:none;">
-    Your answers so far are saved in this browser as you go, so refreshing or coming back later won't lose them.
+    Your answers so far are kept in this browser as a local backup, so refreshing or coming back later won't lose
+    them — but nothing is actually applied until you click "Save changes" on the last step.
     <button type="button" id="wizard-draft-clear">Clear saved answers</button>
   </p>
 </form>
@@ -173,14 +174,31 @@
     window.scrollTo({ top: form.offsetTop - 20, behavior: 'smooth' });
   }
 
+  function goNext() {
+    if (!validateStep(steps[current])) return;
+    if (current < steps.length - 1) showStep(current + 1);
+  }
+
   document.querySelectorAll('[data-wizard-next]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      if (!validateStep(steps[current])) return;
-      if (current < steps.length - 1) showStep(current + 1);
-    });
+    btn.addEventListener('click', goNext);
   });
   document.querySelectorAll('[data-wizard-prev]').forEach((btn) => {
     btn.addEventListener('click', () => { if (current > 0) showStep(current - 1); });
+  });
+
+  // Enter in a text/password field advances to the next step (only if the
+  // current step's required fields validate) instead of the browser's
+  // default "Enter submits the form" behavior, which would otherwise
+  // save/restart from the middle of step 1. Left alone on the review step
+  // (no text inputs there) and on the recipients tag input, which already
+  // handles its own Enter (to add a chip) - letting this handler also fire
+  // for it would both add the tag AND jump to the next step.
+  form.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const el = e.target;
+    if (el.tagName !== 'INPUT' || el.classList.contains('tag-input-text')) return;
+    e.preventDefault();
+    goNext();
   });
   dots.forEach((dot, i) => {
     // Jumping ahead via the progress dots still has to pass every step in
