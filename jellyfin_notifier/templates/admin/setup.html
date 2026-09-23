@@ -65,8 +65,14 @@
     <form class="u-mt-12px" method="post" action="{{ url_for('setup.setup_import') }}" enctype="multipart/form-data">
       <div class="row u-ai-center">
         <input type="file" name="env_file" accept=".env,text/plain" required />
+        {% if not bootstrap_mode %}
+        <input type="password" name="confirm_password" placeholder="Your password, to confirm" required autocomplete="current-password" />
+        {% endif %}
         <button type="submit" class="secondary">Import &amp; restart</button>
       </div>
+      {% if not bootstrap_mode %}
+      <small class="hint">Importing replaces the entire configuration — including the login credentials — so it asks for your password again to confirm.</small>
+      {% endif %}
     </form>
   </div>
 

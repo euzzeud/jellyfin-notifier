@@ -10,6 +10,7 @@ values are picked up immediately - no manual `systemctl restart` needed."""
 
 from __future__ import annotations
 
+import hmac
 import os
 import sys
 import threading
@@ -286,6 +287,22 @@ def setup_test_jellyfin():
     return jsonify({"ok": False, "message": f"Could not reach {url}: {result['body']}"})
 
 
+def _import_rejected(env_path: Path, message: str):
+    fields = _fields_for(env_path)
+    return render_template(
+        "admin/setup.html",
+        active="setup",
+        bootstrap_mode=current_app.config.get("JF_CONFIG") is None,
+        configured=current_app.config.get("JF_CONFIG") is not None,
+        fields=fields,
+        steps=_build_steps(fields),
+        setup_error=message,
+        just_attempted=True,
+        env_exists=env_path.exists(),
+        saved=False,
+    )
+
+
 @setup_bp.route("/setup/import", methods=["POST"])
 def setup_import():
     upload = request.files.get("env_file")
@@ -293,21 +310,25 @@ def setup_import():
         return redirect(url_for("setup.setup_view"))
 
     env_path = _env_path()
+
+    # Re-authentication gate: importing overwrites the ENTIRE configuration
+    # in one shot, including ADMIN_USERNAME/ADMIN_PASSWORD and every other
+    # credential - a much bigger blast radius than editing one field, so it
+    # asks for the password again even though the session is already
+    # authenticated (_setup_auth's normal login check already ran). Only
+    # meaningful once an admin account actually exists to check against -
+    # during first-run bootstrap (JF_CONFIG is None) there's no config, no
+    # ADMIN_PASSWORD to compare against, and nothing yet worth protecting.
+    cfg = current_app.config.get("JF_CONFIG")
+    if cfg is not None:
+        confirm_password = request.form.get("confirm_password", "")
+        if not confirm_password or not hmac.compare_digest(confirm_password, cfg.admin_password):
+            return _import_rejected(env_path, "Incorrect password - the .env file was not imported.")
+
     text = upload.read().decode("utf-8", errors="replace")
     ok, error = env_setup.import_env_file(env_path, text)
     if not ok:
-        fields = _fields_for(env_path)
-        return render_template(
-            "admin/setup.html",
-            active="setup",
-            bootstrap_mode=current_app.config.get("JF_CONFIG") is None,
-            configured=current_app.config.get("JF_CONFIG") is not None,
-            fields=fields,
-            steps=_build_steps(fields),
-            setup_error=f"Could not import {upload.filename!r}: {error}",
-            env_exists=env_path.exists(),
-            saved=False,
-        )
+        return _import_rejected(env_path, f"Could not import {upload.filename!r}: {error}")
 
     env_setup.reload_into_environ(env_path)
     _schedule_restart()

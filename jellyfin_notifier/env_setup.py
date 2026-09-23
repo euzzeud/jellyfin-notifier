@@ -169,16 +169,50 @@ def write_env_file(env_path: Path, submitted: dict[str, str]) -> None:
 
 
 def import_env_file(env_path: Path, uploaded_text: str) -> tuple[bool, str]:
-    """Validates an uploaded .env file is at least well-formed (KEY=VALUE /
-    comment / blank lines only) before overwriting the real one with it."""
+    """Validates an uploaded .env file before it's allowed to overwrite the
+    real one - the same bar as settings_import() holds a settings.json
+    upload to via Settings.from_dict() before overwriting settings.json:
+
+    1. Well-formed (KEY=VALUE / comment / blank lines only).
+    2. Actually looks like a jellyfin-notifier .env - at least one key
+       matching field_spec() (the keys documented in .env.example) -
+       rather than silently accepting any syntactically-valid KEY=VALUE
+       file (a stray systemd EnvironmentFile, an unrelated project's .env).
+    3. Complete: every REQUIRED_KEYS entry present with a real,
+       non-placeholder value (unresolved_keys()) - the same completeness
+       check the wizard's own save applies, so an import can't leave the
+       install silently half-configured the way only writing+restarting
+       and finding out afterwards used to.
+
+    Deliberately validates the PARSED content before writing anything, so
+    a bad upload never touches the working .env (unlike a normal wizard
+    save, which merges into the existing file and only checks afterwards -
+    fine there since existing values are kept as a fallback, but an import
+    fully replaces the file, so there's nothing to fall back to if it's
+    bad)."""
     if not uploaded_text.strip():
         return False, "The uploaded file is empty."
+    values: dict[str, str] = {}
     for line in uploaded_text.splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
-        if not _LINE_RE.match(stripped):
+        match = _LINE_RE.match(stripped)
+        if not match:
             return False, f"Invalid line (expected KEY=VALUE): {stripped[:80]!r}"
+        values[match.group(1)] = match.group(2)
+
+    known_keys = {f["key"] for f in field_spec()}
+    if not known_keys & values.keys():
+        return False, "This doesn't look like a jellyfin-notifier .env file - none of the expected keys were found."
+
+    unresolved = unresolved_keys(values)
+    if unresolved:
+        return False, (
+            "Incomplete configuration - still using the example value (or missing) for: "
+            + ", ".join(unresolved) + ". Fix it in the file and re-upload."
+        )
+
     text = uploaded_text if uploaded_text.endswith("\n") else uploaded_text + "\n"
     env_path.write_text(text, encoding="utf-8")
     return True, ""
