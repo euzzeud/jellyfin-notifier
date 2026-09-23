@@ -12,8 +12,18 @@
   </p>
   <div class="row">
     <div>
-      <label>Jellyfin URL (leave empty to use the .env value)</label>
-      <input type="text" name="jellyfin_url_override" placeholder="{{ effective_url }}" value="{{ url_override_value }}" />
+      <label>Jellyfin URL</label>
+      {#
+        Pre-filled with the EFFECTIVE url (override if saved, else the
+        .env value) instead of leaving the field blank with that same
+        value shown only as a grey placeholder - the field should show
+        what's actually in use, not hide it in a hint. Same reasoning as
+        the Mail Server page's fields. Saving without touching this now
+        pins today's effective value as an explicit override (harmless -
+        it's the same value already in effect); clear the field and save
+        to go back to following .env.
+      #}
+      <input type="text" name="jellyfin_url_override" value="{{ effective_url }}" />
     </div>
     <div>
       <label>API key (leave empty to use the .env value)</label>

@@ -80,21 +80,30 @@
 
   <form class="u-mt-20px" method="post" data-track-dirty="true">
     <input type="hidden" name="action" value="save_poller" />
+    {#
+      Pre-filled with the EFFECTIVE value (override if saved, else the
+      service's own default) instead of showing an empty field with that
+      value only mentioned in a hint below it - same reasoning as the
+      Mail Server / Jellyfin Connector pages. Saving without touching
+      these now pins today's effective value as an explicit override
+      (harmless, same value already in effect); clear a field and save to
+      go back to following the service default.
+    #}
     <label>Item types to watch</label>
     <div class="tag-input" id="item-types-input"></div>
-    <input type="hidden" name="poller_item_types_override" id="poller_item_types_override" value="{{ settings.poller_item_types_override }}" />
-    <small class="hint">Empty = default ({{ default_item_types }}). Press space, enter, comma or semicolon to add a type — click a suggestion or start typing to filter them.</small>
+    <input type="hidden" name="poller_item_types_override" id="poller_item_types_override" value="{{ settings.poller_item_types_override or default_item_types }}" />
+    <small class="hint">Press space, enter, comma or semicolon to add a type — click a suggestion or start typing to filter them.</small>
     <div class="row">
       <div>
         <label>Poll interval (seconds)</label>
-        <input type="number" name="poller_interval_seconds_override" min="0" value="{{ settings.poller_interval_seconds_override or '' }}" placeholder="{{ default_interval }} (default)" />
+        <input type="number" name="poller_interval_seconds_override" min="0" value="{{ settings.poller_interval_seconds_override or default_interval }}" />
       </div>
       <div>
         <label>Fetch limit</label>
-        <input type="number" name="poller_limit_override" min="0" value="{{ settings.poller_limit_override or '' }}" placeholder="{{ default_limit }} (default)" />
+        <input type="number" name="poller_limit_override" min="0" value="{{ settings.poller_limit_override or default_limit }}" />
       </div>
     </div>
-    <small class="hint">Leave a field empty to use the default from the service configuration. Changes apply on the next poll cycle, no restart needed.</small>
+    <small class="hint">Changes apply on the next poll cycle, no restart needed.</small>
     <div class="actions">
       <button type="submit">Save changes</button>
     </div>
