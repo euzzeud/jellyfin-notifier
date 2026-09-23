@@ -1,6 +1,6 @@
 # jellyfin-notifier
 
-Self-hosted Python/Flask service that sends a mail (Gmail) whenever a new movie or series is added to a Jellyfin server. Each recipient gets their own individual mail (`To:` with a single address, no address leaking between recipients).
+Self-hosted Python/Flask service that sends a mail (via any standard SMTP provider) whenever a new movie or series is added to a Jellyfin server. Each recipient gets their own individual mail (`To:` with a single address, no address leaking between recipients).
 
 ## How it works
 
@@ -20,7 +20,7 @@ On first run, the entire existing catalog is recorded as "already seen" without 
   - Preview of the next mail.
   - Upcoming titles: manual announcement of content not yet in the library.
   - Ad-hoc Jellyfin API console.
-  - Mail server (SMTP): host/port/encryption, credentials, sender, recipients — any standard SMTP provider (not just Gmail), plus sending a test mail.
+  - Mail server (SMTP): host/port/encryption, credentials, sender, recipients — any standard SMTP provider, plus sending a test mail.
   - systemd service management + `journalctl` logs from the admin.
 - `/health` endpoint for monitoring (Telegraf/Grafana or other).
 
@@ -36,7 +36,7 @@ jellyfin_notifier/
   service_control.py  # systemd start/stop/restart + logs
   api_console.py       # ad-hoc Jellyfin API requests (admin)
   jellyfin_client.py   # Jellyfin HTTP client
-  email_sender.py      # building/sending the mail (Jinja2 + SMTP Gmail)
+  email_sender.py      # building/sending the mail (Jinja2 + SMTP)
   poller.py            # polling thread
   admin.py             # Flask blueprint, mounted at the site root
   webhook.py            # /health, /poll-now, the old webhook endpoint
@@ -67,7 +67,7 @@ To update an existing install without touching `.env` or the data (`update.sh` a
 
 ## Configuration
 
-See `.env.example` for the full list of variables (Gmail credentials, recipients, Jellyfin connection, schedule, admin credentials, data file paths).
+See `.env.example` for the full list of variables (SMTP credentials, recipients, Jellyfin connector, schedule, admin credentials, data file paths).
 
 ## Reference infrastructure
 

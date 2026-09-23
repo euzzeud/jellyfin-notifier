@@ -84,7 +84,7 @@ class Settings:
 
     # SMTP server / sender / recipients - editable from the admin, without
     # restarting the service. Empty/0 = the .env (Config) value used
-    # as-is. Any standard SMTP provider is supported, not just Gmail.
+    # as-is. Any standard SMTP provider is supported.
     smtp_host_override: str = ""
     smtp_port_override: int = 0
     smtp_encryption_override: str = ""  # "" = Config, sinon "starttls"/"ssl"/"none"

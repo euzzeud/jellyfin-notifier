@@ -13,7 +13,7 @@ from pathlib import Path
 # form (so they're never shown in the page source), only overwritten if the
 # admin actually types a new value.
 SECRET_KEYS = {
-    "SMTP_PASSWORD", "GMAIL_APP_PASSWORD", "ADMIN_PASSWORD",
+    "SMTP_PASSWORD", "ADMIN_PASSWORD",
     "JELLYFIN_API_KEY", "WEBHOOK_SHARED_SECRET",
 }
 
@@ -28,20 +28,21 @@ SECRET_KEYS = {
 # decide whether the app can boot normally, and to mark the wizard's own
 # required fields (red asterisk + blocks moving to the next step).
 REQUIRED_KEYS = (
-    "SMTP_USERNAME", "SMTP_PASSWORD", "NOTIFY_RECIPIENTS", "ADMIN_USERNAME", "ADMIN_PASSWORD",
+    "SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD", "NOTIFY_RECIPIENTS", "ADMIN_USERNAME", "ADMIN_PASSWORD",
     "JELLYFIN_URL", "JELLYFIN_API_KEY",
 )
 
 # Fill-in-the-blank example values from .env.example that are never valid to
-# actually use, as opposed to its other defaults (SMTP_HOST=smtp.gmail.com,
-# PORT=5005, NOTIFY_ITEM_TYPES=Movie,Series...) which are genuine, usable
-# settings a real install can legitimately keep unchanged. Config.from_env()
-# has no way to tell a real value from one of these - a fake but non-empty
-# string satisfies it just fine - so this is checked separately, wherever
-# "is this install actually configured" matters (app boot, the wizard's own
-# save validation, deploy.sh).
+# actually use, as opposed to its other defaults (PORT=5005,
+# NOTIFY_ITEM_TYPES=Movie,Series...) which are genuine, usable settings a
+# real install can legitimately keep unchanged. Config.from_env() has no way
+# to tell a real value from one of these - a fake but non-empty string
+# satisfies it just fine - so this is checked separately, wherever "is this
+# install actually configured" matters (app boot, the wizard's own save
+# validation, deploy.sh).
 PLACEHOLDER_VALUES = {
-    "SMTP_USERNAME": "your-address@gmail.com",
+    "SMTP_HOST": "smtp.example.com",
+    "SMTP_USERNAME": "your-address@example.com",
     "SMTP_PASSWORD": "xxxxxxxxxxxxxxxx",
     "NOTIFY_RECIPIENTS": "someone@example.com",
     "JELLYFIN_URL": "http://192.168.1.100:8096",

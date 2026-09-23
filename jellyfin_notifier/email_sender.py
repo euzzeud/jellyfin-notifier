@@ -1,6 +1,6 @@
-"""Building and sending the mail (Jellyfin theme) via SMTP - Gmail by
-default, but any standard SMTP server (STARTTLS, implicit SSL, or no
-encryption) works, see Settings.resolve_smtp()."""
+"""Building and sending the mail (Jellyfin theme) via SMTP - any standard
+SMTP server (STARTTLS, implicit SSL, or no encryption) works, see
+Settings.resolve_smtp()."""
 
 from __future__ import annotations
 

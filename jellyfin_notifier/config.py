@@ -12,9 +12,8 @@ SMTP_ENCRYPTIONS = ("starttls", "ssl", "none")
 
 @dataclass
 class Config:
-    # SMTP server - Gmail by default (historical compatibility), but any
-    # standard SMTP provider works (Outlook, OVH, a self-hosted server,
-    # etc).
+    # SMTP server - any standard provider works (Outlook, OVH, a
+    # self-hosted server, etc), nothing here is tied to a specific one.
     smtp_host: str
     smtp_port: int
     smtp_encryption: str  # "starttls" | "ssl" | "none"
@@ -48,23 +47,22 @@ class Config:
 
     @classmethod
     def from_env(cls) -> "Config":
-        # SMTP_USERNAME/SMTP_PASSWORD are the "generic" variables;
-        # GMAIL_ADDRESS/GMAIL_APP_PASSWORD are still accepted as a fallback
-        # so existing installs don't break (Gmail was the only supported
-        # provider at first).
-        smtp_username = os.environ.get("SMTP_USERNAME") or os.environ.get("GMAIL_ADDRESS")
-        smtp_password = os.environ.get("SMTP_PASSWORD") or os.environ.get("GMAIL_APP_PASSWORD")
+        smtp_host = os.environ.get("SMTP_HOST")
+        smtp_username = os.environ.get("SMTP_USERNAME")
+        smtp_password = os.environ.get("SMTP_PASSWORD")
+        if not smtp_host:
+            raise KeyError("SMTP_HOST missing from the environment")
         if not smtp_username:
-            raise KeyError("SMTP_USERNAME (or GMAIL_ADDRESS) missing from the environment")
+            raise KeyError("SMTP_USERNAME missing from the environment")
         if not smtp_password:
-            raise KeyError("SMTP_PASSWORD (or GMAIL_APP_PASSWORD) missing from the environment")
+            raise KeyError("SMTP_PASSWORD missing from the environment")
 
         encryption = os.environ.get("SMTP_ENCRYPTION", "starttls").strip().lower()
         if encryption not in SMTP_ENCRYPTIONS:
             encryption = "starttls"
 
         return cls(
-            smtp_host=os.environ.get("SMTP_HOST", "smtp.gmail.com"),
+            smtp_host=smtp_host,
             smtp_port=int(os.environ.get("SMTP_PORT", "587")),
             smtp_encryption=encryption,
             smtp_username=smtp_username,

@@ -1,5 +1,5 @@
 """Generates the mail's HTML with fake data, to preview the render in a
-browser WITHOUT sending a real mail or contacting Jellyfin/Gmail.
+browser WITHOUT sending a real mail or contacting Jellyfin/the mail server.
 
 Usage: python preview_email.py  -> writes preview.html next to this file
 """

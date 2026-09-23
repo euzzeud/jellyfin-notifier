@@ -118,16 +118,16 @@ def _schedule_restart(delay: float = 1.2) -> None:
 def _fields_for(env_path: Path) -> list[dict]:
     """Builds the field list the setup form renders from. Deliberately
     never pre-fills a field with one of .env.example's fill-in-the-blank
-    placeholder values (env_setup.PLACEHOLDER_VALUES - "your-address@gmail.com",
-    "someone@example.com", the fake Jellyfin IPs, "change-me"): those exist
-    only to show the expected shape in .env.example, not as something a
-    real install could legitimately keep. Pre-filling them looked like a
-    real value already typed in, which is exactly how they used to slip
-    through unresolved_keys() and get saved verbatim (see
-    env_setup.PLACEHOLDER_VALUES's own docstring). A field like that is
-    shown empty instead, with the placeholder text as a grayed-out input
-    hint (`placeholder_hint`) so the expected format is still visible.
-    Genuinely usable defaults (SMTP_HOST=smtp.gmail.com, PORT=5005,
+    placeholder values (env_setup.PLACEHOLDER_VALUES - "smtp.example.com",
+    "your-address@example.com", "someone@example.com", the fake Jellyfin
+    IPs, "change-me"): those exist only to show the expected shape in
+    .env.example, not as something a real install could legitimately keep.
+    Pre-filling them looked like a real value already typed in, which is
+    exactly how they used to slip through unresolved_keys() and get saved
+    verbatim (see env_setup.PLACEHOLDER_VALUES's own docstring). A field
+    like that is shown empty instead, with the placeholder text as a
+    grayed-out input hint (`placeholder_hint`) so the expected format is
+    still visible. Genuinely usable defaults (PORT=5005,
     NOTIFY_ITEM_TYPES=Movie,Series...) are unaffected and still pre-filled."""
     existing = env_setup.parse_env_file(env_path)
     fields = []

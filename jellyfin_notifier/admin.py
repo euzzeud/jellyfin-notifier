@@ -995,8 +995,7 @@ def api_console_test():
 # ---------------------------------------------------------------------------
 # Mail server (SMTP) - host/port/encryption, credentials, sender,
 # recipients. Configurable from the admin, without restarting the service.
-# Any standard SMTP provider is supported (not just Gmail, which just
-# remains the historical default value).
+# Any standard SMTP provider is supported.
 # ---------------------------------------------------------------------------
 
 def _smtp_fingerprint(smtp) -> str:
