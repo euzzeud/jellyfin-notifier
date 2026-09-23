@@ -14,6 +14,7 @@ import json
 import logging
 import re
 import shutil
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -210,6 +211,34 @@ def _check_html_structure(source: str) -> str | None:
 
 _PUBLIC_ENDPOINTS = {"admin.login", "admin.assets"}
 
+# Very small brute-force guard on the login form: hmac.compare_digest()
+# makes each single guess safe from timing attacks, but nothing stopped an
+# attacker from just trying passwords back to back - there's no external
+# rate limiter in front of this app (it's meant to sit directly on the LAN,
+# see deploy.sh). In-memory only (a service restart clears it, and this app
+# runs as a single process, so there's nothing to keep in sync across
+# workers) - resets on a successful login. Keyed by source IP, not
+# username, since ADMIN_USERNAME is effectively public knowledge (it's the
+# admin's own choice, not a secret, and this isn't a multi-user system).
+_LOGIN_MAX_ATTEMPTS = 5
+_LOGIN_LOCKOUT_SECONDS = 300
+_failed_logins: dict[str, list[float]] = {}
+
+
+def _login_locked_out(ip: str) -> int:
+    """Returns remaining lockout seconds (0 if not locked out), after
+    discarding attempts older than the lockout window."""
+    now = time.time()
+    attempts = [t for t in _failed_logins.get(ip, []) if now - t < _LOGIN_LOCKOUT_SECONDS]
+    _failed_logins[ip] = attempts
+    if len(attempts) < _LOGIN_MAX_ATTEMPTS:
+        return 0
+    return int(_LOGIN_LOCKOUT_SECONDS - (now - attempts[0]))
+
+
+def _record_failed_login(ip: str) -> None:
+    _failed_logins.setdefault(ip, []).append(time.time())
+
 
 @admin_bp.before_request
 def _require_auth():
@@ -225,6 +254,13 @@ def login():
     cfg = _config()
     error = None
     if request.method == "POST":
+        ip = request.remote_addr or "unknown"
+        locked_for = _login_locked_out(ip)
+        if locked_for:
+            error = f"Too many failed attempts. Try again in {locked_for // 60 + 1} minute(s)."
+            logger.warning("Login blocked (rate limited, from=%s).", ip)
+            return render_template("admin/login.html", error=error, next=request.args.get("next", ""))
+
         username = request.form.get("username", "")
         password = request.form.get("password", "")
         if hmac.compare_digest(username, cfg.admin_username) and hmac.compare_digest(password, cfg.admin_password):
@@ -235,10 +271,12 @@ def login():
             # Minimal safety: only allows internal redirects (avoids an open redirect).
             if not next_url.startswith("/"):
                 next_url = url_for("admin.dashboard")
+            _failed_logins.pop(ip, None)
             logger.info("Login successful (user=%s, from=%s).", username, request.remote_addr)
             metrics.inc_login(True)
             return redirect(next_url)
         error = "Invalid username or password."
+        _record_failed_login(ip)
         logger.warning("Failed login attempt (user=%r, from=%s).", username, request.remote_addr)
         metrics.inc_login(False)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import logging
 
 from flask import Blueprint, current_app, jsonify, request
@@ -60,7 +61,16 @@ def jellyfin_webhook():
     config = current_app.config["JF_CONFIG"]
 
     if config.webhook_shared_secret:
-        if request.headers.get("X-Webhook-Secret") != config.webhook_shared_secret:
+        # hmac.compare_digest() instead of != - a plain string comparison
+        # returns as soon as the first mismatching byte is found, so its
+        # timing leaks how many leading characters of the guess were
+        # correct. Not the biggest risk this endpoint has (Jellyfin itself
+        # sends this header in cleartext over the LAN), but there's no
+        # reason not to close it, same as every other secret comparison in
+        # this app (login, factory reset, .env import).
+        if not hmac.compare_digest(
+            request.headers.get("X-Webhook-Secret", ""), config.webhook_shared_secret
+        ):
             return jsonify({"error": "forbidden"}), 403
 
     payload = request.get_json(silent=True) or {}
@@ -127,10 +137,17 @@ def metrics_endpoint():
     return jsonify(data), 200
 
 
-@webhook_bp.route("/poll-now", methods=["POST", "GET"])
+@webhook_bp.route("/poll-now", methods=["POST"])
 def poll_now():
     """Triggers a polling cycle immediately (for testing without waiting
-    for POLL_INTERVAL_SECONDS)."""
+    for POLL_INTERVAL_SECONDS). Deliberately unauthenticated like /health and
+    /metrics (LAN-only trust model, nothing here reads or changes
+    credentials) - but unlike those two this one has a real side effect
+    (an actual poll cycle, which can send mail), so it's POST-only. A GET
+    would make it triggerable by anything that can get the LXC's IP to load
+    an <img> tag or similar - it used to accept GET too, which was an
+    oversight, not a deliberate design choice like /health and /metrics
+    being public."""
     poller = current_app.config.get("JF_POLLER")
     if not poller:
         return jsonify({"error": "poller disabled (POLLER_ENABLED=false)"}), 400

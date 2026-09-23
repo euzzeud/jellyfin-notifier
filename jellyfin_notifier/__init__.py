@@ -110,6 +110,21 @@ def create_app(config: Config | None = None) -> Flask:
     app.config["JF_ENV_PATH"] = env_path
     app.jinja_env.filters["friendly_dt"] = _format_timestamp
 
+    # SESSION_COOKIE_SAMESITE: Flask doesn't default this to anything (it's
+    # unset unless explicitly configured), so the session cookie would be
+    # sent on cross-site requests too - e.g. a form on another site that
+    # POSTs to this app, or a plain cross-site GET, would ride along with
+    # the admin's session. "Lax" (the safer default most other frameworks
+    # ship with) still allows normal top-level navigation (following a link
+    # to the app) but blocks the cookie on cross-site POSTs/subresource
+    # requests, without requiring a CSRF-token framework. SESSION_COOKIE_SECURE
+    # is deliberately left at its default (False): this app is normally
+    # reached over plain http:// on the LAN (see deploy.sh), and Secure=True
+    # would silently stop the session cookie from being sent at all there,
+    # locking everyone out of login - only set it if this is ever put behind
+    # HTTPS.
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
     @app.before_request
     def _require_setup():
         if app.config.get("JF_CONFIG") is None and request.endpoint not in _SETUP_EXEMPT_ENDPOINTS:
