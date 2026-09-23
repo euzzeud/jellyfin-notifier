@@ -275,9 +275,6 @@ def dashboard():
     service_status = service_control.get_status()
     pending = load_pending(cfg.pending_items_path)
     logs_tail = service_control.get_logs(40)
-    settings_reset = request.args.get("settings_reset") == "1"
-    imported = request.args.get("imported") == "1"
-    import_error = request.args.get("import_error")
 
     return render_template(
         "admin/dashboard.html",
@@ -290,9 +287,6 @@ def dashboard():
         within_window=is_within_window(settings),
         next_slot=next_allowed_datetime(settings),
         poller_saved=poller_saved,
-        settings_reset=settings_reset,
-        imported=imported,
-        import_error=import_error,
         default_item_types=",".join(sorted(cfg.notify_item_types)),
         default_interval=cfg.poll_interval_seconds,
         default_limit=DEFAULT_POLLER_LIMIT,
@@ -312,7 +306,9 @@ def settings_reset():
     cfg = _config()
     save_settings(cfg.settings_path, Settings())
     logger.warning("All notifier settings reset to their defaults.")
-    return redirect(url_for("admin.dashboard", settings_reset=1))
+    # Same "Configuration" page as settings_import() above, not the
+    # dashboard - see its comment.
+    return redirect(url_for("setup.setup_view", settings_reset=1))
 
 
 # ---------------------------------------------------------------------------
@@ -1168,10 +1164,14 @@ def settings_export():
 
 @admin_bp.route("/settings/import", methods=["POST"])
 def settings_import():
+    # Redirects to setup.setup_view (the "Configuration" page), not the
+    # dashboard - the settings.json backup/restore/reset cards moved there
+    # to sit next to .env's own import/reset, since the admin thinks of
+    # both as "the configuration" even though they're two separate files.
     cfg = _config()
     upload = request.files.get("settings_file")
     if not upload or not upload.filename:
-        return redirect(url_for("admin.dashboard", import_error="Choose a settings JSON file first."))
+        return redirect(url_for("setup.setup_view", import_error="Choose a settings JSON file first."))
     try:
         data = json.loads(upload.read().decode("utf-8"))
         if not isinstance(data, dict):
@@ -1179,7 +1179,7 @@ def settings_import():
         imported = Settings.from_dict(data)
     except Exception as exc:
         logger.warning("Settings import rejected: %s", exc)
-        return redirect(url_for("admin.dashboard", import_error=f"Invalid settings file: {exc}"))
+        return redirect(url_for("setup.setup_view", import_error=f"Invalid settings file: {exc}"))
     save_settings(cfg.settings_path, imported)
     logger.warning("Settings imported from %r, overwriting the current configuration.", upload.filename)
-    return redirect(url_for("admin.dashboard", imported=1))
+    return redirect(url_for("setup.setup_view", imported=1))

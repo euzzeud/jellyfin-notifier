@@ -1,8 +1,13 @@
-"""First-run setup wizard and the "Environment" admin page: lets .env be
+"""First-run setup wizard and the "Configuration" admin page: lets .env be
 created (when missing/incomplete - the app boots in a limited mode and
 every other page redirects here until the required keys are filled in) and
 edited afterwards (once logged in, like any other admin page) from the web
-interface, instead of requiring SSH + a text editor on the server.
+interface, instead of requiring SSH + a text editor on the server. The
+settings.json backup/restore/reset cards (see admin.py's settings_export/
+settings_import/settings_reset) also render on this same page/template -
+the admin thinks of both as "the configuration", even though they're two
+separate files with very different sensitivity (.env holds credentials,
+settings.json doesn't - see import_env_file()'s docstring in env_setup.py).
 
 Saving writes .env then restarts the process in place (os.execv, after a
 short delay so the HTTP response has time to reach the browser) so the new
@@ -187,6 +192,13 @@ def setup_view():
         just_attempted=False,
         env_exists=env_path.exists(),
         saved=request.args.get("saved") == "1",
+        # settings.json's own backup/restore/reset flashes (admin.py's
+        # settings_reset()/settings_import() redirect here, not to the
+        # dashboard, now that both halves of "configuration" - .env AND
+        # settings.json - live on this one page).
+        settings_reset=request.args.get("settings_reset") == "1",
+        imported=request.args.get("imported") == "1",
+        import_error=request.args.get("import_error"),
     )
 
 

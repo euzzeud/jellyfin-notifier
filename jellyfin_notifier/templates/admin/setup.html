@@ -1,5 +1,5 @@
 {% extends "admin/base.html" %}
-{% block title %}{{ 'Setup' if bootstrap_mode else 'Environment' }} - Jellyfin Notifier{% endblock %}
+{% block title %}{{ 'Setup' if bootstrap_mode else 'Configuration' }} - Jellyfin Notifier{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/setup.css') }}" />{% endblock %}
 {% block content %}
 
@@ -19,13 +19,16 @@
 {% if saved %}
 <div class="alert ok">Saved.</div>
 {% endif %}
+{% if settings_reset %}<div class="alert ok flash-toast">Settings reset to their default values.</div>{% endif %}
+{% if imported %}<div class="alert ok flash-toast">Settings imported successfully.</div>{% endif %}
+{% if import_error %}<div class="alert err flash-toast">{{ import_error }}</div>{% endif %}
 
 <div class="card" id="setup-landing">
   <div class="u-d-flex-jc-space-between-ai-flex-start-gap-14px">
     {% if bootstrap_mode %}
     <h2>Welcome — let's configure jellyfin-notifier</h2>
     {% else %}
-    <h2>Environment (.env)</h2>
+    <h2>Configuration</h2>
     {% endif %}
     {% if env_exists %}
     {# Wipes .env and restarts into a blank wizard - relevant whenever a
@@ -153,6 +156,45 @@
 </form>
 </div>
 
+{% if not bootstrap_mode %}
+{#
+  The other half of "configuration": settings.json (mail texts & colors,
+  schedule, poller/Jellyfin/SMTP overrides - everything that ISN'T a
+  credential, see .env above) lives in its own file, backed up/reset
+  separately from .env, but the admin thinks of both as "the
+  configuration" - so both live on this one page instead of being split
+  across here and the dashboard. Only shown once actually configured:
+  during first-run bootstrap there's nothing meaningful to back up or
+  reset yet, and the wizard above is the only thing that matters.
+#}
+<div class="card">
+  <h2>Backup &amp; restore</h2>
+  <p class="muted u-fz-12p5px">
+    Export all notifier settings (mail texts &amp; colors, schedule, poller/Jellyfin/SMTP overrides) to a JSON file, or restore a previously exported one — handy before moving to a new LXC/server. This does <strong>not</strong> include the queue, the "upcoming" titles, the mail history, or your raw HTML template edits. (For the credentials themselves - SMTP/admin passwords, API keys - use the .env import above instead.)
+  </p>
+  <div class="actions u-mt-0">
+    <a href="{{ url_for('admin.settings_export') }}" class="btn secondary">⬇ Export settings</a>
+    <button type="button" class="secondary" onclick="document.getElementById('import-settings-input').click();">⬆ Import settings</button>
+  </div>
+  <form class="u-d-none" method="post" action="{{ url_for('admin.settings_import') }}" enctype="multipart/form-data" id="import-settings-form">
+    <input type="file" name="settings_file" id="import-settings-input" accept="application/json" onchange="handleSettingsImportFile(this)" />
+  </form>
+</div>
+
+<div class="card danger-zone">
+  <h2>Danger zone</h2>
+  <p class="muted u-fz-12p5px">
+    Resets all notifier settings (mail texts &amp; colors, schedule, poller options, Jellyfin Connector overrides, SMTP server configuration) back to their default values.
+    This does <strong>not</strong> touch the queue, the "upcoming" titles list and their posters, the poller's "already seen" state, or your raw HTML template edits.
+  </p>
+  <form method="post" action="{{ url_for('admin.settings_reset') }}" id="reset-settings-form">
+    <div class="actions">
+      <button type="submit" class="danger">⟲ Reset settings to defaults</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+
 <script>
 // Wrapped in DOMContentLoaded because createTagInput (used below for the
 // NOTIFY_RECIPIENTS field) is defined in base.html's own <script>, which
@@ -195,6 +237,22 @@ document.addEventListener('DOMContentLoaded', function () {
       }).then((ok) => { if (ok) { document.getElementById('setup-reset-form').submit(); } });
     });
   });
+
+  {% if not bootstrap_mode %}
+  // settings.json's own reset button (separate confirmation from the .env
+  // "Start over" above - resetting settings.json doesn't touch .env/the
+  // login credentials at all, so it gets its own, less alarming wording).
+  const resetSettingsForm = document.getElementById('reset-settings-form');
+  resetSettingsForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    showConfirm({
+      title: 'Reset all settings to their defaults?',
+      message: 'Custom texts, colors, schedule, poller and connection overrides will be lost. This cannot be undone.',
+      confirmText: '⟲ Reset settings',
+      danger: true,
+    }).then((ok) => { if (ok) { resetSettingsForm.submit(); } });
+  });
+  {% endif %}
   {% if just_attempted %}
   // A save was just attempted and rejected (not the same as setup_error
   // being set in general - that also stays true on every plain GET while
@@ -375,6 +433,24 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 });
+
+// Checks the chosen settings.json file (JSON syntax + expected shape)
+// before sending it to the server - an IDE-style popup with the
+// offending line in red on error, rather than a server round-trip to
+// find out. See checkJsonSettingsFile() in base.html.
+function handleSettingsImportFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  checkJsonSettingsFile(file).then((ok) => {
+    if (ok) {
+      document.getElementById('import-settings-form').submit();
+    } else {
+      // Resets the field so choosing the SAME file again (after fixing
+      // it) properly re-triggers "onchange".
+      input.value = '';
+    }
+  });
+}
 
 function testJellyfinConnection() {
   const urlField = document.getElementById('field-JELLYFIN_URL');

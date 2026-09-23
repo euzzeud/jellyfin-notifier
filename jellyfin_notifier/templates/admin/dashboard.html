@@ -2,10 +2,6 @@
 {% block title %}Main - Jellyfin Notifier{% endblock %}
 {% block content %}
 
-{% if settings_reset %}<div class="alert ok flash-toast">Settings reset to their default values.</div>{% endif %}
-{% if imported %}<div class="alert ok flash-toast">Settings imported successfully.</div>{% endif %}
-{% if import_error %}<div class="alert err flash-toast">{{ import_error }}</div>{% endif %}
-
 <div class="card">
   <h2>Service</h2>
   <div class="grid">
@@ -148,31 +144,17 @@
   <pre class="logbox">{{ logs_tail }}</pre>
 </div>
 
+{#
+  Backup/restore and reset for settings.json moved to the "Configuration"
+  page (setup.html), next to .env's own import/reset - the admin thinks of
+  both as "the configuration" even though they're two separate files, so
+  they now live in one place instead of being split across here and there.
+#}
 <div class="card">
-  <h2>Backup &amp; restore</h2>
+  <h2>Backup &amp; restore, reset</h2>
   <p class="muted u-fz-12p5px">
-    Export all notifier settings (mail texts &amp; colors, schedule, poller/Jellyfin/SMTP overrides) to a JSON file, or restore a previously exported one — handy before moving to a new LXC/server. This does <strong>not</strong> include the queue, the "upcoming" titles, the mail history, or your raw HTML template edits.
+    Moved to the <a href="{{ url_for('setup.setup_view') }}">Configuration</a> page, alongside the .env import/reset.
   </p>
-  <div class="actions u-mt-0">
-    <a href="{{ url_for('admin.settings_export') }}" class="btn secondary">⬇ Export settings</a>
-    <button type="button" class="secondary" onclick="document.getElementById('import-settings-input').click();">⬆ Import settings</button>
-  </div>
-  <form class="u-d-none" method="post" action="{{ url_for('admin.settings_import') }}" enctype="multipart/form-data" id="import-settings-form">
-    <input type="file" name="settings_file" id="import-settings-input" accept="application/json" onchange="handleSettingsImportFile(this)" />
-  </form>
-</div>
-
-<div class="card danger-zone">
-  <h2>Danger zone</h2>
-  <p class="muted u-fz-12p5px">
-    Resets all notifier settings (mail texts &amp; colors, schedule, poller options, Jellyfin Connector overrides, SMTP server configuration) back to their default values.
-    This does <strong>not</strong> touch the queue, the "upcoming" titles list and their posters, the poller's "already seen" state, or your raw HTML template edits.
-  </p>
-  <form method="post" action="{{ url_for('admin.settings_reset') }}" id="reset-settings-form">
-    <div class="actions">
-      <button type="submit" class="danger">⟲ Reset settings to defaults</button>
-    </div>
-  </form>
 </div>
 
 <script>
@@ -216,24 +198,6 @@ function pollerAction(action) {
       setTimeout(() => location.reload(), 900);
     })
     .catch(err => { showToast('Network error: ' + err, false); });
-}
-
-// Checks the chosen settings.json file (JSON syntax + expected shape)
-// before sending it to the server - an IDE-style popup with the
-// offending line in red on error, rather than a server round-trip to
-// find out. See checkJsonSettingsFile() in base.html.
-function handleSettingsImportFile(input) {
-  const file = input.files[0];
-  if (!file) return;
-  checkJsonSettingsFile(file).then((ok) => {
-    if (ok) {
-      document.getElementById('import-settings-form').submit();
-    } else {
-      // Resets the field so choosing the SAME file again (after fixing
-      // it) properly re-triggers "onchange".
-      input.value = '';
-    }
-  });
 }
 
 const SEEN_URL = "{{ url_for('admin.poller_seen_data') }}";
@@ -302,17 +266,6 @@ document.addEventListener('DOMContentLoaded', () => {
     hiddenInput: document.getElementById('poller_item_types_override'),
     suggestions: ['Movie', 'Series', 'Season', 'Episode', 'BoxSet', 'Audio', 'MusicAlbum', 'MusicVideo', 'Book', 'Photo'],
     placeholder: 'Movie, Series...',
-  });
-
-  const resetForm = document.getElementById('reset-settings-form');
-  resetForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    showConfirm({
-      title: 'Reset all settings to their defaults?',
-      message: 'Custom texts, colors, schedule, poller and connection overrides will be lost. This cannot be undone.',
-      confirmText: '⟲ Reset settings',
-      danger: true,
-    }).then(ok => { if (ok) { resetForm.submit(); } });
   });
 });
 </script>
