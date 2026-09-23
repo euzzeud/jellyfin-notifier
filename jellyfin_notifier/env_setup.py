@@ -204,7 +204,7 @@ def import_env_file(env_path: Path, uploaded_text: str) -> tuple[bool, str]:
 
     known_keys = {f["key"] for f in field_spec()}
     if not known_keys & values.keys():
-        return False, "This doesn't look like a jellyfin-notifier .env file - none of the expected keys were found."
+        return False, "This doesn't look like a Jellyfin Notifier .env file - none of the expected keys were found."
 
     unresolved = unresolved_keys(values)
     if unresolved:
