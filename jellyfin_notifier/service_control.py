@@ -89,14 +89,20 @@ def _run(cmd: list[str], timeout: int = 15) -> tuple[bool, str]:
 
 
 def get_status() -> dict:
-    _, active_state = _run(["systemctl", "is-active", SERVICE_NAME])
+    # Each _run() result is only meaningful when `ok` - on failure (not
+    # found, permission denied, timeout...) the second value is an error
+    # message, not a status string, and must NOT be displayed as if it were
+    # one (that used to dump the whole "'systemctl' was not found on this
+    # system..." explanation into the status pill - technically accurate,
+    # but a wall of red text where a plain "unknown" belongs).
+    active_ok, active_state = _run(["systemctl", "is-active", SERVICE_NAME])
     _, sub_state = _run(["systemctl", "show", SERVICE_NAME, "--property=SubState", "--value"])
-    _, since = _run(["systemctl", "show", SERVICE_NAME, "--property=ActiveEnterTimestamp", "--value"])
+    since_ok, since = _run(["systemctl", "show", SERVICE_NAME, "--property=ActiveEnterTimestamp", "--value"])
     return {
-        "active": active_state.strip() or "unknown",
+        "active": active_state.strip() if active_ok and active_state.strip() else "unknown",
         "sub_state": sub_state.strip(),
-        "is_running": active_state.strip() == "active",
-        "since": since.strip(),
+        "is_running": active_ok and active_state.strip() == "active",
+        "since": since.strip() if since_ok else "",
     }
 
 

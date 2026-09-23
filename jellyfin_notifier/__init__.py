@@ -1,7 +1,7 @@
 import hashlib
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 from flask import Flask, redirect, request, url_for
@@ -50,17 +50,21 @@ def _format_timestamp(value: str | None) -> str:
     """Jinja filter: turns a raw ISO 8601 timestamp (as stored/returned by
     poller.status() - e.g. "2026-09-22T20:10:21.727673+00:00", kept as-is
     there for /health and /metrics consumers) into a friendly display form
-    for the admin UI, e.g. "22 Sep 2026, 20:10:21 UTC". Falls back to the
-    raw value if it can't be parsed."""
+    for the admin UI, e.g. "22 Sep 2026, 22:10:21". Always converted to the
+    local timezone of whoever/wherever is running this (the user's machine
+    in dev, the LXC's own local time in production) and shown WITHOUT a
+    "UTC"/"UTC+02:00"-style suffix - the admin is reading their own clock,
+    a timezone label is just noise. Falls back to the raw value if it
+    can't be parsed."""
     if not value:
         return "—"
     try:
         dt = datetime.fromisoformat(value)
     except ValueError:
         return value
-    tz_label = "UTC" if dt.tzinfo == timezone.utc else (dt.strftime("%Z") or "")
-    formatted = dt.strftime("%d %b %Y, %H:%M:%S")
-    return f"{formatted} {tz_label}".strip()
+    if dt.tzinfo is not None:
+        dt = dt.astimezone()
+    return dt.strftime("%d %b %Y, %H:%M:%S")
 
 
 def create_app(config: Config | None = None) -> Flask:
