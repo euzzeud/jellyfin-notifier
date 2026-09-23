@@ -1,0 +1,60 @@
+# SMTP server - any standard provider works (Outlook, OVH, a self-hosted
+# mail server, etc). All of this can also be edited live from the admin
+# interface (the "Mail Server" page), which takes precedence over these
+# values whenever an override is saved there.
+SMTP_HOST=smtp.dev.local
+SMTP_PORT=587
+# starttls (587, most common) / ssl (implicit TLS, often 465) / none
+SMTP_ENCRYPTION=starttls
+SMTP_USERNAME=dev@dev.local
+SMTP_PASSWORD=dev-fake-password
+# Optional: address shown in "From" if different from SMTP_USERNAME.
+# Defaults to SMTP_USERNAME.
+SENDER_EMAIL=
+SENDER_NAME=Jellyfin
+
+# Recipient(s), comma-separated
+NOTIFY_RECIPIENTS=dev@dev.local
+
+# Jellyfin (used to fetch the poster of newly added content, and for API
+# calls in general - must stay reachable)
+JELLYFIN_URL=http://localhost:8096
+JELLYFIN_API_KEY=dev-fake-api-key
+
+# URL used ONLY for the clickable "Watch" link in the email (can be a local
+# domain name different from JELLYFIN_URL). Optional: defaults to
+# JELLYFIN_URL if unset.
+JELLYFIN_PUBLIC_URL=http://localhost:8096
+
+# Waits 5 minutes after the last addition before sending the digest
+# (avoids one email per episode when a full season is added at once)
+DEBOUNCE_SECONDS=300
+
+# Item types that trigger a notification (Movie, Series, Season, Episode)
+NOTIFY_ITEM_TYPES=Movie,Series
+
+# Optional: shared secret to secure the webhook endpoint
+WEBHOOK_SHARED_SECRET=
+PORT=5005
+
+# Polling of the Jellyfin API (replaces the webhook, more reliable):
+# checks for new items every POLL_INTERVAL_SECONDS.
+# Disabled here on purpose: there's no real Jellyfin server behind
+# JELLYFIN_URL in this local/dev file, so polling would just log a fetch
+# error every cycle. Flip to true once JELLYFIN_URL points at a real
+# instance (or fake one) you want to poll against.
+POLLER_ENABLED=false
+POLL_INTERVAL_SECONDS=300
+SEEN_ITEMS_PATH=seen_items.json
+
+# Web admin interface, reachable at http://<lxc-ip>:5005/
+# (schedule, template editor, API console, mail server, service control,
+# logs). Protected by a login page - intended for LAN-only access, do not
+# expose it to the internet without HTTPS in front of it.
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=devlocal123
+
+# Admin data files (schedule, pending queue, upcoming titles)
+SETTINGS_PATH=settings.json
+PENDING_ITEMS_PATH=pending_items.json
+UPCOMING_PATH=upcoming.json
