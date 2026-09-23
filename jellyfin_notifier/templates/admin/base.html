@@ -37,6 +37,15 @@
     </div>
   </div>
 </div>
+<div class="modal-overlay" id="detail-modal-overlay">
+  <div class="modal-box detail-modal-box">
+    <h3 id="detail-modal-title">Details</h3>
+    <pre class="detail-modal-message" id="detail-modal-message"></pre>
+    <div class="actions">
+      <button type="button" id="detail-modal-close">Close</button>
+    </div>
+  </div>
+</div>
 <div class="unsaved-bar" id="unsaved-bar">
   <span class="msg">Careful — you have unsaved changes!</span>
   <div class="unsaved-actions">
@@ -44,6 +53,14 @@
     <button type="button" class="save" id="unsaved-save">Save changes</button>
   </div>
 </div>
+<!--
+  #shake-target wraps header+nav+main (but deliberately NOT the bar/modals/
+  toasts above, which stay direct children of <body>) - see the long
+  comment above #shake-target.shake-warn in base.css for why: the "unsaved
+  changes" shake animates THIS wrapper, never <body> itself, so it can't
+  turn body into a new containing block for its position:fixed siblings.
+-->
+<div id="shake-target">
 <div class="topbar">
 <header>
   <div class="brand"><img class="u-d-block-h-34px-w-auto" src="{{ url_for('admin.assets', filename='jellyfin-logo.svg') }}" alt="Jellyfin" /><span>Notifier</span></div>
@@ -74,6 +91,7 @@
 <main class="{{ 'wide' if wide_layout else '' }}">
   {% block content %}{% endblock %}
 </main>
+</div>
 <script>
 function showToast(message, ok) {
   const container = document.getElementById('toast-container');
@@ -128,6 +146,37 @@ function showConfirm({ title, message, confirmText = 'Confirm', danger = false }
     overlay.addEventListener('mousedown', onOverlay);
     document.addEventListener('keydown', onKey);
   });
+}
+
+// Generic "show the full text of something" popup - e.g. Mail History's
+// "Failed" pill opens this with the full SMTP error, instead of it being
+// permanently shown inline in the table (where a multi-line traceback
+// pushed every other row down) or only available via a truncated
+// title="..." tooltip.
+function showDetailModal({ title = 'Details', message = '' }) {
+  const overlay = document.getElementById('detail-modal-overlay');
+  const titleEl = document.getElementById('detail-modal-title');
+  const msgEl = document.getElementById('detail-modal-message');
+  const closeBtn = document.getElementById('detail-modal-close');
+
+  titleEl.textContent = title;
+  msgEl.textContent = message;
+  overlay.classList.add('show');
+  closeBtn.focus();
+
+  function cleanup() {
+    overlay.classList.remove('show');
+    closeBtn.removeEventListener('click', onClose);
+    overlay.removeEventListener('mousedown', onOverlay);
+    document.removeEventListener('keydown', onKey);
+  }
+  function onClose() { cleanup(); }
+  function onOverlay(e) { if (e.target === overlay) cleanup(); }
+  function onKey(e) { if (e.key === 'Escape') cleanup(); }
+
+  closeBtn.addEventListener('click', onClose);
+  overlay.addEventListener('mousedown', onOverlay);
+  document.addEventListener('keydown', onKey);
 }
 
 // JSON error popup (settings.json import): shows the file line by line with
@@ -783,8 +832,9 @@ function initUnsavedGuard() {
   const bar = document.getElementById('unsaved-bar');
   const resetBtn = document.getElementById('unsaved-reset');
   const saveBtn = document.getElementById('unsaved-save');
+  const shakeTarget = document.getElementById('shake-target');
   let dirtyForm = null;
-  let leaveOverride = null; // { href, expiresAt }
+  let leaveOverride = null; // { link, expiresAt }
 
   function serialize(form) {
     return Array.from(form.elements)
@@ -828,6 +878,7 @@ function initUnsavedGuard() {
     dirtyForm = null;
     bar.classList.remove('show');
     document.body.classList.remove('unsaved-bar-open');
+    disarmAllLinks();
   }
 
   function checkForm(form) {
@@ -904,26 +955,46 @@ function initUnsavedGuard() {
     e.returnValue = '';
   });
 
-  document.querySelectorAll('header a, nav a').forEach(link => {
+  const navLinks = Array.from(document.querySelectorAll('header a, nav a'));
+
+  function armLink(link) {
+    navLinks.forEach(l => { if (l !== link) l.classList.remove('nav-confirm-pending'); });
+    link.classList.add('nav-confirm-pending');
+  }
+  function disarmAllLinks() {
+    navLinks.forEach(l => l.classList.remove('nav-confirm-pending'));
+  }
+
+  navLinks.forEach(link => {
     link.addEventListener('click', (e) => {
       if (!dirtyForm) return;
-      const href = link.href;
       const now = Date.now();
-      if (leaveOverride && leaveOverride.href === href && now < leaveOverride.expiresAt) {
+      // Matched by the actual link element clicked, not just its href -
+      // makes the "which tab is armed" state unambiguous (see armLink()
+      // below, which also gives it a visible highlight so a click on a
+      // DIFFERENT tab right after this one is never mistaken for the
+      // confirming second click).
+      if (leaveOverride && leaveOverride.link === link && now < leaveOverride.expiresAt) {
         // Second click on the same link: let it through - and turn off
         // the guard BEFORE the navigation fires, otherwise "beforeunload"
         // still triggers right after and shows the browser's native
         // dialog ("Leave site?") ON TOP OF it, which made it look like
         // the nav warning was "coming back" despite the confirmation click.
         clearDirty();
+        disarmAllLinks();
         return;
       }
       e.preventDefault();
-      leaveOverride = { href, expiresAt: now + 4000 };
-      document.body.classList.remove('shake-warn');
+      leaveOverride = { link, expiresAt: now + 4000 };
+      armLink(link);
+      // The shake animates #shake-target (header+nav+main), never <body>
+      // - see the comment on #shake-target.shake-warn in base.css. The
+      // bar itself (a fixed sibling of #shake-target, not a descendant)
+      // is untouched by this and stays put throughout.
+      shakeTarget.classList.remove('shake-warn');
       // Forces a reflow so the animation can be replayed if it's already running.
-      void document.body.offsetWidth;
-      document.body.classList.add('shake-warn');
+      void shakeTarget.offsetWidth;
+      shakeTarget.classList.add('shake-warn');
       bar.classList.add('pulse');
       setTimeout(() => bar.classList.remove('pulse'), 420);
     });

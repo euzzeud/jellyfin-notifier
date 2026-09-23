@@ -34,20 +34,28 @@
       <td>
         {% if entry.success %}
         <span class="pill ok">Sent</span>
+        {% elif entry.error %}
+        <button type="button" class="pill bad js-mail-error" data-error="{{ entry.error }}">Failed</button>
         {% else %}
-        <span class="pill bad" title="{{ entry.error }}">Failed</span>
+        <span class="pill bad">Failed</span>
         {% endif %}
       </td>
     </tr>
-    {% if not entry.success and entry.error %}
-    <tr>
-      <td></td>
-      <td class="u-gen-ad36628f" colspan="5">{{ entry.error }}</td>
-    </tr>
-    {% endif %}
     {% endfor %}
   </table>
+  <small class="hint">Click a "Failed" result to see the full error.</small>
   {% endif %}
 </div>
+
+<script>
+// The full error (can be a multi-line SMTP traceback) used to always sit
+// inline under its row, pushing every row below it down the page - now
+// it's shown on demand in a popup instead, kept off the page until asked for.
+document.querySelectorAll('.js-mail-error').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    showDetailModal({ title: 'Send failed', message: btn.dataset.error });
+  });
+});
+</script>
 
 {% endblock %}
