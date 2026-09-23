@@ -130,9 +130,46 @@ def _setup_auth():
 
 
 def _schedule_restart(delay: float = 1.2) -> None:
+    """Restarts the process in place so the just-written .env takes effect
+    immediately. os.execv() replaces the running process image (same PID,
+    fresh Python interpreter, re-runs run.py from scratch) - it works
+    without any process manager, which matters since this has to work the
+    same way in local dev (a bare `python run.py`, no systemd) as it does
+    on the LXC (systemd).
+
+    If os.execv() itself fails for any reason (a bad interpreter path, a
+    permission quirk, anything) this used to fail COMPLETELY SILENTLY: the
+    exception just died inside this daemon thread with nothing surfaced to
+    the admin, and - critically - the running process never actually
+    restarts. Config/JF_CONFIG is only ever computed once, at import time
+    in run.py (`app = create_app()` at module level) - so with no restart,
+    the process keeps serving forever with whatever config it booted with,
+    even though the .env on disk was correctly updated. The admin sees
+    "Saved, restarting..." and then lands right back on /setup no matter
+    how many times they fill the form correctly - there's no way to tell
+    the difference between "still filling it in wrong" and "the restart
+    itself never happened" without this logging.
+
+    Now: any execv failure is logged loudly (shows up in `journalctl -u
+    jellyfin-notifier` / the Logs page), and as a fallback the process
+    hard-exits - systemd's Restart=on-failure (see jellyfin-notifier.service)
+    then spawns a genuinely fresh process that re-reads .env from disk, so
+    a broken execv still recovers under systemd. In local dev (no systemd),
+    a failed execv now visibly exits instead of limping along silently -
+    the service just needs to be started again by hand, which is at least
+    obvious instead of mysterious."""
     def _do_restart():
         time.sleep(delay)
-        os.execv(sys.executable, [sys.executable] + sys.argv)
+        try:
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+        except Exception:
+            logger.exception(
+                "Restart failed (os.execv raised) - the process is still running with its OLD "
+                "configuration even though .env was written correctly. Exiting so a process "
+                "manager (systemd's Restart=on-failure) can start a genuinely fresh process; "
+                "if nothing restarts this after a few seconds, restart the service by hand."
+            )
+            os._exit(1)
 
     threading.Thread(target=_do_restart, daemon=True).start()
 

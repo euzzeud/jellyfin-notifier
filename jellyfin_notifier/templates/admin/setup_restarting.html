@@ -14,10 +14,32 @@
   <p>{{ subtext or "This page will reload automatically in a few seconds." }}</p>
 </div>
 <script>
+  // A normal restart takes a couple of seconds (os.execv) or up to
+  // RestartSec=5 + boot time if systemd had to step in after a failed
+  // execv (see setup_wizard.py's _schedule_restart()). If the server is
+  // STILL unreachable after a generous timeout, something is genuinely
+  // wrong (the restart never happened, or the new process itself won't
+  // boot) - looping "tryReload" forever in that case just shows an
+  // eternal, dishonest spinner. Give up after ~45s and say so plainly,
+  // with the one concrete thing to check.
+  var attempts = 0;
+  var MAX_ATTEMPTS = 45;
+  function giveUp() {
+    document.querySelector('.spinner').style.display = 'none';
+    document.querySelector('h1').textContent = "Still not reachable…";
+    document.querySelector('p').innerHTML =
+      "The service should have restarted by now but isn't responding. " +
+      "It may need to be started manually: <code>sudo systemctl status jellyfin-notifier</code> " +
+      "and <code>journalctl -u jellyfin-notifier -n 50</code> on the server will show why.";
+  }
   function tryReload() {
+    attempts += 1;
     fetch('/', { method: 'GET', cache: 'no-store' })
       .then(() => { window.location.href = '/'; })
-      .catch(() => { setTimeout(tryReload, 1000); });
+      .catch(() => {
+        if (attempts >= MAX_ATTEMPTS) { giveUp(); return; }
+        setTimeout(tryReload, 1000);
+      });
   }
   setTimeout(tryReload, 2000);
 </script>
