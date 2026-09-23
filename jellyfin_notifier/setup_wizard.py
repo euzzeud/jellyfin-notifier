@@ -137,6 +137,23 @@ def _schedule_restart(delay: float = 1.2) -> None:
     threading.Thread(target=_do_restart, daemon=True).start()
 
 
+def _clear_loaded_env_vars() -> None:
+    """Removes every jellyfin-notifier .env key from THIS process' own
+    os.environ - called right before a reset-and-restart that deletes the
+    .env file (setup_reset()/factory_reset()). Deleting the file alone
+    isn't enough: _schedule_restart()'s os.execv() re-execs this same
+    process image, which inherits its CURRENT os.environ as-is - any key
+    already loaded at boot (env_setup.load_into_environ(), or systemd's
+    EnvironmentFile=, before this very process even started) would
+    otherwise still be sitting there after the "restart", so
+    Config.from_env() would succeed again from those stale values even
+    though the file is gone - the reset LOOKS like it worked (file
+    deleted, page reloads) but silently drops right back into the old
+    configuration instead of the setup wizard."""
+    for field in env_setup.field_spec():
+        os.environ.pop(field["key"], None)
+
+
 def _fields_for(env_path: Path) -> list[dict]:
     """Builds the field list the setup form renders from. Deliberately
     never pre-fills a field with one of .env.example's fill-in-the-blank
@@ -285,6 +302,7 @@ def setup_reset():
     everything, see factory_reset() below (the Danger Zone's own button)."""
     env_path = _env_path()
     env_path.unlink(missing_ok=True)
+    _clear_loaded_env_vars()
     _schedule_restart()
     return render_template(
         "admin/setup_restarting.html",
@@ -354,6 +372,7 @@ def factory_reset():
     Path(cfg.seen_items_path).unlink(missing_ok=True)
     _restore_default_templates()
     env_path.unlink(missing_ok=True)
+    _clear_loaded_env_vars()
     logger.warning(
         "Factory reset: .env, settings.json, pending queue, upcoming titles, "
         "poller seen-state and email templates were all wiped/restored to defaults."

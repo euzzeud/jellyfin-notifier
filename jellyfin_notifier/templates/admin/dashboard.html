@@ -144,19 +144,6 @@
   <pre class="logbox">{{ logs_tail }}</pre>
 </div>
 
-{#
-  Backup/restore and reset for settings.json moved to the "Configuration"
-  page (setup.html), next to .env's own import/reset - the admin thinks of
-  both as "the configuration" even though they're two separate files, so
-  they now live in one place instead of being split across here and there.
-#}
-<div class="card">
-  <h2>Backup &amp; restore, reset</h2>
-  <p class="muted u-fz-12p5px">
-    Moved to the <a href="{{ url_for('setup.setup_view') }}">Configuration</a> page, alongside the .env import/reset.
-  </p>
-</div>
-
 <script>
 function serviceAction(action) {
   const base = "{{ url_for('admin.service_action_route', action='__ACTION__') }}";
