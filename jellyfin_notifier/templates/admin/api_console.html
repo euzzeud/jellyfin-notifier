@@ -1,12 +1,12 @@
 {% extends "admin/base.html" %}
-{% block title %}Jellyfin Connection - Jellyfin Notifier{% endblock %}
+{% block title %}Jellyfin Connector - Jellyfin Notifier{% endblock %}
 {% block content %}
 
 {% if save_msg %}<div class="alert ok flash-toast">{{ save_msg }}</div>{% endif %}
 
 <form method="post" class="card" data-track-dirty="true">
   <input type="hidden" name="action" value="save_connection" />
-  <h2>Jellyfin connection</h2>
+  <h2>Jellyfin Connector</h2>
   <p class="muted" style="font-size:12px;">
     {% if using_override %}An override is active (also used by the poller and the mails).{% else %}Currently using the .env values ({{ effective_url }}).{% endif %}
   </p>

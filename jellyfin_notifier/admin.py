@@ -948,7 +948,7 @@ def api_console_view():
             save_msg = "Connection saved."
             effective_url = settings.jellyfin_url_override or cfg.jellyfin_url
             effective_key = settings.jellyfin_api_key_override or cfg.jellyfin_api_key
-            logger.info("Jellyfin connection settings saved (url=%s).", effective_url)
+            logger.info("Jellyfin Connector settings saved (url=%s).", effective_url)
 
         elif action == "run":
             method = request.form.get("method", "GET")

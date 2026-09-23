@@ -165,7 +165,7 @@
 <div class="card danger-zone">
   <h2>Danger zone</h2>
   <p class="muted" style="font-size:12.5px;">
-    Resets all notifier settings (mail texts &amp; colors, schedule, poller options, Jellyfin connection overrides, SMTP server configuration) back to their default values.
+    Resets all notifier settings (mail texts &amp; colors, schedule, poller options, Jellyfin Connector overrides, SMTP server configuration) back to their default values.
     This does <strong>not</strong> touch the queue, the "upcoming" titles list and their posters, the poller's "already seen" state, or your raw HTML template edits.
   </p>
   <form method="post" action="{{ url_for('admin.settings_reset') }}" id="reset-settings-form">
