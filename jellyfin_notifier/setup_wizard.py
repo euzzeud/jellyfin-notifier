@@ -80,9 +80,10 @@ _STEP_DEFS = [
 ]
 
 # Fields rendered as a tag/chip input (comma-separated list) instead of a
-# plain text box - currently just the mail recipients list, same widget
-# already used for item-type overrides on the dashboard.
-_TAG_LIST_KEYS = {"NOTIFY_RECIPIENTS"}
+# plain text box - the mail recipients list and the item-type filter, same
+# widget already used for item-type overrides on the dashboard (setup.html
+# picks the right validation/suggestions per key, see its taglist- loop).
+_TAG_LIST_KEYS = {"NOTIFY_RECIPIENTS", "NOTIFY_ITEM_TYPES"}
 
 
 def _build_steps(fields: list[dict]) -> list[dict]:

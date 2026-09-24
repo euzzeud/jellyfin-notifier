@@ -488,18 +488,34 @@ document.addEventListener('DOMContentLoaded', function () {
   // previous, possibly unrelated install's values.
   form.addEventListener('submit', () => { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} });
 
-  // --- Recipients as tags, not a raw comma-separated text box.
+  // --- Tag-list fields (recipients, item types...) as chips, not a raw
+  // comma-separated text box. Each key can carry its own suggestions and
+  // validation - an email checker doesn't make sense for item types, and
+  // vice versa - so this isn't one-size-fits-all like it used to be.
+  const TAG_LIST_CONFIG = {
+    NOTIFY_RECIPIENTS: {
+      suggestions: [],
+      placeholder: 'name@example.com',
+      validate: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+      invalidMessage: 'Enter a valid email address',
+    },
+    NOTIFY_ITEM_TYPES: {
+      suggestions: ['Movie', 'Series', 'Season', 'Episode', 'BoxSet', 'Audio', 'MusicAlbum', 'MusicVideo', 'Book', 'Photo'],
+      placeholder: 'Movie, Series...',
+    },
+  };
   document.querySelectorAll('[id^="taglist-"]').forEach((root) => {
     const key = root.id.replace('taglist-', '');
     const hidden = document.getElementById('field-' + key);
     if (!hidden || typeof createTagInput !== 'function') return;
+    const cfg = TAG_LIST_CONFIG[key] || {};
     createTagInput({
       root,
       hiddenInput: hidden,
-      suggestions: [],
-      placeholder: root.dataset.placeholder || 'name@example.com',
-      validate: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
-      invalidMessage: 'Enter a valid email address',
+      suggestions: cfg.suggestions || [],
+      placeholder: root.dataset.placeholder || cfg.placeholder || 'Type to add...',
+      validate: cfg.validate || null,
+      invalidMessage: cfg.invalidMessage || 'Invalid value',
     });
   });
 });
