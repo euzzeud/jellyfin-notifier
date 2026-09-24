@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import metrics
+from .atomic_json import atomic_write_text
 
 _lock = threading.Lock()
 
@@ -44,8 +45,7 @@ def record(
         history.append(entry)
         if len(history) > MAX_ENTRIES:
             history = history[-MAX_ENTRIES:]
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(history, indent=2, ensure_ascii=False))
+        atomic_write_text(p, json.dumps(history, indent=2, ensure_ascii=False))
     # Cumulative counters for /metrics (never trimmed to MAX_ENTRIES,
     # unlike this JSON log) - a single call site since send_email()/
     # send_test_email() both go through record().

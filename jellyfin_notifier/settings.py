@@ -11,6 +11,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .atomic_json import atomic_write_text
+
 if TYPE_CHECKING:
     # Only needed for the resolve_smtp() return type below - imported lazily
     # at runtime instead (inside the function) to avoid a circular import
@@ -272,5 +274,4 @@ def load_settings(path: str) -> Settings:
 def save_settings(path: str, settings: Settings) -> None:
     p = Path(path)
     with _lock:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(settings.to_dict(), indent=2, ensure_ascii=False))
+        atomic_write_text(p, json.dumps(settings.to_dict(), indent=2, ensure_ascii=False))

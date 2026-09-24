@@ -21,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import metrics
+from .atomic_json import atomic_write_text
 from .config import Config
 from .email_sender import item_from_api, send_email
 from .jellyfin_client import JellyfinClient
@@ -46,6 +47,20 @@ class JellyfinPoller:
         self._seen_ids: set[str] = self._load_seen()
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
+        # Guards every read-modify-write of self._seen_ids (+ the matching
+        # file save) - without it, the background poll loop and a
+        # manually-triggered "Poll now"/"Clear"/"Re-bootstrap" action (each
+        # runs on its own thread) could race on the same in-memory set, not
+        # just the file on disk.
+        self._seen_lock = threading.Lock()
+        # A non-blocking guard against two full poll cycles running at
+        # once (the scheduled background cycle and a manual "Poll now" -
+        # /poll-now calls poll_once() directly on the Flask request
+        # thread). Overlapping cycles could double-count "new" items,
+        # interleave their pending-queue/seen-items writes, or send the
+        # same content twice - poll_once() below skips instead of running
+        # a second cycle concurrently when this is already held.
+        self._poll_lock = threading.Lock()
 
         # State exposed by /health and by the admin dashboard.
         self.last_poll_at: datetime | None = None
@@ -86,8 +101,10 @@ class JellyfinPoller:
         return set()
 
     def _save_seen(self) -> None:
-        self.seen_path.parent.mkdir(parents=True, exist_ok=True)
-        self.seen_path.write_text(json.dumps(sorted(self._seen_ids)))
+        """Callers must already hold self._seen_lock - this only does the
+        file write, not the locking, since every call site also needs the
+        lock held across its self._seen_ids mutation, not just this save."""
+        atomic_write_text(self.seen_path, json.dumps(sorted(self._seen_ids)))
 
     def seen_count(self) -> int:
         return len(self._seen_ids)
@@ -101,8 +118,9 @@ class JellyfinPoller:
         e.g. to deliberately test that new-content mail gets sent. For a
         routine reset (fixing a poller about to re-send old items) use
         rebootstrap_seen() instead, which doesn't risk a mail flood."""
-        self._seen_ids = set()
-        self._save_seen()
+        with self._seen_lock:
+            self._seen_ids = set()
+            self._save_seen()
         logger.warning("Already-seen items cleared entirely - the next poll may re-notify recently added content.")
 
     def rebootstrap_seen(self) -> tuple[bool, str]:
@@ -119,8 +137,9 @@ class JellyfinPoller:
         except Exception as exc:
             logger.exception("Failed to re-bootstrap already-seen items")
             return False, str(exc)
-        self._seen_ids = {it["Id"] for it in items if it.get("Id")}
-        self._save_seen()
+        with self._seen_lock:
+            self._seen_ids = {it["Id"] for it in items if it.get("Id")}
+            self._save_seen()
         logger.warning(
             "Already-seen items re-bootstrapped from the current library (%d item(s)), no mail sent.",
             len(items),
@@ -132,15 +151,30 @@ class JellyfinPoller:
         poll_cycles_total, poll_errors_total) by delegating the actual work
         to _poll_once_impl(). Returns the new items ACTUALLY sent by mail
         (empty list if none, if this is the initial bootstrap, or if the
-        detected items were queued outside the allowed window)."""
-        t0 = time.perf_counter()
+        detected items were queued outside the allowed window).
+
+        Non-blocking on self._poll_lock: the scheduled background cycle and
+        a manual "Poll now" (POST /poll-now, runs on the Flask request
+        thread) both end up here, and running two cycles at once could
+        double-count "new" items or interleave their pending/seen-items
+        writes. Skipping the second call instead of blocking it also means
+        a manual "Poll now" click gets an immediate, honest answer ("a
+        cycle was already running") instead of silently waiting out however
+        long the in-progress cycle takes."""
+        if not self._poll_lock.acquire(blocking=False):
+            logger.info("poll_once() skipped: a poll cycle is already running.")
+            return []
         try:
-            result = self._poll_once_impl()
-        except Exception:
-            metrics.record_poll(time.perf_counter() - t0, success=False)
-            raise
-        metrics.record_poll(time.perf_counter() - t0, success=bool(self.last_fetch_success))
-        return result
+            t0 = time.perf_counter()
+            try:
+                result = self._poll_once_impl()
+            except Exception:
+                metrics.record_poll(time.perf_counter() - t0, success=False)
+                raise
+            metrics.record_poll(time.perf_counter() - t0, success=bool(self.last_fetch_success))
+            return result
+        finally:
+            self._poll_lock.release()
 
     def _poll_once_impl(self) -> list[dict]:
         self.last_poll_at = datetime.now().astimezone()
@@ -169,14 +203,15 @@ class JellyfinPoller:
         # scraper) - we never want to notify about these.
         items = [it for it in items if it.get("Type") != "BoxSet"]
 
-        new_items = [it for it in items if it.get("Id") not in self._seen_ids]
+        with self._seen_lock:
+            new_items = [it for it in items if it.get("Id") not in self._seen_ids]
 
-        # Only IDs currently in the "recently added" window are kept - an
-        # item that has left this window can never trigger a mail again,
-        # so there's no need to keep it in memory indefinitely (a bounded
-        # file, never needing a manual "reset").
-        self._seen_ids = {it["Id"] for it in items if it.get("Id")}
-        self._save_seen()
+            # Only IDs currently in the "recently added" window are kept -
+            # an item that has left this window can never trigger a mail
+            # again, so there's no need to keep it in memory indefinitely
+            # (a bounded file, never needing a manual "reset").
+            self._seen_ids = {it["Id"] for it in items if it.get("Id")}
+            self._save_seen()
 
         if self._bootstrap_needed:
             logger.info(
