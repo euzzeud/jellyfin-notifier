@@ -30,14 +30,21 @@
     {% else %}
     <h2>Configuration</h2>
     {% endif %}
-    {% if env_exists %}
-    {# Wipes .env and restarts into a blank wizard - relevant whenever a
-       .env file exists to wipe, whether it's a broken/incomplete one still
-       being filled in (bootstrap_mode) or a previously-working one
-       (configured mode) - not just the latter. A second copy of this same
-       button (js-setup-reset class, not id - only one id per page) sits in
-       the wizard steps' own header, so it stays reachable from any step
-       instead of only from the landing screen. #}
+    {% if bootstrap_mode and env_exists %}
+    {# Wipes .env (no password check) and restarts into a blank wizard -
+       an escape hatch for a broken/incomplete .env still being filled in
+       during first-run setup, where there's no working login to check a
+       password against anyway. Deliberately NOT shown once the app is
+       actually configured (bootstrap_mode false): at that point this
+       button sat behind nothing but the session cookie and could wipe
+       every credential (admin login, SMTP, Jellyfin API key) with just a
+       confirm popup - "Reset everything" in the Danger Zone below already
+       covers "start over from a working install", gated behind typing the
+       admin password like every other genuinely destructive action here.
+       A second copy of this same button (js-setup-reset class, not id -
+       only one id per page) sits in the wizard steps' own header, so it
+       stays reachable from any step instead of only from the landing
+       screen. #}
     <button type="button" class="danger js-setup-reset u-gen-7c2be17a">⟲ Start over</button>
     {% endif %}
   </div>
@@ -55,7 +62,7 @@
     back here for security, only overwritten if you type a new value.
   </p>
   {% endif %}
-  {% if env_exists %}
+  {% if bootstrap_mode and env_exists %}
   <form class="u-d-none" method="post" action="{{ url_for('setup.setup_reset') }}" id="setup-reset-form"></form>
   {% endif %}
 
@@ -101,7 +108,7 @@
 <form method="post" action="{{ url_for('setup.setup_save') }}" class="card" id="wizard-form" novalidate>
   <div class="u-d-flex-jc-space-between-ai-flex-start-gap-14px-mb-6px">
     <h2 class="u-mb-0">{{ 'Configuration' if bootstrap_mode else 'Fields' }}</h2>
-    {% if env_exists %}
+    {% if bootstrap_mode and env_exists %}
     <button type="button" class="danger js-setup-reset u-gen-7c2be17a">⟲ Start over</button>
     {% endif %}
   </div>

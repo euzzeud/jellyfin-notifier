@@ -334,17 +334,29 @@ def setup_save():
 
 @setup_bp.route("/setup/reset", methods=["POST"])
 def setup_reset():
-    """"Start over" escape hatch for an already-configured install: wipes
-    the current .env entirely and restarts, which drops straight back into
-    a blank first-run wizard (create_app() only reaches setup mode when no
-    valid .env exists). Gated behind login like any other change here -
-    _setup_auth only allows the unauthenticated path while JF_CONFIG is
-    None, which isn't the case for a page that has this button at all.
+    """"Start over" escape hatch for a first-run setup that's gone wrong
+    (a bad partial save, wrong values, whatever) - wipes the current .env
+    entirely and restarts, which drops straight back into a blank wizard
+    (create_app() only reaches setup mode when no valid .env exists).
+
+    ONLY reachable while still in bootstrap_mode (no valid config yet) -
+    setup.html no longer renders this button once the app is actually
+    configured, and this is the server-side half of that: wiping every
+    credential (admin login, SMTP, Jellyfin API key) behind nothing but a
+    confirm popup and the session cookie, no password re-entry, was fine
+    pre-auth (there's no working login to check a password against yet
+    anyway) but not once a real install exists - the URL itself must not
+    become the bypass for hiding the button. "Reset everything" (Danger
+    Zone's factory_reset() below) is the equivalent for a configured
+    install, and it does require typing the admin password.
 
     Only wipes .env - settings.json, the pending queue, the "upcoming"
     titles/posters, the poller's "already seen" state and the email
     templates are all left untouched. For the version that wipes
     everything, see factory_reset() below (the Danger Zone's own button)."""
+    if current_app.config.get("JF_CONFIG") is not None:
+        return redirect(url_for("setup.setup_view"))
+
     env_path = _env_path()
     env_path.unlink(missing_ok=True)
     _clear_loaded_env_vars()
