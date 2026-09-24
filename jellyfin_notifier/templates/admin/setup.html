@@ -120,6 +120,23 @@
         {{ '"will be set"' if bootstrap_mode else '"kept as-is" / "will be changed"' }}, never in clear text.
       </p>
       <div id="wizard-review-body"></div>
+      {% if systemd_install_command %}
+      <div class="card u-mt-16px">
+        <h2>Run as a systemd service</h2>
+        <p class="muted u-fz-12p5px">
+          This copy isn't installed as a systemd service yet — <code>systemctl status jellyfin-notifier</code>
+          reports "could not be found", which is why the dashboard's Systemd status shows "unknown".
+          Right now it only keeps running for as long as this terminal/process does. Paste this once in a
+          terminal on this machine (needs sudo) to install it as a real service — it survives reboots,
+          restarts itself on crash, and makes the dashboard's Start/Stop/Restart buttons and log viewer work:
+        </p>
+        <pre class="logbox" id="systemd-install-cmd">{{ systemd_install_command }}</pre>
+        <div class="actions u-mt-0">
+          <button type="button" class="secondary" id="systemd-install-copy">⧉ Copy command</button>
+        </div>
+        <small class="hint">Saving the wizard here still works fine without this — it just won't survive a reboot or a crash until this is run.</small>
+      </div>
+      {% endif %}
     {% else %}
       {% if step.optional %}
       <p class="muted u-fz-12p5px-mb-14px">
@@ -518,6 +535,26 @@ document.addEventListener('DOMContentLoaded', function () {
       invalidMessage: cfg.invalidMessage || 'Invalid value',
     });
   });
+
+  const systemdCopyBtn = document.getElementById('systemd-install-copy');
+  if (systemdCopyBtn) {
+    systemdCopyBtn.addEventListener('click', () => {
+      const text = document.getElementById('systemd-install-cmd').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const original = systemdCopyBtn.textContent;
+        systemdCopyBtn.textContent = '✓ Copied';
+        setTimeout(() => { systemdCopyBtn.textContent = original; }, 1800);
+      }).catch(() => {
+        // Clipboard API unavailable (no HTTPS/localhost context, older
+        // browser...) - select the text instead so Ctrl+C still works.
+        const range = document.createRange();
+        range.selectNodeContents(document.getElementById('systemd-install-cmd'));
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      });
+    });
+  }
 });
 
 // Checks the chosen settings.json file (JSON syntax + expected shape)

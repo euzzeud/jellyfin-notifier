@@ -27,7 +27,7 @@ from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session, url_for
 
-from . import env_setup
+from . import env_setup, service_control
 from .api_console import run_request
 from .config import Config
 from .pending import clear_pending
@@ -252,6 +252,13 @@ def setup_view():
         configured=configured,
         fields=fields,
         steps=_build_steps(fields),
+        # Shown on the review step so it's the last thing the admin sees
+        # before saving - None when systemd isn't even available (nothing
+        # to install), or when this is already running as the systemd
+        # service (nothing to do).
+        systemd_install_command=(
+            None if service_control.is_unit_installed() else service_control.get_systemd_install_command()
+        ),
         setup_error=current_app.config.get("JF_SETUP_ERROR"),
         # NOT the same thing as setup_error being set: JF_SETUP_ERROR stays
         # set on every plain GET for as long as the boot-time config is
