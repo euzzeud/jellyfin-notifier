@@ -63,6 +63,12 @@
 -->
 <div id="shake-target">
 <div class="topbar">
+{% if not bootstrap_mode and not systemd_unit_installed %}
+<div class="systemd-banner">
+  ⚠ This install isn't running as a systemd service — it won't survive a reboot or a crash.
+  <a href="{{ url_for('setup.systemd_install_view') }}">Set it up →</a>
+</div>
+{% endif %}
 <header>
   <div class="brand"><img class="u-d-block-h-34px-w-auto" src="{{ url_for('admin.assets', filename='jellyfin-notifier-wordmark.svg') }}" alt="Jellyfin Notifier" /></div>
   <div class="right">
@@ -112,6 +118,32 @@ function submitToggleForm(checkbox) {
   const form = checkbox.form;
   requestAnimationFrame(() => requestAnimationFrame(() => form.submit()));
 }
+
+// Generic "copy this block of text" button: <button data-copy-target="some-id">
+// copies the textContent of #some-id to the clipboard. Shared by the setup
+// wizard's review step and the standalone systemd-install page instead of
+// each having their own near-identical copy-button script.
+function initCopyButtons() {
+  document.querySelectorAll('[data-copy-target]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.copyTarget);
+      if (!target) return;
+      const text = target.textContent;
+      const original = btn.textContent;
+      const flash = (label) => { btn.textContent = label; setTimeout(() => { btn.textContent = original; }, 1800); };
+      navigator.clipboard.writeText(text).then(() => flash('✓ Copied')).catch(() => {
+        // Clipboard API unavailable (no HTTPS/localhost context, older
+        // browser...) - select the text instead so Ctrl+C still works.
+        const range = document.createRange();
+        range.selectNodeContents(target);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      });
+    });
+  });
+}
+document.addEventListener('DOMContentLoaded', initCopyButtons);
 
 // A toast is meant for a short status line ("Login successful.", "Action
 // 'restart' completed.") - but several call sites just forward a raw

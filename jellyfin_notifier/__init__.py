@@ -6,7 +6,7 @@ from pathlib import Path
 
 from flask import Flask, redirect, request, url_for
 
-from . import env_setup, metrics
+from . import env_setup, metrics, service_control
 from .admin import admin_bp
 from .config import Config
 from .poller import JellyfinPoller
@@ -21,6 +21,10 @@ from .webhook import webhook_bp
 # of a 302 they'd mistake for the service being down.
 _SETUP_EXEMPT_ENDPOINTS = {
     "setup.setup_view", "setup.setup_save", "setup.setup_import", "setup.setup_test_jellyfin",
+    # Linked from the wizard's own review step (still mid-setup) as well as
+    # the red systemd banner once configured - has to stay reachable in
+    # both states, same as setup_view itself.
+    "setup.systemd_install_view",
     "admin.assets", "webhook.health",
     # Flask's built-in static file server (css/*.css, favicon) - without
     # this, every stylesheet request during setup mode (exactly when the
@@ -130,6 +134,20 @@ def create_app(config: Config | None = None) -> Flask:
         if app.config.get("JF_CONFIG") is None and request.endpoint not in _SETUP_EXEMPT_ENDPOINTS:
             return redirect(url_for("setup.setup_view"))
         return None
+
+    @app.context_processor
+    def _inject_systemd_status():
+        # Powers the red banner in base.html - checked on every render, not
+        # just a page's own explicit context, since the banner has to show
+        # up everywhere, not just on pages that thought to pass it in.
+        # Skipped entirely during setup mode (no point checking - the
+        # wizard's own review step already covers this, and running the
+        # check on every single request of the *unconfigured* app, some of
+        # which fire before .env is even valid, would be pure overhead for
+        # a banner that must not show yet anyway).
+        if app.config.get("JF_CONFIG") is None:
+            return {"systemd_unit_installed": True}
+        return {"systemd_unit_installed": service_control.is_unit_installed()}
 
     @app.after_request
     def _log_interface_access(response):

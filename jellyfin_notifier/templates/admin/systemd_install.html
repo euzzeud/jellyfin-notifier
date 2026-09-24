@@ -1,0 +1,44 @@
+{% extends "admin/base.html" %}
+{% block title %}Run as a systemd service - Jellyfin Notifier{% endblock %}
+{% block content %}
+
+{#
+  Deliberately not linked from the nav bar - reached only from the red
+  banner (base.html, shown app-wide whenever the app is configured but not
+  actually running as a systemd service) and from the setup wizard's review
+  step, which carries the same content inline for whoever's mid-setup. A
+  regular admin action, not a hidden/secret one - it's just not something
+  that belongs as a permanent tab once it's been acted on.
+#}
+
+<div class="card">
+  <h2>Run as a systemd service</h2>
+  {% if systemd_install_command %}
+  <p class="muted u-fz-12p5px">
+    This copy isn't installed as a systemd service yet — <code>systemctl status jellyfin-notifier</code>
+    reports "could not be found". Right now it only keeps running for as long as whatever
+    terminal/process started it does: no auto-restart on crash, and it won't come back after a reboot.
+    Paste this once in a terminal on this machine (needs sudo) to install it as a real service:
+  </p>
+  <pre class="logbox" id="systemd-install-cmd">{{ systemd_install_command }}</pre>
+  <div class="actions u-mt-0">
+    <button type="button" class="secondary" data-copy-target="systemd-install-cmd">⧉ Copy command</button>
+  </div>
+  <small class="hint">
+    This installs THIS running copy (wherever it actually lives on disk, whatever venv/user it's
+    using) as-is — same effect as running <code>install.sh</code>, generated for wherever this
+    copy already happens to be. It also adds the sudo rights the dashboard's Start/Stop/Restart
+    buttons and log viewer need, so those keep working afterwards.
+  </small>
+  {% else %}
+  <p class="muted u-fz-12p5px">
+    <code>systemctl</code> isn't available on this machine at all (e.g. systemd isn't enabled in
+    WSL2 yet — add <code>[boot]\nsystemd=true</code> to <code>/etc/wsl.conf</code> and run
+    <code>wsl --shutdown</code> from Windows, then restart WSL), so there's no install command to
+    generate. The app runs fine without it — it just needs to be started by hand (or from whatever
+    process manager this machine already uses) after every reboot.
+  </p>
+  {% endif %}
+</div>
+
+{% endblock %}

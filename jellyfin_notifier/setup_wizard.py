@@ -239,6 +239,16 @@ def _fields_for(env_path: Path) -> list[dict]:
     return fields
 
 
+def _systemd_install_command_or_none() -> str | None:
+    """None when systemd isn't available at all, or this is already
+    running as the systemd service (nothing to install either way) -
+    shared by the wizard's review step and the standalone systemd-install
+    page (see systemd_install_view() below)."""
+    if service_control.is_unit_installed():
+        return None
+    return service_control.get_systemd_install_command()
+
+
 @setup_bp.route("/setup", methods=["GET"])
 def setup_view():
     env_path = _env_path()
@@ -253,12 +263,8 @@ def setup_view():
         fields=fields,
         steps=_build_steps(fields),
         # Shown on the review step so it's the last thing the admin sees
-        # before saving - None when systemd isn't even available (nothing
-        # to install), or when this is already running as the systemd
-        # service (nothing to do).
-        systemd_install_command=(
-            None if service_control.is_unit_installed() else service_control.get_systemd_install_command()
-        ),
+        # before saving.
+        systemd_install_command=_systemd_install_command_or_none(),
         setup_error=current_app.config.get("JF_SETUP_ERROR"),
         # NOT the same thing as setup_error being set: JF_SETUP_ERROR stays
         # set on every plain GET for as long as the boot-time config is
@@ -277,6 +283,23 @@ def setup_view():
         settings_reset=request.args.get("settings_reset") == "1",
         imported=request.args.get("imported") == "1",
         import_error=request.args.get("import_error"),
+    )
+
+
+@setup_bp.route("/setup/systemd-install", methods=["GET"])
+def systemd_install_view():
+    """Standalone page with the same copy-paste systemd install command
+    shown on the wizard's review step - reached from the red banner
+    (base.html) shown app-wide whenever the app is configured but not
+    running as a systemd service. Deliberately not in the nav bar (see the
+    template's own comment): a link, not a permanent tab. Gated the same
+    way as every other setup_bp route (_setup_auth above) - reachable
+    without login during first-run setup, requires it afterwards."""
+    return render_template(
+        "admin/systemd_install.html",
+        active="systemd_install",
+        bootstrap_mode=current_app.config.get("JF_CONFIG") is None,
+        systemd_install_command=_systemd_install_command_or_none(),
     )
 
 

@@ -285,6 +285,20 @@ button.secondary:hover, .btn.secondary:hover { background: rgba(255,255,255,.11)
 .alert.ok { background:rgba(62,207,110,.1); color:var(--green); border:1px solid rgba(62,207,110,.28); }
 .alert.err { background:rgba(240,85,92,.1); color:var(--red); border:1px solid rgba(240,85,92,.28); }
 
+/* Full-width warning strip above the header (inside .topbar, so it stays
+   sticky with it) - shown app-wide whenever the app is fully configured
+   but not actually running as a systemd service, so it won't survive a
+   reboot or a crash. Deliberately louder/more persistent than a
+   dismissible .alert: it's about the DEPLOYMENT, not one page's state,
+   and should stay visible until it's actually fixed rather than being
+   dismissed and forgotten. */
+.systemd-banner {
+  background: rgba(240,85,92,.16); border-bottom:1px solid rgba(240,85,92,.4); color:#ffd7d8;
+  padding:9px 28px; font-size:12.5px; text-align:center;
+}
+.systemd-banner a { color:#fff; text-decoration:underline; font-weight:600; margin-left:4px; }
+@media (max-width: 720px) { .systemd-banner { padding:9px 14px; } }
+
 pre.logbox {
   background: rgba(0,0,0,.3); border:1px solid var(--border-soft); border-radius: var(--radius-md);
   padding:16px; font-size:12px; line-height:1.6; overflow:auto; max-height:480px;
