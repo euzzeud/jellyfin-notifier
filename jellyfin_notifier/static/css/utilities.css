@@ -46,3 +46,5 @@
 .u-gen-bef3be3b { width:32px; height:48px; border-radius:4px; background:var(--panel2); }
 .u-gen-7d7921ff { color:var(--red); font-size:12.5px; }
 .u-mt-16px { margin-top:16px; }
+.u-d-flex-gap-10px-fw-wrap { display:flex; gap:10px; flex-wrap:wrap; }
+.u-flex-1-minw-200px { flex:1 1 200px; min-width:200px; }

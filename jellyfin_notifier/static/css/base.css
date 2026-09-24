@@ -190,7 +190,7 @@ main.wide { max-width:2000px; }
 button.pill { border:none; font-family:inherit; cursor:pointer; }
 
 label { display:block; font-size:12.5px; color:var(--muted); margin: 16px 0 7px; font-weight:600; }
-input[type=text], input[type=password], input[type=number], input[type=time], select, textarea {
+input[type=text], input[type=password], input[type=number], input[type=time], input[type=date], input[type=search], select, textarea {
   width:100%; background: rgba(0,0,0,.32); border:1px solid var(--border); color:var(--text);
   padding:10px 12px; border-radius: var(--radius-sm); font-size:13.5px; font-family: inherit;
   transition: border-color .18s var(--ease), box-shadow .18s var(--ease), background-color .18s var(--ease);

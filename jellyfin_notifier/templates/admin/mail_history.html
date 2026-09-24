@@ -11,6 +11,24 @@
   {% if not history %}
   <p class="muted u-fz-13px">No mail has been sent yet.</p>
   {% else %}
+  <div class="log-toolbar">
+    <div class="u-d-flex-gap-10px-fw-wrap">
+      <input type="search" id="mh-search" class="u-flex-1-minw-200px" placeholder="Search subject, titles, recipients or error…" />
+      <input type="date" id="mh-date" title="Filter by date" />
+    </div>
+    <div class="log-filters" id="mh-scope-filters">
+      <button type="button" class="log-chip active" data-scope="all">All <span class="log-chip-count" id="mh-count-all">0</span></button>
+      <button type="button" class="log-chip" data-scope="new">New content <span class="log-chip-count" id="mh-count-new">0</span></button>
+      <button type="button" class="log-chip" data-scope="upcoming">Upcoming <span class="log-chip-count" id="mh-count-upcoming">0</span></button>
+      <button type="button" class="log-chip" data-scope="test">Test <span class="log-chip-count" id="mh-count-test">0</span></button>
+    </div>
+    <div class="log-filters" id="mh-result-filters">
+      <button type="button" class="log-chip level-chip active" data-result="all">All results</button>
+      <button type="button" class="log-chip level-chip lvl-info" data-result="ok">Sent</button>
+      <button type="button" class="log-chip level-chip lvl-error" data-result="failed">Failed</button>
+    </div>
+  </div>
+
   <table>
     <tr>
       <th>When</th>
@@ -20,42 +38,117 @@
       <th>Recipients</th>
       <th>Result</th>
     </tr>
-    {% for entry in history %}
-    <tr>
-      <td class="u-ws-nowrap-fz-12px">{{ entry.timestamp.replace('T', ' ') }}</td>
-      <td>
-        {% if entry.scope == 'new' %}<span class="pill ok">New content</span>
-        {% elif entry.scope == 'upcoming' %}<span class="pill ok">Upcoming</span>
-        {% else %}<span class="pill">Test</span>{% endif %}
-      </td>
-      <td class="u-fz-12p5px-maxw-220px">{{ entry.subject }}</td>
-      <td class="u-fz-12p5px-maxw-220px">{{ entry.item_names|join(', ') if entry.item_names else '—' }}</td>
-      <td class="u-fz-12px-maxw-200px-wb-break-all">{{ entry.recipients|join(', ') }}</td>
-      <td>
-        {% if entry.success %}
-        <span class="pill ok">Sent</span>
-        {% elif entry.error %}
-        <button type="button" class="pill bad js-mail-error" data-error="{{ entry.error }}">Failed</button>
-        {% else %}
-        <span class="pill bad">Failed</span>
-        {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
+    <tbody id="mh-rows"></tbody>
   </table>
-  <small class="hint">Click a "Failed" result to see the full error.</small>
-  {% endif %}
-</div>
+  <small class="hint" id="mh-hint">Click a "Failed" result to see the full error.</small>
 
 <script>
+const MH_ENTRIES = {{ history | tojson }};
+const SCOPE_LABEL = { new: 'New content', upcoming: 'Upcoming', test: 'Test' };
+let mhScope = 'all';
+let mhResult = 'all';
+
+function mhEscape(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function mhMatchesSearch(entry, term) {
+  if (!term) return true;
+  const haystack = [
+    entry.subject || '',
+    (entry.item_names || []).join(' '),
+    (entry.recipients || []).join(' '),
+    entry.error || '',
+  ].join(' ').toLowerCase();
+  return haystack.includes(term);
+}
+
+function mhRender() {
+  const search = document.getElementById('mh-search').value.trim().toLowerCase();
+  const date = document.getElementById('mh-date').value; // "" or "YYYY-MM-DD"
+  const counts = { new: 0, upcoming: 0, test: 0 };
+  const filtered = [];
+
+  for (const entry of MH_ENTRIES) {
+    counts[entry.scope] = (counts[entry.scope] || 0) + 1;
+    const scopeOk = mhScope === 'all' || entry.scope === mhScope;
+    const resultOk = mhResult === 'all' || (mhResult === 'ok' && entry.success) || (mhResult === 'failed' && !entry.success);
+    const dateOk = !date || entry.timestamp.slice(0, 10) === date;
+    if (scopeOk && resultOk && dateOk && mhMatchesSearch(entry, search)) filtered.push(entry);
+  }
+
+  document.getElementById('mh-count-all').textContent = MH_ENTRIES.length;
+  document.getElementById('mh-count-new').textContent = counts.new || 0;
+  document.getElementById('mh-count-upcoming').textContent = counts.upcoming || 0;
+  document.getElementById('mh-count-test').textContent = counts.test || 0;
+
+  const hint = document.getElementById('mh-hint');
+  const rows = document.getElementById('mh-rows');
+
+  if (!filtered.length) {
+    rows.innerHTML = '<tr><td colspan="6" class="log-empty">No matching entries.</td></tr>';
+    hint.textContent = 'No entries match the current filters.';
+    return;
+  }
+  hint.textContent = filtered.length === MH_ENTRIES.length
+    ? 'Click a "Failed" result to see the full error.'
+    : `Showing ${filtered.length} of ${MH_ENTRIES.length} — click a "Failed" result to see the full error.`;
+
+  rows.innerHTML = filtered.map(entry => {
+    const scopeTag = entry.scope === 'test' ? '<span class="pill">Test</span>' : `<span class="pill ok">${SCOPE_LABEL[entry.scope] || entry.scope}</span>`;
+    const titles = entry.item_names && entry.item_names.length ? mhEscape(entry.item_names.join(', ')) : '—';
+    const recipients = mhEscape((entry.recipients || []).join(', '));
+    let result;
+    if (entry.success) {
+      result = '<span class="pill ok">Sent</span>';
+    } else if (entry.error) {
+      result = `<button type="button" class="pill bad js-mail-error" data-error="${mhEscape(entry.error)}">Failed</button>`;
+    } else {
+      result = '<span class="pill bad">Failed</span>';
+    }
+    return `<tr>
+      <td class="u-ws-nowrap-fz-12px">${mhEscape(entry.timestamp.replace('T', ' '))}</td>
+      <td>${scopeTag}</td>
+      <td class="u-fz-12p5px-maxw-220px">${mhEscape(entry.subject)}</td>
+      <td class="u-fz-12p5px-maxw-220px">${titles}</td>
+      <td class="u-fz-12px-maxw-200px-wb-break-all">${recipients}</td>
+      <td>${result}</td>
+    </tr>`;
+  }).join('');
+}
+
 // The full error (can be a multi-line SMTP traceback) used to always sit
 // inline under its row, pushing every row below it down the page - now
-// it's shown on demand in a popup instead, kept off the page until asked for.
-document.querySelectorAll('.js-mail-error').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    showDetailModal({ title: 'Send failed', message: btn.dataset.error });
-  });
+// it's shown on demand in a popup instead. Delegated on the table body
+// since rows are re-created on every filter/search change.
+document.getElementById('mh-rows').addEventListener('click', (e) => {
+  const btn = e.target.closest('.js-mail-error');
+  if (!btn) return;
+  showDetailModal({ title: 'Send failed', message: btn.dataset.error });
 });
+
+document.getElementById('mh-search').addEventListener('input', mhRender);
+document.getElementById('mh-date').addEventListener('change', mhRender);
+
+document.getElementById('mh-scope-filters').addEventListener('click', (e) => {
+  const btn = e.target.closest('.log-chip');
+  if (!btn) return;
+  mhScope = btn.dataset.scope;
+  document.querySelectorAll('#mh-scope-filters .log-chip').forEach(b => b.classList.toggle('active', b === btn));
+  mhRender();
+});
+
+document.getElementById('mh-result-filters').addEventListener('click', (e) => {
+  const btn = e.target.closest('.log-chip');
+  if (!btn) return;
+  mhResult = btn.dataset.result;
+  document.querySelectorAll('#mh-result-filters .log-chip').forEach(b => b.classList.toggle('active', b === btn));
+  mhRender();
+});
+
+mhRender();
 </script>
+  {% endif %}
+</div>
 
 {% endblock %}

@@ -9,6 +9,7 @@
   </p>
 
   <div class="log-toolbar">
+    <input type="search" id="log-search" placeholder="Search log text…" />
     <div class="log-filters" id="category-filters">
       <button type="button" class="log-chip active" data-category="all">All <span class="log-chip-count" id="count-all">0</span></button>
       <button type="button" class="log-chip" data-category="interface">Interface <span class="log-chip-count" id="count-interface">0</span></button>
@@ -43,6 +44,7 @@ const INITIAL_LOGS = {{ logs | tojson }};
 let allLogs = INITIAL_LOGS;
 let activeCategory = 'all';
 let activeLevel = 'all';
+let searchTerm = '';
 let interval = null;
 
 const LEVEL_CLASS = { ERROR: 'lvl-error', CRITICAL: 'lvl-error', WARNING: 'lvl-warning', INFO: 'lvl-info', DEBUG: 'lvl-debug', OTHER: 'lvl-other' };
@@ -61,7 +63,8 @@ function render() {
     counts[entry.category] = (counts[entry.category] || 0) + 1;
     const categoryOk = activeCategory === 'all' || entry.category === activeCategory;
     const levelOk = activeLevel === 'all' || entry.level === activeLevel || (activeLevel === 'ERROR' && entry.level === 'CRITICAL');
-    if (categoryOk && levelOk) filtered.push(entry);
+    const searchOk = !searchTerm || entry.raw.toLowerCase().includes(searchTerm);
+    if (categoryOk && levelOk && searchOk) filtered.push(entry);
   }
 
   document.getElementById('count-all').textContent = allLogs.length;
@@ -93,6 +96,11 @@ function refreshLogs() {
     render();
   });
 }
+
+document.getElementById('log-search').addEventListener('input', (e) => {
+  searchTerm = e.target.value.trim().toLowerCase();
+  render();
+});
 
 document.getElementById('category-filters').addEventListener('click', (e) => {
   const btn = e.target.closest('.log-chip');
