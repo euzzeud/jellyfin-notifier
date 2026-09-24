@@ -1,0 +1,31 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+
+    # Sous WSL2, network_mode: host (recommandé sur Linux natif pour la
+    # découverte DLNA/Chromecast) ne fonctionne pas correctement car WSL2
+    # a sa propre pile réseau isolée de Windows - on reste donc en bridge
+    # classique avec un mapping de ports explicite.
+    ports:
+      - "8096:8096"   # Web UI (http)
+      # - "8920:8920" # Web UI (https) - seulement si tu configures un certificat dans Jellyfin
+      # - "7359:7359/udp" # Découverte réseau auto (auto-discovery client)
+      # - "1900:1900/udp" # DLNA
+
+    volumes:
+      - ./config:/config       # Config Jellyfin (DB, plugins, métadonnées, etc.)
+      - ./cache:/cache         # Cache (transcodes, images...)
+      - ./media:/media         # Ta bibliothèque (films, séries...) - à adapter/étendre selon tes dossiers
+
+    environment:
+      - PUID=1000   # Adapte à ton user WSL (vérifie avec `id -u`)
+      - PGID=1000   # Adapte à ton group WSL (vérifie avec `id -g`)
+      - TZ=Europe/Paris
+
+    # Pour le transcoding matériel (GPU), il faut en plus exposer le
+    # périphérique - décommente et adapte selon ton GPU si besoin (voir
+    # note plus bas, ça demande une config WSL supplémentaire) :
+    # devices:
+    #   - /dev/dri:/dev/dri
