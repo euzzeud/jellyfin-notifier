@@ -318,11 +318,35 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function validateStep(stepEl) {
-    const missing = requiredFieldsFor(stepEl).filter((el) => !el.value.trim());
-    missing.forEach((el) => { el.style.borderColor = 'var(--red)'; });
+    const fields = requiredFieldsFor(stepEl);
+    const missing = fields.filter((el) => !el.value.trim());
+    // Reset every required field's border on each check, not just the
+    // ones currently missing - otherwise a field flagged red on a past
+    // Next click keeps that border forever once it's fixed, since nothing
+    // else in this function ever un-sets it.
+    fields.forEach((el) => { el.style.borderColor = missing.includes(el) ? 'var(--red)' : ''; });
     if (missing.length && missing[0].focus) missing[0].focus();
     return !missing.length;
   }
+
+  // Also clear a field's red border the moment it becomes valid, without
+  // waiting for the next Next click - covers plain text/password inputs
+  // ('input' event) and the tag-input widgets (createTagInput's sync()
+  // dispatches 'change' on the underlying hidden input each time a tag is
+  // added/removed). Delegated on the form since fields are re-rendered by
+  // createTagInput after page load.
+  form.addEventListener('input', (e) => {
+    const el = e.target;
+    if (el.matches && el.matches('[data-required="1"]') && el.value.trim()) {
+      el.style.borderColor = '';
+    }
+  });
+  form.addEventListener('change', (e) => {
+    const el = e.target;
+    if (el.matches && el.matches('[data-required="1"]') && el.value.trim()) {
+      el.style.borderColor = '';
+    }
+  });
 
   function showStep(index) {
     steps.forEach((el, i) => el.classList.toggle('active', i === index));
