@@ -19,7 +19,7 @@
     </p>
   </div>
   <label class="switch">
-    <input type="checkbox" name="enabled" value="1" {{ 'checked' if notifications_enabled else '' }} onchange="this.form.submit()" />
+    <input type="checkbox" name="enabled" value="1" {{ 'checked' if notifications_enabled else '' }} onchange="submitToggleForm(this)" />
     <span class="switch-track"><span class="switch-thumb"></span></span>
     <span class="switch-label">{{ 'Enabled' if notifications_enabled else 'Disabled' }}</span>
   </label>

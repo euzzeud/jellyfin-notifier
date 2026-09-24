@@ -21,7 +21,7 @@
     </p>
   </div>
   <label class="switch" title="{{ '' if is_validated else 'Run a successful connection test first' }}">
-    <input type="checkbox" name="enabled" value="1" {{ 'checked' if settings.smtp_enabled else '' }} {{ 'disabled' if not is_validated and not settings.smtp_enabled else '' }} onchange="this.form.submit()" />
+    <input type="checkbox" name="enabled" value="1" {{ 'checked' if settings.smtp_enabled else '' }} {{ 'disabled' if not is_validated and not settings.smtp_enabled else '' }} onchange="submitToggleForm(this)" />
     <span class="switch-track"><span class="switch-thumb"></span></span>
     <span class="switch-label">{{ 'Enabled' if mail_active else 'Disabled' }}</span>
   </label>

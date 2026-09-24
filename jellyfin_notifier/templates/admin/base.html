@@ -95,6 +95,24 @@
 <footer class="app-footer">&copy; Enzo GIOIELLI</footer>
 </div>
 <script>
+// The enable/disable switches (New Content Notifications, Upcoming
+// Content Notifications, Mail Server) used to submit with a plain
+// onchange="this.form.submit()" - form.submit() runs synchronously and
+// starts the page unload/navigation right away, before the browser gets a
+// chance to paint the switch's own :checked transition (.switch-thumb
+// sliding, .switch-track's color change, both ~180ms). On a fast
+// LAN/localhost round-trip the whole page reloads before that transition
+// ever renders a frame, so the switch visually snaps/glitches instead of
+// sliding - it looks like the click did nothing until the page flashes to
+// the new state. A double requestAnimationFrame (one frame for the
+// :checked style to be computed, a second for it to actually paint) lets
+// that transition start playing before the synchronous submit() blocks
+// the main thread with navigation.
+function submitToggleForm(checkbox) {
+  const form = checkbox.form;
+  requestAnimationFrame(() => requestAnimationFrame(() => form.submit()));
+}
+
 // A toast is meant for a short status line ("Login successful.", "Action
 // 'restart' completed.") - but several call sites just forward a raw
 // exception/HTTP error straight into it (e.g. a poller/service action
