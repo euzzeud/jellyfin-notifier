@@ -109,14 +109,6 @@ def create_app(config: Config | None = None) -> Flask:
     app.config["JF_SETUP_ERROR"] = setup_error
     app.config["JF_ENV_PATH"] = env_path
     app.jinja_env.filters["friendly_dt"] = _format_timestamp
-    # A Jinja global (not a per-blueprint context_processor) so it's
-    # available to every template regardless of which blueprint rendered
-    # it - the footer copyright line is in base.html, which setup.html and
-    # login.html both extend too (setup_bp/admin_bp), not just the
-    # dashboard-style admin pages. Read once per render rather than
-    # cached at startup so a service that's stayed up across a New Year's
-    # doesn't keep showing the old year.
-    app.jinja_env.globals["current_year"] = lambda: datetime.now().year
 
     # SESSION_COOKIE_SAMESITE: Flask doesn't default this to anything (it's
     # unset unless explicitly configured), so the session cookie would be
